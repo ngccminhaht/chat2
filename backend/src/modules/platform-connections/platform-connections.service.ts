@@ -13,11 +13,10 @@ export class PlatformConnectionsService {
     private platformConnectionModel: Model<PlatformConnectionDocument>,
   ) {}
 
-  async findAllByUser(userId: string): Promise<PlatformConnectionDocument[]> {
+  async findAllByUser(userId: string): Promise<any> {
     return this.platformConnectionModel
       .find({ userId: new Types.ObjectId(userId) })
       .sort({ createdAt: -1 })
-      .lean()
       .exec();
   }
 
