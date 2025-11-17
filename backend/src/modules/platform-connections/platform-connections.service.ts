@@ -14,10 +14,29 @@ export class PlatformConnectionsService {
   ) {}
 
   async findAllByUser(userId: string): Promise<any> {
-    return this.platformConnectionModel
+    const connections = await this.platformConnectionModel
       .find({ userId: new Types.ObjectId(userId) })
       .sort({ createdAt: -1 })
       .exec();
+
+    // Transform _id to id for frontend compatibility
+    return connections.map((conn) => {
+      const doc: any = conn.toObject();
+      return {
+        id: conn._id.toString(),
+        userId: conn.userId.toString(),
+        platform: conn.platform,
+        platformAccountId: conn.platformAccountId,
+        platformAccountName: conn.platformAccountName,
+        status: conn.status,
+        credentials: conn.credentials,
+        webhookSecret: conn.webhookSecret,
+        metadata: conn.metadata,
+        lastSyncAt: conn.lastSyncAt,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+      };
+    });
   }
 
   async findOne(id: string): Promise<PlatformConnectionDocument | null> {
