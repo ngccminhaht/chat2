@@ -58,12 +58,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
       setSocket(newSocket);
     }
-
-    // Cleanup on unmount or auth change
-    return () => {
-      // Don't disconnect here - let it persist during app lifecycle
-    };
-  }, [isAuthenticated, socket]);
+  }, [isAuthenticated]); // Remove 'socket' from deps - it causes infinite loop!
 
   return (
     <WebSocketContext.Provider value={{ socket, isConnected }}>
