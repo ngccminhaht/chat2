@@ -273,8 +273,14 @@ export class ZaloOAuthService {
       // Get recent chats from Zalo (max 10 per Zalo API limit)
       const recentChats = await this.getRecentChats(accessToken, 0, 10);
 
+      this.logger.log('Recent chats structure:', JSON.stringify(recentChats, null, 2));
+
       if (!recentChats || !recentChats.users) {
-        this.logger.warn('No recent chats found');
+        this.logger.warn('No recent chats found or invalid structure:', {
+          hasData: !!recentChats,
+          hasUsers: recentChats?.users !== undefined,
+          keys: recentChats ? Object.keys(recentChats) : [],
+        });
         return 0;
       }
 
