@@ -147,27 +147,32 @@ export class ZaloWebhookService {
       payload: JSON.stringify(payload, null, 2),
     });
 
-    // Use user_id_by_app if available, otherwise fall back to sender.id
-    const userId = payload.user_id_by_app || payload.sender?.id;
+    // Get sender ID (global user ID across all OAs)
+    const senderId = payload.sender?.id;
+    // Get OA ID (which OA received this message)
+    const oaId = payload.app_id;
 
-    if (!userId) {
-      this.logger.error(
-        "Cannot process message: missing user_id_by_app and sender.id:",
-        {
-          user_id_by_app: payload.user_id_by_app,
-          senderId: payload.sender?.id,
-          payload: JSON.stringify(payload, null, 2),
-        }
-      );
+    if (!senderId) {
+      this.logger.error("Cannot process message: missing sender.id:", {
+        hasSender: !!payload.sender,
+        senderId: payload.sender?.id,
+        payload: JSON.stringify(payload, null, 2),
+      });
       return;
     }
 
-    // Find conversation by platform and platformConversationId first
+    // Conversation is uniquely identified by (senderId, oaId)
+    // Because one user can message multiple OAs
+    const conversationKey = `${senderId}_${oaId}`;
+
+    this.logger.log(`Looking for conversation with key: ${conversationKey}`);
+
+    // Find conversation by composite key
     // Don't filter by platformConnectionId to handle reconnect scenarios
     let conversation = await this.conversationModel
       .findOne({
         platform: "zalo",
-        platformConversationId: userId,
+        platformConversationId: conversationKey,
       })
       .exec();
 
@@ -189,20 +194,19 @@ export class ZaloWebhookService {
 
     if (!conversation) {
       // Fetch user info from Zalo API (simplified - you'll need to implement API call)
-      const userInfo: ZaloUserInfo = {
-        user_id: userId, // Use user_id_by_app (unique per OA)
-        user_id_by_app: userId,
-        display_name: `Zalo User ${userId.substring(0, 8)}`,
+      const userInfo = {
+        user_id: senderId, // Global user ID
+        display_name: `Zalo User ${senderId.substring(0, 8)}`,
         avatar: undefined,
       };
 
       conversation = await this.conversationModel.create({
         platform: "zalo",
-        platformConversationId: userId,
+        platformConversationId: conversationKey, // Use composite key
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         participants: [
           {
-            platformUserId: userInfo.user_id_by_app,
+            platformUserId: senderId, // Global sender ID
             name: userInfo.display_name,
             avatar: userInfo.avatar,
             role: "customer",
@@ -216,7 +220,7 @@ export class ZaloWebhookService {
       });
 
       this.logger.log(
-        `Created new conversation: ${conversation._id} for Zalo user ${userId}`
+        `Created new conversation: ${conversation._id} for Zalo user ${senderId} and OA ${oaId}`
       );
     }
 
@@ -244,7 +248,7 @@ export class ZaloWebhookService {
         messageType === "text"
           ? content.text?.substring(0, 50)
           : `[${messageType}]`,
-      senderId: userId,
+      senderId: senderId,
     });
 
     const message = await this.messageModel.create({
@@ -255,10 +259,10 @@ export class ZaloWebhookService {
       type: messageType,
       content,
       sender: {
-        platformUserId: userId,
+        platformUserId: senderId,
         name:
           conversation.participants[0]?.name ||
-          `Zalo User ${userId.substring(0, 8)}`,
+          `Zalo User ${senderId.substring(0, 8)}`,
         avatar: conversation.participants[0]?.avatar,
       },
       status: "sent",
@@ -274,7 +278,7 @@ export class ZaloWebhookService {
       lastMessage: {
         text: content.text || `[${messageType}]`,
         timestamp: new Date(parseInt(payload.timestamp)),
-        senderId: userId,
+        senderId: senderId,
         messageId: message._id,
       },
       $inc: { unreadCount: 1 },
