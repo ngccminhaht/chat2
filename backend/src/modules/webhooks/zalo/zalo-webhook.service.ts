@@ -153,10 +153,11 @@ export class ZaloWebhookService {
     // Get OA ID (which OA received this message)
     const oaId = payload.app_id;
 
-    if (!senderId) {
-      this.logger.error("Cannot process message: missing sender.id:", {
+    if (!senderId || typeof senderId !== 'string') {
+      this.logger.error("Cannot process message: missing or invalid sender.id:", {
         hasSender: !!payload.sender,
         senderId: payload.sender?.id,
+        senderIdType: typeof payload.sender?.id,
         payload: JSON.stringify(payload, null, 2),
       });
       return;
@@ -195,9 +196,10 @@ export class ZaloWebhookService {
 
     if (!conversation) {
       // Fetch user info from Zalo API (simplified - you'll need to implement API call)
+      const displayName = `Zalo User ${senderId.substring(0, Math.min(8, senderId.length))}`;
       const userInfo = {
         user_id: senderId, // Global user ID
-        display_name: `Zalo User ${senderId?.substring(0, 8) || 'Unknown'}`,
+        display_name: displayName,
         avatar: undefined,
       };
 
@@ -247,7 +249,7 @@ export class ZaloWebhookService {
         platformUserId: senderId,
         name:
           conversation.participants[0]?.name ||
-          `Zalo User ${senderId?.substring(0, 8) || 'Unknown'}`,
+          `Zalo User ${senderId.substring(0, Math.min(8, senderId.length))}`,
         avatar: conversation.participants[0]?.avatar,
       },
       status: "sent",
