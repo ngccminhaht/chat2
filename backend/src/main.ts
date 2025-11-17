@@ -67,9 +67,9 @@ There Is No Limit To What You Can Accomplish Using Zalo!
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
+      whitelist: false, // Allow extra fields (important for webhooks with dynamic schemas)
       transform: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,
     })
   );
 
