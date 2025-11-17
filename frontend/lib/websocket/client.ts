@@ -6,6 +6,7 @@ class WebSocketClient {
   private socket: Socket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private pendingRooms: Set<string> = new Set();
 
   connect() {
     const token = useAuthStore.getState().accessToken;
@@ -23,6 +24,7 @@ class WebSocketClient {
     // Disconnect existing socket if any
     if (this.socket) {
       this.socket.disconnect();
+      this.socket.removeAllListeners();
     }
 
     this.socket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000', {
@@ -40,6 +42,11 @@ class WebSocketClient {
     this.socket.on('connect', () => {
       console.log('WebSocket connected');
       this.reconnectAttempts = 0;
+
+      // Rejoin pending rooms after reconnection
+      this.pendingRooms.forEach((conversationId) => {
+        this.socket?.emit('join:conversation', { conversationId });
+      });
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -105,17 +112,19 @@ class WebSocketClient {
   joinConversation(conversationId: string) {
     if (!this.socket) return;
 
+    // Track this room for auto-rejoin on reconnect
+    this.pendingRooms.add(conversationId);
+
     if (this.socket.connected) {
       this.socket.emit('join:conversation', { conversationId });
-    } else {
-      // Wait for connection before joining
-      this.socket.once('connect', () => {
-        this.socket?.emit('join:conversation', { conversationId });
-      });
     }
+    // If not connected, it will join when 'connect' event fires
   }
 
   leaveConversation(conversationId: string) {
+    // Remove from pending rooms
+    this.pendingRooms.delete(conversationId);
+
     if (this.socket?.connected) {
       this.socket.emit('leave:conversation', { conversationId });
     }
