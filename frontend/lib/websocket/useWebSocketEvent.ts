@@ -38,5 +38,5 @@ export function useWebSocketEvent<T = any>(
     return () => {
       socket.off(event, eventHandler);
     };
-  }, [socket, event]); // Re-register when socket or event changes
+  }, [socket, event]); // Socket is now stable from WebSocketContext
 }

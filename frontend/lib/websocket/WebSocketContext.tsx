@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/features/auth';
 
@@ -14,14 +14,16 @@ const WebSocketContext = createContext<WebSocketContextValue | undefined>(undefi
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
 
   useEffect(() => {
     if (!isAuthenticated) {
       // Disconnect and cleanup
-      if (socket) {
-        socket.removeAllListeners();
-        socket.disconnect();
+      if (socketRef.current) {
+        socketRef.current.removeAllListeners();
+        socketRef.current.disconnect();
+        socketRef.current = null;
         setSocket(null);
         setIsConnected(false);
       }
@@ -29,7 +31,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Initialize socket if not already created
-    if (!socket) {
+    if (!socketRef.current) {
       const token = useAuthStore.getState().accessToken;
       if (!token) return;
 
@@ -56,9 +58,10 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
         console.error('[WebSocketProvider] Connection error:', error.message);
       });
 
+      socketRef.current = newSocket;
       setSocket(newSocket);
     }
-  }, [isAuthenticated]); // Remove 'socket' from deps - it causes infinite loop!
+  }, [isAuthenticated]);
 
   return (
     <WebSocketContext.Provider value={{ socket, isConnected }}>
