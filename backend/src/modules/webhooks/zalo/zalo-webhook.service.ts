@@ -1,20 +1,20 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { createHmac } from 'crypto';
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { createHmac } from "crypto";
 import {
   Conversation,
   ConversationDocument,
-} from '@/common/database/schemas/conversation.schema';
+} from "@/common/database/schemas/conversation.schema";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
+} from "@/common/database/schemas/message.schema";
 import {
   PlatformConnection,
   PlatformConnectionDocument,
-} from '@/common/database/schemas/platform-connection.schema';
-import { ZaloWebhookDto, ZaloUserInfo } from './dto/zalo-webhook.dto';
+} from "@/common/database/schemas/platform-connection.schema";
+import { ZaloWebhookDto, ZaloUserInfo } from "./dto/zalo-webhook.dto";
 
 @Injectable()
 export class ZaloWebhookService {
@@ -26,16 +26,16 @@ export class ZaloWebhookService {
     @InjectModel(Message.name)
     private messageModel: Model<MessageDocument>,
     @InjectModel(PlatformConnection.name)
-    private platformConnectionModel: Model<PlatformConnectionDocument>,
+    private platformConnectionModel: Model<PlatformConnectionDocument>
   ) {}
 
   /**
    * Verify Zalo webhook signature
    */
   verifySignature(data: string, signature: string, appSecret: string): boolean {
-    const hmac = createHmac('sha256', appSecret);
+    const hmac = createHmac("sha256", appSecret);
     hmac.update(data);
-    const calculatedSignature = hmac.digest('hex');
+    const calculatedSignature = hmac.digest("hex");
     return calculatedSignature === signature;
   }
 
@@ -45,68 +45,87 @@ export class ZaloWebhookService {
    */
   async processWebhook(
     payload: ZaloWebhookDto,
-    platformConnectionId?: string,
+    platformConnectionId?: string
   ): Promise<void> {
     this.logger.log(
-      `Processing Zalo webhook event: ${payload.event_name} from user ${payload.user_id_by_app}`,
+      `Processing Zalo webhook event: ${payload.event_name} from user ${payload.user_id_by_app}`
     );
 
     // Auto-find platformConnectionId from OA ID if not provided
     if (!platformConnectionId) {
-      this.logger.log(`=== Webhook: Looking for platform connection for OA ID: ${payload.app_id} ===`);
+      this.logger.log(
+        `=== Webhook: Looking for platform connection for OA ID: ${payload.app_id} ===`
+      );
 
       let connection = await this.platformConnectionModel
         .findOne({
-          platform: 'zalo',
+          platform: "zalo",
           platformAccountId: payload.app_id,
         })
         .exec();
 
       if (!connection) {
         this.logger.error(
-          `❌ Platform connection NOT FOUND for Zalo OA ID: ${payload.app_id}`,
+          `❌ Platform connection NOT FOUND for Zalo OA ID: ${payload.app_id}`
         );
-        this.logger.error(`User must connect this OA via OAuth before receiving messages!`);
+        this.logger.error(
+          `User must connect this OA via OAuth before receiving messages!`
+        );
         throw new Error(
-          `Platform connection not found for OA ${payload.app_id}. Please connect your Zalo OA first.`,
+          `Platform connection not found for OA ${payload.app_id}. Please connect your Zalo OA first.`
         );
       }
 
       // Connection found - log its state
-      this.logger.log(`✅ Found existing platform connection: ${connection._id}`);
+      this.logger.log(
+        `✅ Found existing platform connection: ${connection._id}`
+      );
       this.logger.log(`  Status: ${connection.status}`);
-      this.logger.log(`  User ID: ${connection.userId || 'NOT SET'}`);
-      this.logger.log(`  Refresh Token: ${connection.credentials?.refreshToken?.substring(0, 30)}... (is placeholder: ${connection.credentials?.refreshToken === 'placeholder'})`);
-      this.logger.log(`  Created from webhook: ${connection.metadata?.createdFromWebhook || false}`);
+      this.logger.log(`  User ID: ${connection.userId || "NOT SET"}`);
+      this.logger.log(
+        `  Refresh Token: ${connection.credentials?.refreshToken?.substring(
+          0,
+          30
+        )}... (is placeholder: ${
+          connection.credentials?.refreshToken === "placeholder"
+        })`
+      );
+      this.logger.log(
+        `  Created from webhook: ${
+          connection.metadata?.createdFromWebhook || false
+        }`
+      );
 
       // Validate connection has real tokens
-      if (connection.credentials?.refreshToken === 'placeholder') {
-        this.logger.error(`❌ Connection has PLACEHOLDER tokens! User must re-authenticate.`);
+      if (connection.credentials?.refreshToken === "placeholder") {
+        this.logger.error(
+          `❌ Connection has PLACEHOLDER tokens! User must re-authenticate.`
+        );
         // Don't throw error - still process incoming message, but warn
       }
 
       platformConnectionId = connection._id.toString();
       this.logger.log(
-        `Using platform connection: ${platformConnectionId} for OA ID: ${payload.app_id}`,
+        `Using platform connection: ${platformConnectionId} for OA ID: ${payload.app_id}`
       );
     }
 
     switch (payload.event_name) {
-      case 'user_send_text':
-      case 'user_send_image':
-      case 'user_send_video':
-      case 'user_send_file':
-      case 'user_send_audio':
-      case 'user_send_sticker':
-      case 'user_send_location':
+      case "user_send_text":
+      case "user_send_image":
+      case "user_send_video":
+      case "user_send_file":
+      case "user_send_audio":
+      case "user_send_sticker":
+      case "user_send_location":
         await this.handleIncomingMessage(payload, platformConnectionId);
         break;
 
-      case 'user_received_message':
+      case "user_received_message":
         await this.handleMessageDelivery(payload);
         break;
 
-      case 'user_seen_message':
+      case "user_seen_message":
         await this.handleMessageRead(payload);
         break;
 
@@ -120,10 +139,10 @@ export class ZaloWebhookService {
    */
   private async handleIncomingMessage(
     payload: ZaloWebhookDto,
-    platformConnectionId: string,
+    platformConnectionId: string
   ): Promise<void> {
     if (!payload.message || !payload.sender) {
-      this.logger.error('Invalid message payload - missing required fields:', {
+      this.logger.error("Invalid message payload - missing required fields:", {
         hasMessage: !!payload.message,
         hasSender: !!payload.sender,
         payload: JSON.stringify(payload, null, 2),
@@ -132,13 +151,13 @@ export class ZaloWebhookService {
     }
 
     // Use user_id_by_app if available, otherwise fall back to sender.id
-    const userId = payload.user_id_by_app || payload.sender.id;
+    const userId = payload.user_id_by_app;
 
     // Find conversation by platform and platformConversationId first
     // Don't filter by platformConnectionId to handle reconnect scenarios
     let conversation = await this.conversationModel
       .findOne({
-        platform: 'zalo',
+        platform: "zalo",
         platformConversationId: userId,
       })
       .exec();
@@ -146,11 +165,15 @@ export class ZaloWebhookService {
     if (conversation) {
       // If conversation exists but has different platformConnectionId,
       // it means the OA was disconnected and reconnected - update to new connection
-      if (conversation.platformConnectionId.toString() !== platformConnectionId) {
+      if (
+        conversation.platformConnectionId.toString() !== platformConnectionId
+      ) {
         this.logger.log(
-          `Updating conversation ${conversation._id} to new platform connection ${platformConnectionId}`,
+          `Updating conversation ${conversation._id} to new platform connection ${platformConnectionId}`
         );
-        conversation.platformConnectionId = new Types.ObjectId(platformConnectionId);
+        conversation.platformConnectionId = new Types.ObjectId(
+          platformConnectionId
+        );
         await conversation.save();
       }
     }
@@ -158,14 +181,14 @@ export class ZaloWebhookService {
     if (!conversation) {
       // Fetch user info from Zalo API (simplified - you'll need to implement API call)
       const userInfo: ZaloUserInfo = {
-        user_id: payload.sender.id,
+        user_id: userId, // Use user_id_by_app (unique per OA)
         user_id_by_app: userId,
         display_name: `Zalo User ${userId.substring(0, 8)}`,
         avatar: undefined,
       };
 
       conversation = await this.conversationModel.create({
-        platform: 'zalo',
+        platform: "zalo",
         platformConversationId: userId,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         participants: [
@@ -173,10 +196,10 @@ export class ZaloWebhookService {
             platformUserId: userInfo.user_id_by_app,
             name: userInfo.display_name,
             avatar: userInfo.avatar,
-            role: 'customer',
+            role: "customer",
           },
         ],
-        status: 'open',
+        status: "open",
         unreadCount: 0,
         metadata: {
           appId: payload.app_id,
@@ -184,7 +207,7 @@ export class ZaloWebhookService {
       });
 
       this.logger.log(
-        `Created new conversation: ${conversation._id} for Zalo user ${userId}`,
+        `Created new conversation: ${conversation._id} for Zalo user ${userId}`
       );
     }
 
@@ -197,7 +220,7 @@ export class ZaloWebhookService {
       messageType = normalized.messageType;
       content = normalized.content;
     } catch (error) {
-      this.logger.error('Failed to normalize message content:', {
+      this.logger.error("Failed to normalize message content:", {
         error: error.message,
         payload: JSON.stringify(payload, null, 2),
       });
@@ -205,18 +228,21 @@ export class ZaloWebhookService {
     }
 
     // Create message
-    this.logger.log('Creating message in database:', {
+    this.logger.log("Creating message in database:", {
       conversationId: conversation._id,
       messageType,
-      contentPreview: messageType === 'text' ? content.text?.substring(0, 50) : `[${messageType}]`,
+      contentPreview:
+        messageType === "text"
+          ? content.text?.substring(0, 50)
+          : `[${messageType}]`,
       senderId: userId,
     });
 
     const message = await this.messageModel.create({
       conversationId: conversation._id,
-      platform: 'zalo',
+      platform: "zalo",
       platformMessageId: payload.message.msg_id,
-      direction: 'inbound',
+      direction: "inbound",
       type: messageType,
       content,
       sender: {
@@ -226,7 +252,7 @@ export class ZaloWebhookService {
           `Zalo User ${userId.substring(0, 8)}`,
         avatar: conversation.participants[0]?.avatar,
       },
-      status: 'sent',
+      status: "sent",
       metadata: {
         rawPayload: payload,
       },
@@ -245,7 +271,9 @@ export class ZaloWebhookService {
       $inc: { unreadCount: 1 },
     });
 
-    this.logger.log(`✅ Conversation updated: ${conversation._id} (unreadCount incremented)`);
+    this.logger.log(
+      `✅ Conversation updated: ${conversation._id} (unreadCount incremented)`
+    );
 
     // TODO: Emit WebSocket event for real-time update
     // TODO: Publish to Kafka topic 'messages.incoming'
@@ -263,7 +291,7 @@ export class ZaloWebhookService {
     // Text message
     if (message.text) {
       return {
-        messageType: 'text',
+        messageType: "text",
         content: {
           text: message.text,
         },
@@ -275,27 +303,27 @@ export class ZaloWebhookService {
       const attachment = message.attachments[0];
 
       switch (attachment.type) {
-        case 'image':
+        case "image":
           return {
-            messageType: 'image',
+            messageType: "image",
             content: {
               mediaUrl: attachment.payload.url,
               thumbnailUrl: attachment.payload.thumbnail,
             },
           };
 
-        case 'video':
+        case "video":
           return {
-            messageType: 'video',
+            messageType: "video",
             content: {
               mediaUrl: attachment.payload.url,
               thumbnailUrl: attachment.payload.thumbnail,
             },
           };
 
-        case 'file':
+        case "file":
           return {
-            messageType: 'file',
+            messageType: "file",
             content: {
               mediaUrl: attachment.payload.url,
               fileName: attachment.payload.name,
@@ -303,25 +331,25 @@ export class ZaloWebhookService {
             },
           };
 
-        case 'audio':
+        case "audio":
           return {
-            messageType: 'audio',
+            messageType: "audio",
             content: {
               mediaUrl: attachment.payload.url,
             },
           };
 
-        case 'sticker':
+        case "sticker":
           return {
-            messageType: 'sticker',
+            messageType: "sticker",
             content: {
               stickerId: attachment.payload.id,
             },
           };
 
-        case 'location':
+        case "location":
           return {
-            messageType: 'location',
+            messageType: "location",
             content: {
               latitude: attachment.payload.coordinates?.latitude,
               longitude: attachment.payload.coordinates?.longitude,
@@ -330,12 +358,12 @@ export class ZaloWebhookService {
 
         default:
           throw new BadRequestException(
-            `Unsupported attachment type: ${attachment.type}`,
+            `Unsupported attachment type: ${attachment.type}`
           );
       }
     }
 
-    throw new BadRequestException('Invalid message - no text or attachments');
+    throw new BadRequestException("Invalid message - no text or attachments");
   }
 
   /**
@@ -346,10 +374,10 @@ export class ZaloWebhookService {
 
     await this.messageModel.findOneAndUpdate(
       {
-        platform: 'zalo',
+        platform: "zalo",
         platformMessageId: payload.message.msg_id,
       },
-      { status: 'delivered' },
+      { status: "delivered" }
     );
 
     this.logger.log(`Message ${payload.message.msg_id} delivered`);
@@ -363,16 +391,16 @@ export class ZaloWebhookService {
 
     await this.messageModel.findOneAndUpdate(
       {
-        platform: 'zalo',
+        platform: "zalo",
         platformMessageId: payload.message.msg_id,
       },
-      { status: 'read' },
+      { status: "read" }
     );
 
     // Reset unread count for conversation
     const message = await this.messageModel
       .findOne({
-        platform: 'zalo',
+        platform: "zalo",
         platformMessageId: payload.message.msg_id,
       })
       .exec();

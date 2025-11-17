@@ -186,7 +186,7 @@ export class WebhookProcessorConsumer implements OnModuleInit {
       return;
     }
 
-    const userId = payload.sender.id || payload.user_id_by_app;
+    const userId = payload.user_id_by_app;
 
     // Find or create conversation
     let conversation = await this.conversationModel
