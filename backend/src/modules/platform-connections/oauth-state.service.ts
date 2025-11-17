@@ -15,28 +15,43 @@ export class OAuthStateService implements OnModuleDestroy {
   private readonly TTL = 600; // 10 minutes in seconds
 
   constructor() {
-    const redisConfig = {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-      password: process.env.REDIS_PASSWORD,
-      db: parseInt(process.env.REDIS_DB || '0'),
-    };
+    // Support both REDIS_URL and individual config params
+    const redisUrl = process.env.REDIS_URL;
 
-    console.log('🔧 Redis config for OAuth state:', {
-      host: redisConfig.host,
-      port: redisConfig.port,
-      db: redisConfig.db,
-      hasPassword: !!redisConfig.password,
-    });
+    let redisConfig;
+    if (redisUrl) {
+      // Use connection string if available
+      console.log('🔧 Using REDIS_URL for OAuth state connection');
+      this.redis = new Redis(redisUrl);
+    } else {
+      // Fall back to individual parameters
+      redisConfig = {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+        password: process.env.REDIS_PASSWORD || undefined,
+        db: parseInt(process.env.REDIS_DB || '0'),
+      };
 
-    this.redis = new Redis(redisConfig);
+      console.log('🔧 Redis config for OAuth state:', {
+        host: redisConfig.host,
+        port: redisConfig.port,
+        db: redisConfig.db,
+        hasPassword: !!redisConfig.password,
+      });
+
+      this.redis = new Redis(redisConfig);
+    }
 
     this.redis.on('error', (err) => {
-      console.error('❌ Redis connection error:', err);
+      console.error('❌ Redis connection error for OAuth state:', err.message);
     });
 
     this.redis.on('connect', () => {
       console.log('✅ Redis connected for OAuth state management');
+    });
+
+    this.redis.on('ready', () => {
+      console.log('✅ Redis ready for OAuth state operations');
     });
   }
 
@@ -46,8 +61,18 @@ export class OAuthStateService implements OnModuleDestroy {
   async storeState(state: string, data: OAuthStateData): Promise<void> {
     const key = this.PREFIX + state;
     console.log('📝 Storing OAuth state:', { key, state, userId: data.userId });
-    await this.redis.setex(key, this.TTL, JSON.stringify(data));
-    console.log('✅ OAuth state stored successfully');
+
+    try {
+      await this.redis.setex(key, this.TTL, JSON.stringify(data));
+      console.log('✅ OAuth state stored successfully');
+
+      // Verify storage
+      const verify = await this.redis.get(key);
+      console.log('🔍 Verification - state exists in Redis:', !!verify);
+    } catch (error) {
+      console.error('❌ Failed to store OAuth state:', error);
+      throw error;
+    }
   }
 
   /**
