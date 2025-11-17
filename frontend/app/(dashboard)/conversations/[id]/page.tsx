@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Paper, Typography, Chip, Stack } from '@mui/material';
 import { useMessages } from '@/features/conversations/hooks/useMessages';
+import { useConversationStore } from '@/features/conversations/stores/conversationStore';
 import MessageList from '@/features/conversations/components/MessageList';
 import MessageInput from '@/features/conversations/components/MessageInput';
 import ConversationList from '@/features/conversations/components/ConversationList';
@@ -14,6 +15,17 @@ export default function ConversationDetailPage() {
   const conversationId = params.id as string;
 
   const { data, isLoading } = useMessages({ conversationId });
+
+  // Get messages from Zustand store (updated by WebSocket)
+  const storeMessages = useConversationStore((state) => state.messages[conversationId] || []);
+  const setMessages = useConversationStore((state) => state.setMessages);
+
+  // Sync initial query data to Zustand store
+  useEffect(() => {
+    if (data?.data && conversationId) {
+      setMessages(conversationId, data.data);
+    }
+  }, [data, conversationId, setMessages]);
 
   // Join conversation room for real-time updates
   useEffect(() => {
@@ -38,7 +50,7 @@ export default function ConversationDetailPage() {
               <Typography variant="h6">Conversation</Typography>
               <Chip label={conversationId} size="small" variant="outlined" />
             </Box>
-            <MessageList messages={data?.data || []} isLoading={isLoading} />
+            <MessageList messages={storeMessages} isLoading={isLoading && storeMessages.length === 0} />
             <MessageInput conversationId={conversationId} />
           </Paper>
         </Box>

@@ -1,31 +1,5 @@
 import { create } from 'zustand';
-
-interface Conversation {
-  _id: string;
-  platform: string;
-  participants: any[];
-  lastMessage?: {
-    text: string;
-    timestamp: Date;
-  };
-  unreadCount: number;
-  status: string;
-}
-
-interface Message {
-  _id: string;
-  conversationId: string;
-  content: {
-    text?: string;
-    mediaUrl?: string;
-  };
-  sender: {
-    platformUserId: string;
-    name: string;
-  };
-  createdAt: Date;
-  status: string;
-}
+import { Conversation, Message } from '../types/conversation.types';
 
 interface ConversationState {
   activeConversationId: string | null;
@@ -80,7 +54,7 @@ export const useConversationStore = create<ConversationState>((set) => ({
       messages: {
         ...state.messages,
         [conversationId]: (state.messages[conversationId] || []).map((msg) =>
-          msg._id === messageId ? { ...msg, status } : msg
+          msg._id === messageId ? { ...msg, status: status as Message['status'] } : msg
         ),
       },
     })),
