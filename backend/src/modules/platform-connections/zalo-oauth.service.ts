@@ -530,26 +530,51 @@ export class ZaloOAuthService {
    * Always refreshes token before making API request
    * @param platformConnection - Platform connection document
    * @returns Fresh access token
+   * @throws BadRequestException if refresh token is invalid/expired
    */
   async ensureFreshToken(
     platformConnection: PlatformConnectionDocument,
   ): Promise<string> {
     this.logger.log('Ensuring fresh access token by refreshing...');
 
-    const tokenResponse = await this.refreshToken(
-      platformConnection.credentials.refreshToken,
-    );
+    try {
+      const tokenResponse = await this.refreshToken(
+        platformConnection.credentials.refreshToken,
+      );
 
-    // Update platform connection with new tokens
-    platformConnection.credentials.accessToken = tokenResponse.access_token;
-    platformConnection.credentials.refreshToken = tokenResponse.refresh_token;
-    platformConnection.credentials.expiresAt = new Date(
-      Date.now() + tokenResponse.expires_in * 1000,
-    );
-    await platformConnection.save();
+      // Update platform connection with new tokens
+      platformConnection.credentials.accessToken = tokenResponse.access_token;
+      platformConnection.credentials.refreshToken = tokenResponse.refresh_token;
+      platformConnection.credentials.expiresAt = new Date(
+        Date.now() + tokenResponse.expires_in * 1000,
+      );
+      await platformConnection.save();
 
-    this.logger.log('Fresh token obtained and saved');
-    return tokenResponse.access_token;
+      this.logger.log('Fresh token obtained and saved');
+      return tokenResponse.access_token;
+    } catch (error) {
+      // Check if error is due to invalid refresh token (Zalo error -14014)
+      const errorData = error.response?.data;
+      if (errorData?.error === -14014) {
+        this.logger.error('Refresh token is invalid or expired');
+
+        // Mark platform connection as inactive
+        platformConnection.status = 'inactive';
+        platformConnection.metadata = {
+          ...platformConnection.metadata,
+          error: 'Refresh token expired',
+          lastError: new Date(),
+        };
+        await platformConnection.save();
+
+        throw new BadRequestException(
+          'Refresh token has expired. Please reconnect your Zalo OA in Platform Connections settings.',
+        );
+      }
+
+      // Other error, rethrow
+      throw error;
+    }
   }
 
   /**
