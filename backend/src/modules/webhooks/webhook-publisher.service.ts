@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { KafkaProducerService } from '@/common/kafka/kafka-producer.service';
-import { KAFKA_TOPICS } from '@/common/kafka/kafka.config';
-import { WebhookRawEvent } from '@/common/kafka/types/webhook.types';
-import { randomUUID } from 'crypto';
+import { Injectable, Logger } from "@nestjs/common";
+import { KafkaProducerService } from "@/common/kafka/kafka-producer.service";
+import { KAFKA_TOPICS } from "@/common/kafka/kafka.config";
+import { WebhookRawEvent } from "@/common/kafka/types/webhook.types";
+import { randomUUID } from "crypto";
 
 /**
  * Webhook Publisher Service
@@ -19,9 +19,9 @@ export class WebhookPublisherService {
    * Returns immediately after publishing to topic
    */
   async publishWebhookEvent(
-    platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee',
+    platform: "facebook" | "zalo" | "tiktok" | "shopee",
     payload: any,
-    signature?: string,
+    signature?: string
   ): Promise<void> {
     const eventId = randomUUID();
 
@@ -52,12 +52,14 @@ export class WebhookPublisherService {
       });
 
       this.logger.log(
-        `✅ Published webhook event to Kafka: ${platform}/${event.eventName} (ID: ${eventId})`,
+        `✅ Published webhook event to Kafka: ${platform}/${
+          event.eventName
+        } (ID: ${eventId}) + \n payload: ${JSON.stringify(payload, null, 2)}`
       );
     } catch (error) {
       this.logger.error(
         `❌ Failed to publish webhook event to Kafka: ${platform}/${event.eventName}`,
-        error,
+        error
       );
       throw error;
     }
@@ -68,16 +70,16 @@ export class WebhookPublisherService {
    */
   private extractPlatformAccountId(platform: string, payload: any): string {
     switch (platform) {
-      case 'zalo':
-        return payload.app_id || 'unknown';
-      case 'facebook':
-        return payload.entry?.[0]?.id || 'unknown';
-      case 'tiktok':
-        return payload.shop_id || 'unknown';
-      case 'shopee':
-        return payload.shop_id || 'unknown';
+      case "zalo":
+        return payload.app_id || "unknown";
+      case "facebook":
+        return payload.entry?.[0]?.id || "unknown";
+      case "tiktok":
+        return payload.shop_id || "unknown";
+      case "shopee":
+        return payload.shop_id || "unknown";
       default:
-        return 'unknown';
+        return "unknown";
     }
   }
 
@@ -86,15 +88,17 @@ export class WebhookPublisherService {
    */
   private extractEventName(platform: string, payload: any): string {
     switch (platform) {
-      case 'zalo':
-        return payload.event_name || 'unknown';
-      case 'facebook':
-        return payload.entry?.[0]?.messaging?.[0]?.message ? 'message' : 'unknown';
-      case 'tiktok':
-      case 'shopee':
-        return payload.event || 'unknown';
+      case "zalo":
+        return payload.event_name || "unknown";
+      case "facebook":
+        return payload.entry?.[0]?.messaging?.[0]?.message
+          ? "message"
+          : "unknown";
+      case "tiktok":
+      case "shopee":
+        return payload.event || "unknown";
       default:
-        return 'unknown';
+        return "unknown";
     }
   }
 }

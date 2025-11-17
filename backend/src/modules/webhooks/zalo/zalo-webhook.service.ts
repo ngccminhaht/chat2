@@ -141,24 +141,24 @@ export class ZaloWebhookService {
     payload: ZaloWebhookDto,
     platformConnectionId: string
   ): Promise<void> {
-    if (!payload.message || !payload.sender) {
-      this.logger.error("Invalid message payload - missing required fields:", {
-        hasMessage: !!payload.message,
-        hasSender: !!payload.sender,
-        payload: JSON.stringify(payload, null, 2),
-      });
-      return;
-    }
+    this.logger.log("payload ->", {
+      hasMessage: !!payload.message,
+      hasSender: !!payload.sender,
+      payload: JSON.stringify(payload, null, 2),
+    });
 
     // Use user_id_by_app if available, otherwise fall back to sender.id
     const userId = payload.user_id_by_app || payload.sender?.id;
 
     if (!userId) {
-      this.logger.error('Cannot process message: missing user_id_by_app and sender.id:', {
-        user_id_by_app: payload.user_id_by_app,
-        senderId: payload.sender?.id,
-        payload: JSON.stringify(payload, null, 2),
-      });
+      this.logger.error(
+        "Cannot process message: missing user_id_by_app and sender.id:",
+        {
+          user_id_by_app: payload.user_id_by_app,
+          senderId: payload.sender?.id,
+          payload: JSON.stringify(payload, null, 2),
+        }
+      );
       return;
     }
 
