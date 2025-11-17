@@ -180,13 +180,15 @@ export class ZaloOAuthService {
     count: number = 10,
   ): Promise<any> {
     try {
-      const params = new URLSearchParams({
-        offset: offset.toString(),
-        count: count.toString(),
-      });
+      // Zalo API requires 'data' parameter as JSON string
+      const data = JSON.stringify({ offset, count });
+      const url = `https://openapi.zalo.me/v2.0/oa/listrecentchat?data=${encodeURIComponent(data)}`;
 
-      const url = `https://openapi.zalo.me/v2.0/oa/listrecentchat?${params.toString()}`;
-      this.logger.log('Calling Zalo API:', { url, hasToken: !!accessToken });
+      this.logger.log('Calling Zalo listrecentchat API:', {
+        url,
+        data: { offset, count },
+        hasToken: !!accessToken
+      });
 
       const response = await axios.get(url, {
         headers: {
