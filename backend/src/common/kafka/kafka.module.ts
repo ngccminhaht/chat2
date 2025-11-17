@@ -2,6 +2,7 @@ import { Module, Global } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { KafkaProducerService } from './kafka-producer.service';
 import { WebhookProcessorConsumer } from './consumers/webhook-processor.consumer';
+import { WebSocketBridgeConsumer } from './consumers/websocket-bridge.consumer';
 import {
   Conversation,
   ConversationSchema,
@@ -14,6 +15,7 @@ import {
   PlatformConnection,
   PlatformConnectionSchema,
 } from '@/common/database/schemas/platform-connection.schema';
+import { WebsocketModule } from '@/modules/websocket/websocket.module';
 
 /**
  * Global Kafka Module
@@ -27,8 +29,9 @@ import {
       { name: Message.name, schema: MessageSchema },
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
+    WebsocketModule, // Import WebSocket module for WebSocketBridgeConsumer
   ],
-  providers: [KafkaProducerService, WebhookProcessorConsumer],
+  providers: [KafkaProducerService, WebhookProcessorConsumer, WebSocketBridgeConsumer],
   exports: [KafkaProducerService],
 })
 export class KafkaModule {}
