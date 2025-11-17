@@ -15,7 +15,7 @@ export default function ConversationDetailPage() {
   const params = useParams();
   const conversationId = params.id as string;
 
-  const { wsClient, isConnected } = useWebSocket();
+  const { socket, isConnected } = useWebSocket();
   const { data, isLoading } = useMessages({ conversationId });
 
   // Get messages from Zustand store (updated by WebSocket)
@@ -59,16 +59,16 @@ export default function ConversationDetailPage() {
 
   // Join/leave conversation room when connected
   useEffect(() => {
-    if (!conversationId || !isConnected) return;
+    if (!conversationId || !socket || !isConnected) return;
 
     console.log(`[Page] Joining room: ${conversationId}`);
-    wsClient.joinRoom(conversationId);
+    socket.emit('join:conversation', { conversationId });
 
     return () => {
       console.log(`[Page] Leaving room: ${conversationId}`);
-      wsClient.leaveRoom(conversationId);
+      socket.emit('leave:conversation', { conversationId });
     };
-  }, [conversationId, isConnected]);
+  }, [conversationId, socket, isConnected]);
 
   return (
     <Box sx={{ height: 'calc(100vh - 112px)' }}>

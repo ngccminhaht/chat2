@@ -1,8 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Socket } from 'socket.io-client';
-import { wsClient } from './client';
+import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/features/auth';
 
 interface WebSocketContextValue {
@@ -10,45 +9,64 @@ interface WebSocketContextValue {
   isConnected: boolean;
 }
 
-const WebSocketContext = createContext<WebSocketContextValue>({
-  socket: null,
-  isConnected: false,
-});
+const WebSocketContext = createContext<WebSocketContextValue | undefined>(undefined);
 
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
 
   useEffect(() => {
     if (!isAuthenticated) {
-      wsClient.disconnect();
-      setIsConnected(false);
+      // Disconnect and cleanup
+      if (socket) {
+        socket.removeAllListeners();
+        socket.disconnect();
+        setSocket(null);
+        setIsConnected(false);
+      }
       return;
     }
 
-    // Initialize WebSocket
-    wsClient.initialize();
+    // Initialize socket if not already created
+    if (!socket) {
+      const token = useAuthStore.getState().accessToken;
+      if (!token) return;
 
-    // Listen to connection events to update state
-    const handleConnect = () => setIsConnected(true);
-    const handleDisconnect = () => setIsConnected(false);
+      console.log('[WebSocketProvider] Initializing socket');
 
-    wsClient.on('connect', handleConnect);
-    wsClient.on('disconnect', handleDisconnect);
+      const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000', {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        autoConnect: true,
+      });
 
-    // Check initial connection state
-    if (wsClient.connected) {
-      setIsConnected(true);
+      // Connection event handlers
+      newSocket.on('connect', () => {
+        console.log('[WebSocketProvider] Connected');
+        setIsConnected(true);
+      });
+
+      newSocket.on('disconnect', (reason) => {
+        console.log('[WebSocketProvider] Disconnected:', reason);
+        setIsConnected(false);
+      });
+
+      newSocket.on('connect_error', (error) => {
+        console.error('[WebSocketProvider] Connection error:', error.message);
+      });
+
+      setSocket(newSocket);
     }
 
+    // Cleanup on unmount or auth change
     return () => {
-      wsClient.off('connect', handleConnect);
-      wsClient.off('disconnect', handleDisconnect);
+      // Don't disconnect here - let it persist during app lifecycle
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, socket]);
 
   return (
-    <WebSocketContext.Provider value={{ socket: null, isConnected }}>
+    <WebSocketContext.Provider value={{ socket, isConnected }}>
       {children}
     </WebSocketContext.Provider>
   );
@@ -59,5 +77,5 @@ export function useWebSocket() {
   if (context === undefined) {
     throw new Error('useWebSocket must be used within WebSocketProvider');
   }
-  return { wsClient, isConnected: context.isConnected };
+  return context;
 }

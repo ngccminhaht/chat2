@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { wsClient } from './client';
+import { useWebSocket } from './WebSocketContext';
 
 /**
  * Hook to listen to WebSocket events with automatic cleanup
@@ -18,25 +18,25 @@ export function useWebSocketEvent<T = any>(
   event: string,
   handler: (data: T) => void
 ) {
-  // Store handler in ref to avoid re-registering on every render
+  const { socket } = useWebSocket();
   const handlerRef = useRef(handler);
 
-  // Update ref when handler changes (but don't re-register listener)
-  useEffect(() => {
-    handlerRef.current = handler;
-  });
+  // Always keep ref updated with latest handler
+  handlerRef.current = handler;
 
   useEffect(() => {
+    if (!socket) return;
+
     // Stable wrapper function that calls the latest handler from ref
     const eventHandler = (data: T) => {
       handlerRef.current(data);
     };
 
-    wsClient.on(event, eventHandler);
+    socket.on(event, eventHandler);
 
     // Cleanup: remove listener when event name changes or component unmounts
     return () => {
-      wsClient.off(event, eventHandler);
+      socket.off(event, eventHandler);
     };
-  }, [event]); // Only re-register when event name changes, not when handler changes
+  }, [socket, event]); // Re-register when socket or event changes
 }
