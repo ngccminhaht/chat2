@@ -123,41 +123,72 @@ export class MessagesService {
 
         this.logger.log(`Sending Zalo message to user ${customer.platformUserId}`);
 
-        // Check if access token is expired and refresh if needed
+        // Helper function to refresh token
+        const refreshAccessToken = async () => {
+          this.logger.log('Refreshing access token...');
+          const tokenResponse = await this.zaloOAuthService.refreshToken(
+            platformConnection.credentials.refreshToken,
+          );
+
+          platformConnection.credentials.accessToken = tokenResponse.access_token;
+          platformConnection.credentials.refreshToken = tokenResponse.refresh_token;
+          platformConnection.credentials.expiresAt = new Date(
+            Date.now() + tokenResponse.expires_in * 1000,
+          );
+          await platformConnection.save();
+
+          this.logger.log('Access token refreshed successfully');
+          return tokenResponse.access_token;
+        };
+
+        // Check if access token will expire soon (within 5 minutes) and refresh proactively
         let accessToken = platformConnection.credentials.accessToken;
         const expiresAt = platformConnection.credentials.expiresAt;
+        const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
 
-        if (expiresAt && new Date() >= new Date(expiresAt)) {
-          this.logger.log('Access token expired, refreshing...');
-
+        if (expiresAt && new Date().getTime() >= new Date(expiresAt).getTime() - bufferTime) {
           try {
-            const tokenResponse = await this.zaloOAuthService.refreshToken(
-              platformConnection.credentials.refreshToken,
-            );
-
-            // Update platform connection with new tokens
-            platformConnection.credentials.accessToken = tokenResponse.access_token;
-            platformConnection.credentials.refreshToken = tokenResponse.refresh_token;
-            platformConnection.credentials.expiresAt = new Date(
-              Date.now() + tokenResponse.expires_in * 1000,
-            );
-            await platformConnection.save();
-
-            accessToken = tokenResponse.access_token;
-            this.logger.log('Access token refreshed successfully');
+            accessToken = await refreshAccessToken();
           } catch (refreshError) {
-            this.logger.error('Failed to refresh access token:', refreshError);
-            throw new BadRequestException(
-              'Access token expired and refresh failed. Please reconnect your Zalo OA.',
-            );
+            this.logger.error('Proactive token refresh failed:', refreshError);
+            // Continue with existing token, will retry if API call fails
           }
         }
 
-        const result = await this.zaloOAuthService.sendTextMessage(
-          accessToken,
-          customer.platformUserId,
-          content.text,
-        );
+        // Try to send message, retry once with token refresh if it fails with invalid token
+        let result;
+        try {
+          result = await this.zaloOAuthService.sendTextMessage(
+            accessToken,
+            customer.platformUserId,
+            content.text,
+          );
+        } catch (sendError) {
+          // Check if error is due to invalid access token (Zalo error -216)
+          const errorData = sendError.response?.data;
+          if (errorData?.error === -216 || errorData?.message?.includes('Access token is invalid')) {
+            this.logger.log('Send failed with invalid token, refreshing and retrying...');
+
+            try {
+              accessToken = await refreshAccessToken();
+
+              // Retry sending with new token
+              result = await this.zaloOAuthService.sendTextMessage(
+                accessToken,
+                customer.platformUserId,
+                content.text,
+              );
+            } catch (retryError) {
+              this.logger.error('Retry after token refresh failed:', retryError);
+              throw new BadRequestException(
+                'Failed to send message after refreshing token. Please reconnect your Zalo OA.',
+              );
+            }
+          } else {
+            // Other error, rethrow
+            throw sendError;
+          }
+        }
 
         // Update message with actual platform message ID and status
         message.platformMessageId = result.message_id;
