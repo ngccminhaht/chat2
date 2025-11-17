@@ -138,14 +138,26 @@ export class ZaloWebhookService {
     // Use user_id_by_app if available, otherwise fall back to sender.id
     const userId = payload.user_id_by_app || payload.sender.id;
 
-    // Find or create conversation
+    // Find conversation by platform and platformConversationId first
+    // Don't filter by platformConnectionId to handle reconnect scenarios
     let conversation = await this.conversationModel
       .findOne({
         platform: 'zalo',
         platformConversationId: userId,
-        platformConnectionId: new Types.ObjectId(platformConnectionId),
       })
       .exec();
+
+    if (conversation) {
+      // If conversation exists but has different platformConnectionId,
+      // it means the OA was disconnected and reconnected - update to new connection
+      if (conversation.platformConnectionId.toString() !== platformConnectionId) {
+        this.logger.log(
+          `Updating conversation ${conversation._id} to new platform connection ${platformConnectionId}`,
+        );
+        conversation.platformConnectionId = new Types.ObjectId(platformConnectionId);
+        await conversation.save();
+      }
+    }
 
     if (!conversation) {
       // Fetch user info from Zalo API (simplified - you'll need to implement API call)

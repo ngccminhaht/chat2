@@ -321,26 +321,34 @@ export class ZaloOAuthService {
       // Process each unique conversation
       for (const [customerId, chat] of conversationsMap) {
         try {
-          // Check if conversation already exists
+          // Get user profile to fetch user_id_by_app (consistent with webhook)
+          const userProfile = await this.getUserProfile(accessToken, customerId);
+          const userIdByApp = userProfile?.user_id_by_app || customerId;
+
+          this.logger.log(
+            `Processing conversation for user ${customerId}, user_id_by_app: ${userIdByApp}`,
+          );
+
+          // Check if conversation already exists (using user_id_by_app as platformConversationId)
           const existing = await this.conversationModel
             .findOne({
               platform: 'zalo',
-              platformConversationId: customerId,
-              platformConnectionId: new Types.ObjectId(platformConnectionId),
+              platformConversationId: userIdByApp,
             })
             .exec();
 
           if (existing) {
             this.logger.log(
-              `Conversation already exists for user ${customerId}`,
+              `Conversation already exists for user ${userIdByApp}`,
             );
             continue;
           }
 
           // Create new conversation with data from recent messages
+          // Use user_id_by_app as platformConversationId for consistency with webhook
           await this.conversationModel.create({
             platform: 'zalo',
-            platformConversationId: customerId,
+            platformConversationId: userIdByApp,
             platformConnectionId: new Types.ObjectId(platformConnectionId),
             participants: [
               {
