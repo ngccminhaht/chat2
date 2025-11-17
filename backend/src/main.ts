@@ -12,9 +12,57 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: ["https://miagent.sapp.merket.io", "http://localhost:3001", "http://localhost:8315"],
+    origin: [
+      "https://miagent.sapp.merket.io",
+      "http://localhost:3001",
+      "http://localhost:8315",
+    ],
     credentials: true,
   });
+
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .get(
+      "/zalo_verifierHl-69CBzBm8yWwbLvh8cLG2VfNFiwN4jCZ0s.html",
+      (_, res: Response) => {
+        res.send(`
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta property="zalo-platform-site-verification" content="Hl-69CBzBm8yWwbLvh8cLG2VfNFiwN4jCZ0s" />
+</head>
+
+<body>
+There Is No Limit To What You Can Accomplish Using Zalo!
+</body>
+
+</html>`);
+      }
+    );
+
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .get(
+      "/webhook/zalo_verifierHl-69CBzBm8yWwbLvh8cLG2VfNFiwN4jCZ0s.html",
+      (_, res: Response) => {
+        res.send(`
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta property="zalo-platform-site-verification" content="Hl-69CBzBm8yWwbLvh8cLG2VfNFiwN4jCZ0s" />
+</head>
+
+<body>
+There Is No Limit To What You Can Accomplish Using Zalo!
+</body>
+
+</html>`);
+      }
+    );
 
   app
     .getHttpAdapter()
