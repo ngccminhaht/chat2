@@ -505,10 +505,10 @@ export class ZaloOAuthService {
     text: string,
   ): Promise<{ message_id: string }> {
     try {
-      this.logger.log(`Sending text message to Zalo user ${recipientId}`);
+      this.logger.log(`Sending text message to Zalo user ${recipientId} using API v3`);
 
       const response = await axios.post(
-        'https://openapi.zalo.me/v2.0/oa/message',
+        'https://openapi.zalo.me/v3.0/oa/message/cs',
         {
           recipient: {
             user_id: recipientId,
