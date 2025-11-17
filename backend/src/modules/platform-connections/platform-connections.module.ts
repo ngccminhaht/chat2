@@ -4,6 +4,7 @@ import { PlatformConnectionsController } from './platform-connections.controller
 import { PlatformConnectionsService } from './platform-connections.service';
 import { ZaloOAuthController } from './zalo-oauth.controller';
 import { ZaloOAuthService } from './zalo-oauth.service';
+import { OAuthStateService } from './oauth-state.service';
 import {
   PlatformConnection,
   PlatformConnectionSchema,
@@ -16,7 +17,7 @@ import {
     ]),
   ],
   controllers: [PlatformConnectionsController, ZaloOAuthController],
-  providers: [PlatformConnectionsService, ZaloOAuthService],
-  exports: [PlatformConnectionsService, ZaloOAuthService],
+  providers: [PlatformConnectionsService, ZaloOAuthService, OAuthStateService],
+  exports: [PlatformConnectionsService, ZaloOAuthService, OAuthStateService],
 })
 export class PlatformConnectionsModule {}

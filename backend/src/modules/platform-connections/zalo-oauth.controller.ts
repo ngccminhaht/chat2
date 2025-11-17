@@ -10,11 +10,15 @@ import {
 import { Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { ZaloOAuthService } from './zalo-oauth.service';
+import { OAuthStateService } from './oauth-state.service';
 import { ZaloAuthUrlDto, ZaloCallbackDto } from './dto/zalo-oauth.dto';
 
 @Controller('platform-connections/zalo')
 export class ZaloOAuthController {
-  constructor(private readonly zaloOAuthService: ZaloOAuthService) {}
+  constructor(
+    private readonly zaloOAuthService: ZaloOAuthService,
+    private readonly oauthStateService: OAuthStateService,
+  ) {}
 
   /**
    * Step 1: Generate authorization URL and redirect user
@@ -22,22 +26,21 @@ export class ZaloOAuthController {
    */
   @Get('authorize')
   @UseGuards(JwtAuthGuard)
-  authorize(@Query() dto: ZaloAuthUrlDto, @Res() res: Response) {
-    const { url, codeVerifier, state } = this.zaloOAuthService.getAuthorizationUrl(
-      dto.state,
-    );
+  async authorize(
+    @Query() dto: ZaloAuthUrlDto,
+    @Request() req,
+    @Res() res: Response,
+  ) {
+    const userId = req.user.userId;
+    const { url, codeVerifier, state } =
+      this.zaloOAuthService.getAuthorizationUrl(dto.state);
 
-    // Store codeVerifier and state in session/cookie for callback verification
-    // For simplicity, we'll pass it via query param (in production, use session/Redis)
-    const callbackState = Buffer.from(
-      JSON.stringify({ codeVerifier, state }),
-    ).toString('base64');
-
-    // Store in cookie for callback
-    res.cookie('zalo_oauth_state', callbackState, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 10 * 60 * 1000, // 10 minutes
+    // Store codeVerifier and state in Redis for callback verification
+    await this.oauthStateService.storeState(state, {
+      codeVerifier,
+      state,
+      userId,
+      createdAt: Date.now(),
     });
 
     // Redirect to Zalo OAuth page
@@ -52,35 +55,27 @@ export class ZaloOAuthController {
   async callback(
     @Query('code') code: string,
     @Query('state') state: string,
-    @Request() req,
     @Res() res: Response,
   ) {
-    if (!code) {
-      throw new BadRequestException('Authorization code is required');
+    if (!code || !state) {
+      throw new BadRequestException('Authorization code and state are required');
     }
 
-    // Retrieve stored state and code_verifier from cookie
-    const storedStateData = req.cookies?.zalo_oauth_state;
+    // Retrieve stored state data from Redis
+    const storedStateData = await this.oauthStateService.getAndDeleteState(state);
     if (!storedStateData) {
-      throw new BadRequestException('OAuth state not found');
+      throw new BadRequestException('OAuth state not found or expired');
     }
-
-    const { codeVerifier, state: storedState } = JSON.parse(
-      Buffer.from(storedStateData, 'base64').toString(),
-    );
 
     // Verify state matches
-    if (state !== storedState) {
+    if (state !== storedStateData.state) {
       throw new BadRequestException('Invalid OAuth state');
     }
-
-    // Clear the cookie
-    res.clearCookie('zalo_oauth_state');
 
     // Exchange code for access token
     const tokenResponse = await this.zaloOAuthService.exchangeCodeForToken(
       code,
-      codeVerifier,
+      storedStateData.codeVerifier,
     );
 
     // Get OA information
@@ -88,14 +83,19 @@ export class ZaloOAuthController {
       tokenResponse.access_token,
     );
 
-    // For now, we'll assume user is already authenticated via JWT
-    // In production, you might want to pass userId via state parameter
-    // or require user to be logged in before starting OAuth flow
+    // Save platform connection to database
+    if (storedStateData.userId) {
+      await this.zaloOAuthService.savePlatformConnection(
+        storedStateData.userId,
+        tokenResponse,
+        oaInfo,
+      );
+    }
 
     // Redirect to frontend with success message
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
     return res.redirect(
-      `${frontendUrl}/platform-connections?status=success&platform=zalo&account=${oaInfo.name}`,
+      `${frontendUrl}/platform-connections?status=success&platform=zalo&account=${encodeURIComponent(oaInfo.name)}`,
     );
   }
 
