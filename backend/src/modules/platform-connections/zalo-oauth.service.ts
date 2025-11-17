@@ -505,14 +505,25 @@ export class ZaloOAuthService {
         },
       );
 
-      this.logger.log('Zalo OA token refresh response:', response.data);
+      // ALWAYS log response first (even if there's an error)
+      this.logger.log('=== Zalo OA token refresh RAW response ===');
+      this.logger.log(JSON.stringify(response.data, null, 2));
 
       if (response.data.error) {
-        this.logger.error('Zalo OA token refresh error:', response.data);
+        this.logger.error('Zalo OA token refresh ERROR in response:');
+        this.logger.error(`  Error code: ${response.data.error}`);
+        this.logger.error(`  Error name: ${response.data.error_name}`);
+        this.logger.error(`  Error description: ${response.data.error_description}`);
+        this.logger.error(`  Error reason: ${response.data.error_reason}`);
         throw new BadRequestException(
           `Zalo OA token refresh error: ${response.data.error_description || response.data.error}`,
         );
       }
+
+      this.logger.log('Token refresh SUCCESS:');
+      this.logger.log(`  Access token: ${response.data.access_token?.substring(0, 30)}...`);
+      this.logger.log(`  Refresh token: ${response.data.refresh_token?.substring(0, 30)}...`);
+      this.logger.log(`  Expires in: ${response.data.expires_in} seconds`);
 
       return {
         access_token: response.data.access_token,
@@ -520,7 +531,14 @@ export class ZaloOAuthService {
         expires_in: response.data.expires_in,
       };
     } catch (error) {
-      this.logger.error('Failed to refresh OA token:', error.response?.data || error.message);
+      // Catch axios errors (network, 4xx, 5xx)
+      if (error.response) {
+        this.logger.error('=== Axios error response ===');
+        this.logger.error(`  Status: ${error.response.status}`);
+        this.logger.error(`  Data: ${JSON.stringify(error.response.data)}`);
+      } else {
+        this.logger.error('Failed to refresh OA token (network error):', error.message);
+      }
       throw new BadRequestException('Failed to refresh OA access token');
     }
   }
