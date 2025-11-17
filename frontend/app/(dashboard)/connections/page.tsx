@@ -6,9 +6,11 @@ import PlatformConnectionCard from '@/features/platform-connections/components/P
 import ConnectPlatformButton from '@/features/platform-connections/components/ConnectPlatformButton';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 function ConnectionsPageContent() {
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { data: connections, isLoading, error } = usePlatformConnections();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -23,13 +25,16 @@ function ConnectionsPageContent() {
         `Successfully connected ${platform}${account ? `: ${account}` : ''}!`
       );
 
+      // Refetch connections to show the new one
+      queryClient.invalidateQueries({ queryKey: ['platform-connections'] });
+
       // Clear URL params after showing message
       window.history.replaceState({}, '', '/connections');
 
       // Auto-hide message after 5 seconds
       setTimeout(() => setSuccessMessage(null), 5000);
     }
-  }, [searchParams]);
+  }, [searchParams, queryClient]);
 
   const connectedPlatforms = connections?.map((c) => c.platform) || [];
   const availablePlatforms = ['zalo', 'facebook', 'tiktok', 'shopee'].filter(
