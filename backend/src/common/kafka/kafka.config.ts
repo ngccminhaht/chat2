@@ -42,12 +42,15 @@ export interface KafkaConfig {
   };
 }
 
-export const getKafkaConfig = (): KafkaConfig => ({
+export const getKafkaConfig = (): any => ({
   clientId: process.env.KAFKA_CLIENT_ID || 'omnichat-backend',
   brokers: (process.env.KAFKA_BROKERS || 'localhost:8311').split(','),
+  connectionTimeout: 10000,
+  requestTimeout: 30000,
   retry: {
     retries: 8,
     initialRetryTime: 100,
     maxRetryTime: 30000,
   },
+  logLevel: 2, // ERROR level (1=ERROR, 2=WARN, 4=INFO, 5=DEBUG)
 });
