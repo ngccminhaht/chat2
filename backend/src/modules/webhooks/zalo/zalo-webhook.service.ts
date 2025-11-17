@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { createHmac } from "crypto";
@@ -47,8 +47,9 @@ export class ZaloWebhookService {
     payload: ZaloWebhookDto,
     platformConnectionId?: string
   ): Promise<void> {
+    const senderId = payload.sender?.id || 'unknown';
     this.logger.log(
-      `Processing Zalo webhook event: ${payload.event_name} from user ${payload.user_id_by_app}`
+      `Processing Zalo webhook event: ${payload.event_name} from sender ${senderId}`
     );
 
     // Auto-find platformConnectionId from OA ID if not provided
@@ -224,30 +225,14 @@ export class ZaloWebhookService {
       );
     }
 
-    // Normalize message content
-    let messageType: string;
-    let content: any;
-
-    try {
-      const normalized = this.normalizeMessageContent(payload);
-      messageType = normalized.messageType;
-      content = normalized.content;
-    } catch (error) {
-      this.logger.error("Failed to normalize message content:", {
-        error: error.message,
-        payload: JSON.stringify(payload, null, 2),
-      });
-      throw error;
-    }
+    // Determine message type from event_name
+    const messageType = payload.event_name.replace('user_send_', ''); // user_send_text -> text
 
     // Create message
     this.logger.log("Creating message in database:", {
       conversationId: conversation._id,
       messageType,
-      contentPreview:
-        messageType === "text"
-          ? content.text?.substring(0, 50)
-          : `[${messageType}]`,
+      text: payload.message?.text,
       senderId: senderId,
     });
 
@@ -257,7 +242,7 @@ export class ZaloWebhookService {
       platformMessageId: payload.message.msg_id,
       direction: "inbound",
       type: messageType,
-      content,
+      content: payload.message, // Store entire message object
       sender: {
         platformUserId: senderId,
         name:
@@ -276,7 +261,7 @@ export class ZaloWebhookService {
     // Update conversation's last message
     await this.conversationModel.findByIdAndUpdate(conversation._id, {
       lastMessage: {
-        text: content.text || `[${messageType}]`,
+        text: payload.message?.text || `[${messageType}]`,
         timestamp: new Date(parseInt(payload.timestamp)),
         senderId: senderId,
         messageId: message._id,
@@ -290,93 +275,6 @@ export class ZaloWebhookService {
 
     // TODO: Emit WebSocket event for real-time update
     // TODO: Publish to Kafka topic 'messages.incoming'
-  }
-
-  /**
-   * Normalize Zalo message to internal format
-   */
-  private normalizeMessageContent(payload: ZaloWebhookDto): {
-    messageType: string;
-    content: any;
-  } {
-    const message = payload.message!;
-
-    // Text message
-    if (message.text) {
-      return {
-        messageType: "text",
-        content: {
-          text: message.text,
-        },
-      };
-    }
-
-    // Attachment messages
-    if (message.attachments && message.attachments.length > 0) {
-      const attachment = message.attachments[0];
-
-      switch (attachment.type) {
-        case "image":
-          return {
-            messageType: "image",
-            content: {
-              mediaUrl: attachment.payload.url,
-              thumbnailUrl: attachment.payload.thumbnail,
-            },
-          };
-
-        case "video":
-          return {
-            messageType: "video",
-            content: {
-              mediaUrl: attachment.payload.url,
-              thumbnailUrl: attachment.payload.thumbnail,
-            },
-          };
-
-        case "file":
-          return {
-            messageType: "file",
-            content: {
-              mediaUrl: attachment.payload.url,
-              fileName: attachment.payload.name,
-              fileSize: attachment.payload.size,
-            },
-          };
-
-        case "audio":
-          return {
-            messageType: "audio",
-            content: {
-              mediaUrl: attachment.payload.url,
-            },
-          };
-
-        case "sticker":
-          return {
-            messageType: "sticker",
-            content: {
-              stickerId: attachment.payload.id,
-            },
-          };
-
-        case "location":
-          return {
-            messageType: "location",
-            content: {
-              latitude: attachment.payload.coordinates?.latitude,
-              longitude: attachment.payload.coordinates?.longitude,
-            },
-          };
-
-        default:
-          throw new BadRequestException(
-            `Unsupported attachment type: ${attachment.type}`
-          );
-      }
-    }
-
-    throw new BadRequestException("Invalid message - no text or attachments");
   }
 
   /**

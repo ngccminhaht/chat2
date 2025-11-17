@@ -1,6 +1,5 @@
 export interface ZaloWebhookDto {
   app_id: string;
-  user_id_by_app: string;
   event_name: string;
   timestamp: string;
   message?: ZaloMessage;
@@ -39,8 +38,7 @@ export interface ZaloRecipient {
 }
 
 export interface ZaloUserInfo {
-  user_id: string;
-  user_id_by_app: string;
+  user_id: string; // Global user ID (sender.id)
   display_name: string;
   avatar?: string;
 }
