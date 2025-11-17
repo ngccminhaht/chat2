@@ -1,0 +1,53 @@
+/**
+ * Kafka Topics Configuration
+ * Based on CLAUDE.md architecture specification
+ */
+
+export const KAFKA_TOPICS = {
+  // Raw webhook payloads (partitioned by platform + accountId)
+  WEBHOOKS_RAW: 'platform.webhooks.raw',
+
+  // Normalized inbound messages (partitioned by conversationId)
+  MESSAGES_INCOMING: 'messages.incoming',
+
+  // Messages to send to platforms (partitioned by conversationId)
+  MESSAGES_OUTGOING: 'messages.outgoing',
+
+  // Delivery receipts, read status (partitioned by messageId)
+  MESSAGES_STATUS: 'messages.status',
+
+  // Real-time events for frontend (partitioned by userId)
+  WEBSOCKET_NOTIFICATIONS: 'websocket.notifications',
+} as const;
+
+/**
+ * Kafka Consumer Groups
+ */
+export const KAFKA_CONSUMER_GROUPS = {
+  WEBHOOK_PROCESSOR: 'webhook-processor-group',
+  MESSAGE_SENDER: 'message-sender-group',
+  WEBSOCKET_BRIDGE: 'websocket-bridge-group',
+} as const;
+
+/**
+ * Kafka Connection Configuration
+ */
+export interface KafkaConfig {
+  clientId: string;
+  brokers: string[];
+  retry?: {
+    retries: number;
+    initialRetryTime?: number;
+    maxRetryTime?: number;
+  };
+}
+
+export const getKafkaConfig = (): KafkaConfig => ({
+  clientId: process.env.KAFKA_CLIENT_ID || 'omnichat-backend',
+  brokers: (process.env.KAFKA_BROKERS || 'localhost:8311').split(','),
+  retry: {
+    retries: 8,
+    initialRetryTime: 100,
+    maxRetryTime: 30000,
+  },
+});

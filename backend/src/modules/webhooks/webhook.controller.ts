@@ -8,19 +8,22 @@ import {
 } from '@nestjs/common';
 import { ZaloWebhookService } from './zalo/zalo-webhook.service';
 import { ZaloWebhookDto } from './zalo/dto/zalo-webhook.dto';
+import { WebhookPublisherService } from './webhook-publisher.service';
 
 /**
  * Unified webhook controller for all platforms
  * Handles webhooks at /api/webhook/{platform}
+ *
+ * Architecture: Webhooks immediately publish to Kafka and return 200.
+ * Kafka consumers handle all processing (DB save, WebSocket notifications).
  */
 @Controller('webhook')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
 
   constructor(
-    private readonly zaloWebhookService: ZaloWebhookService,
-    // Add other platform services here as needed
-    // private readonly facebookWebhookService: FacebookWebhookService,
+    private readonly webhookPublisher: WebhookPublisherService,
+    private readonly zaloWebhookService: ZaloWebhookService, // For signature verification only
   ) {}
 
   /**
@@ -28,7 +31,7 @@ export class WebhookController {
    * POST /api/webhook/zalo
    *
    * Receives webhook events from Zalo Official Account.
-   * Automatically finds the platform connection based on OA ID from payload.
+   * Publishes to Kafka immediately and returns 200.
    */
   @Post('zalo')
   @HttpCode(200)
@@ -79,11 +82,11 @@ export class WebhookController {
       }
     }
 
-    // Process webhook asynchronously
-    this.zaloWebhookService
-      .processWebhook(payload)
+    // Publish to Kafka and return immediately
+    this.webhookPublisher
+      .publishWebhookEvent('zalo', payload, signature)
       .catch((error) => {
-        this.logger.error('Error processing Zalo webhook:', error);
+        this.logger.error('Failed to publish Zalo webhook to Kafka:', error);
       });
 
     // Return 200 immediately to Zalo to acknowledge receipt

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { WebhookController } from './webhook.controller';
+import { WebhookPublisherService } from './webhook-publisher.service';
 import { ZaloWebhookService } from './zalo/zalo-webhook.service';
 import {
   Conversation,
@@ -24,7 +25,7 @@ import {
     ]),
   ],
   controllers: [WebhookController],
-  providers: [ZaloWebhookService],
+  providers: [WebhookPublisherService, ZaloWebhookService],
   exports: [ZaloWebhookService],
 })
 export class WebhooksModule {}
