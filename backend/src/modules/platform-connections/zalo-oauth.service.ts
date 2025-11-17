@@ -296,8 +296,19 @@ export class ZaloOAuthService {
     accessToken: string,
   ): Promise<number> {
     try {
+      // Get platform connection to fetch OA ID
+      const platformConnection = await this.platformConnectionModel
+        .findById(platformConnectionId)
+        .exec();
+
+      if (!platformConnection) {
+        throw new BadRequestException('Platform connection not found');
+      }
+
+      const oaId = platformConnection.platformAccountId;
+
       this.logger.log(
-        `Starting conversation sync for connection ${platformConnectionId}`,
+        `Starting conversation sync for connection ${platformConnectionId} (OA: ${oaId})`,
       );
 
       // Get recent chats from Zalo (max 10 per Zalo API limit)
@@ -351,39 +362,40 @@ export class ZaloOAuthService {
       // Process each unique conversation
       for (const [customerId, chat] of conversationsMap) {
         try {
-          // Get user profile to fetch user_id_by_app (consistent with webhook)
-          const userProfile = await this.getUserProfile(accessToken, customerId);
-          const userIdByApp = userProfile?.user_id_by_app || customerId;
+          // Use sender.id (global user ID) for conversation key
+          // Composite key format: ${senderId}_${oaId}
+          const conversationKey = `${customerId}_${oaId}`;
 
           this.logger.log(
-            `Processing conversation for user ${customerId}, user_id_by_app: ${userIdByApp}`,
+            `Processing conversation for user ${customerId}, key: ${conversationKey}`,
           );
 
-          // Check if conversation already exists (using user_id_by_app as platformConversationId)
+          // Check if conversation already exists (using composite key)
           const existing = await this.conversationModel
             .findOne({
               platform: 'zalo',
-              platformConversationId: userIdByApp,
+              platformConversationId: conversationKey,
             })
             .exec();
 
           if (existing) {
             this.logger.log(
-              `Conversation already exists for user ${userIdByApp}`,
+              `Conversation already exists for key ${conversationKey}`,
             );
             continue;
           }
 
-          // Create new conversation with data from recent messages
-          // Use user_id_by_app as platformConversationId for consistency with webhook
+          // Create new conversation with composite key (consistent with webhook)
+          const displayName = chat.displayName || `Zalo User ${customerId.substring(0, Math.min(8, customerId.length))}`;
+
           await this.conversationModel.create({
             platform: 'zalo',
-            platformConversationId: userIdByApp,
+            platformConversationId: conversationKey,
             platformConnectionId: new Types.ObjectId(platformConnectionId),
             participants: [
               {
                 platformUserId: customerId,
-                name: chat.displayName || `Zalo User ${customerId.substring(0, 8)}`,
+                name: displayName,
                 avatar: chat.avatar,
                 role: 'customer',
               },
@@ -399,11 +411,12 @@ export class ZaloOAuthService {
             metadata: {
               syncedFromRecentChats: true,
               lastMessageId: chat.lastMessage.messageId,
+              oaId: oaId,
             },
           });
 
           syncedCount++;
-          this.logger.log(`Created conversation for user ${customerId} (${chat.displayName})`);
+          this.logger.log(`Created conversation for user ${customerId} (${displayName})`);
         } catch (error) {
           this.logger.error(
             `Failed to sync conversation for user ${customerId}:`,
