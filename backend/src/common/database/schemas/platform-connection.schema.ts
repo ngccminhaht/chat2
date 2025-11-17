@@ -5,8 +5,8 @@ export type PlatformConnectionDocument = PlatformConnection & Document;
 
 @Schema({ timestamps: true })
 export class PlatformConnection {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  userId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  userId?: Types.ObjectId;
 
   @Prop({
     required: true,
@@ -30,7 +30,7 @@ export class PlatformConnection {
 
   @Prop({
     required: true,
-    enum: ['active', 'expired', 'error'],
+    enum: ['active', 'expired', 'error', 'pending'],
     default: 'active',
   })
   status: string;

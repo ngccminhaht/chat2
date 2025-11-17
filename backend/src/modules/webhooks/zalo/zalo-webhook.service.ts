@@ -53,7 +53,7 @@ export class ZaloWebhookService {
 
     // Auto-find platformConnectionId from OA ID if not provided
     if (!platformConnectionId) {
-      const connection = await this.platformConnectionModel
+      let connection = await this.platformConnectionModel
         .findOne({
           platform: 'zalo',
           platformAccountId: payload.app_id,
@@ -61,11 +61,31 @@ export class ZaloWebhookService {
         .exec();
 
       if (!connection) {
-        this.logger.error(
-          `Platform connection not found for Zalo OA ID: ${payload.app_id}`,
+        this.logger.warn(
+          `Platform connection not found for Zalo OA ID: ${payload.app_id}, creating placeholder connection`,
         );
-        throw new BadRequestException(
-          `Platform connection not found for OA ID: ${payload.app_id}`,
+
+        // Create a placeholder connection to allow webhook processing
+        // User will need to properly authenticate later to send messages
+        connection = await this.platformConnectionModel.create({
+          platform: 'zalo',
+          platformAccountId: payload.app_id,
+          platformAccountName: `Zalo OA ${payload.app_id.substring(0, 8)}`,
+          credentials: {
+            accessToken: 'placeholder', // Will be updated when user authenticates
+            refreshToken: 'placeholder',
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+          },
+          status: 'pending', // Mark as pending until proper authentication
+          metadata: {
+            createdFromWebhook: true,
+            oaId: payload.app_id,
+          },
+          lastSyncAt: new Date(),
+        });
+
+        this.logger.log(
+          `Created placeholder connection: ${connection._id} for OA ID: ${payload.app_id}`,
         );
       }
 
