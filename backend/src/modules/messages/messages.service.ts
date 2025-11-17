@@ -121,9 +121,12 @@ export class MessagesService {
           throw new BadRequestException('Only text messages are supported for Zalo');
         }
 
-        this.logger.log(`Sending Zalo message to user ${customer.platformUserId}`);
+        this.logger.log('=== Sending Zalo message ===');
+        this.logger.log(`  Recipient platformUserId: ${customer.platformUserId}`);
+        this.logger.log(`  Platform connection: ${platformConnection._id}`);
+        this.logger.log(`  Message content: ${content.text?.substring(0, 50)}...`);
 
-        // Use wrapper method that always refreshes token before sending
+        // Use wrapper method that automatically refreshes token if needed
         const result = await this.zaloOAuthService.sendTextMessageWithRefresh(
           platformConnection,
           customer.platformUserId,
@@ -135,7 +138,17 @@ export class MessagesService {
         message.status = 'sent';
         await message.save();
 
-        this.logger.log(`Message sent successfully: ${result.message_id}`);
+        // Update conversation's last message
+        await this.conversationModel.findByIdAndUpdate(conversationId, {
+          lastMessage: {
+            text: content.text,
+            timestamp: new Date(),
+            senderId: platformConnection.platformAccountId,
+            messageId: message._id,
+          },
+        });
+
+        this.logger.log(`✅ Message sent successfully: ${result.message_id}`);
       } else {
         throw new BadRequestException(`Platform ${conversation.platform} not supported yet`);
       }
