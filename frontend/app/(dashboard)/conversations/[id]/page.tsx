@@ -11,6 +11,9 @@ import MessageList from '@/features/conversations/components/MessageList';
 import MessageInput from '@/features/conversations/components/MessageInput';
 import ConversationList from '@/features/conversations/components/ConversationList';
 
+// Empty array constant to avoid re-creating on every render
+const EMPTY_MESSAGES: any[] = [];
+
 export default function ConversationDetailPage() {
   const params = useParams();
   const conversationId = params.id as string;
@@ -19,7 +22,8 @@ export default function ConversationDetailPage() {
   const { data, isLoading } = useMessages({ conversationId });
 
   // Get messages from Zustand store (updated by WebSocket)
-  const storeMessages = useConversationStore((state) => state.messages[conversationId] || []);
+  const messagesFromStore = useConversationStore((state) => state.messages[conversationId]);
+  const storeMessages = messagesFromStore || EMPTY_MESSAGES;
 
   // Sync initial query data to Zustand store
   useEffect(() => {
