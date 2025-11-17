@@ -1,4 +1,10 @@
 import { useState } from 'react';
+import apiClient from '@/lib/api/client';
+
+interface ZaloAuthUrlResponse {
+  authUrl: string;
+  state: string;
+}
 
 export const useConnectZalo = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -9,10 +15,16 @@ export const useConnectZalo = () => {
       setIsLoading(true);
       setError(null);
 
-      // Redirect directly to backend authorize endpoint
-      // Backend will handle state storage in Redis and redirect to Zalo
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-      window.location.href = `${apiUrl}/platform-connections/zalo/authorize`;
+      // Call backend to generate OAuth URL and store state in Redis
+      const response = await apiClient.get<ZaloAuthUrlResponse>(
+        '/platform-connections/zalo/auth-url'
+      );
+
+      const { authUrl } = response.data;
+
+      // Redirect to Zalo OAuth page
+      // State is already stored in Redis on backend
+      window.location.href = authUrl;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to connect Zalo');
       setIsLoading(false);

@@ -22,16 +22,20 @@ export class ZaloOAuthController {
 
   /**
    * Step 1: Generate authorization URL and redirect user
-   * GET /api/platform-connections/zalo/authorize
+   * GET /api/platform-connections/zalo/authorize?userId=xxx
    */
   @Get('authorize')
-  @UseGuards(JwtAuthGuard)
   async authorize(
     @Query() dto: ZaloAuthUrlDto,
-    @Request() req,
+    @Query('userId') userId: string,
     @Res() res: Response,
   ) {
-    const userId = req.user.userId;
+    if (!userId) {
+      throw new BadRequestException('userId query parameter is required');
+    }
+
+    console.log('🔐 User authorizing Zalo:', { userId });
+
     const { url, codeVerifier, state } =
       this.zaloOAuthService.getAuthorizationUrl(dto.state);
 
@@ -105,15 +109,25 @@ export class ZaloOAuthController {
    */
   @Get('auth-url')
   @UseGuards(JwtAuthGuard)
-  getAuthUrl(@Query() dto: ZaloAuthUrlDto) {
+  async getAuthUrl(@Query() dto: ZaloAuthUrlDto, @Request() req: any) {
+    const userId = req.user.userId;
     const { url, codeVerifier, state } = this.zaloOAuthService.getAuthorizationUrl(
       dto.state,
     );
 
-    return {
-      authUrl: url,
+    console.log('📝 Generating auth URL and storing state for user:', { userId, state });
+
+    // Store state in Redis so callback can verify it
+    await this.oauthStateService.storeState(state, {
       codeVerifier,
       state,
+      userId,
+      createdAt: Date.now(),
+    });
+
+    return {
+      authUrl: url,
+      state, // Return state for frontend to use in redirect
     };
   }
 
