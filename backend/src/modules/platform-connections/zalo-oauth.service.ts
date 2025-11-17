@@ -79,15 +79,20 @@ export class ZaloOAuthService {
     codeVerifier: string,
   ): Promise<ZaloTokenResponse> {
     try {
+      // Create URL-encoded form data
+      const params = new URLSearchParams({
+        app_id: this.appId,
+        app_secret: this.appSecret,
+        code,
+        code_verifier: codeVerifier,
+        grant_type: 'authorization_code',
+      });
+
+      this.logger.log('Exchanging code for token with Zalo API');
+
       const response = await axios.post(
         'https://oauth.zaloapp.com/v4/access_token',
-        {
-          app_id: this.appId,
-          app_secret: this.appSecret,
-          code,
-          code_verifier: codeVerifier,
-          grant_type: 'authorization_code',
-        },
+        params.toString(),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -95,7 +100,10 @@ export class ZaloOAuthService {
         },
       );
 
+      this.logger.log('Zalo token response:', response.data);
+
       if (response.data.error) {
+        this.logger.error('Zalo OAuth error:', response.data);
         throw new BadRequestException(
           `Zalo OAuth error: ${response.data.error_description || response.data.error}`,
         );
@@ -107,7 +115,7 @@ export class ZaloOAuthService {
         expires_in: response.data.expires_in,
       };
     } catch (error) {
-      this.logger.error('Failed to exchange code for token', error);
+      this.logger.error('Failed to exchange code for token:', error.response?.data || error.message);
       throw new BadRequestException('Failed to exchange authorization code');
     }
   }
@@ -206,14 +214,17 @@ export class ZaloOAuthService {
    */
   async refreshToken(refreshToken: string): Promise<ZaloTokenResponse> {
     try {
+      // Create URL-encoded form data
+      const params = new URLSearchParams({
+        app_id: this.appId,
+        app_secret: this.appSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      });
+
       const response = await axios.post(
         'https://oauth.zaloapp.com/v4/access_token',
-        {
-          app_id: this.appId,
-          app_secret: this.appSecret,
-          refresh_token: refreshToken,
-          grant_type: 'refresh_token',
-        },
+        params.toString(),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -222,6 +233,7 @@ export class ZaloOAuthService {
       );
 
       if (response.data.error) {
+        this.logger.error('Zalo token refresh error:', response.data);
         throw new BadRequestException(
           `Zalo token refresh error: ${response.data.error_description || response.data.error}`,
         );
@@ -233,7 +245,7 @@ export class ZaloOAuthService {
         expires_in: response.data.expires_in,
       };
     } catch (error) {
-      this.logger.error('Failed to refresh token', error);
+      this.logger.error('Failed to refresh token:', error.response?.data || error.message);
       throw new BadRequestException('Failed to refresh access token');
     }
   }
