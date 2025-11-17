@@ -135,11 +135,14 @@ export class ZaloWebhookService {
       return;
     }
 
+    // Use user_id_by_app if available, otherwise fall back to sender.id
+    const userId = payload.user_id_by_app || payload.sender.id;
+
     // Find or create conversation
     let conversation = await this.conversationModel
       .findOne({
         platform: 'zalo',
-        platformConversationId: payload.user_id_by_app,
+        platformConversationId: userId,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
       })
       .exec();
@@ -148,14 +151,14 @@ export class ZaloWebhookService {
       // Fetch user info from Zalo API (simplified - you'll need to implement API call)
       const userInfo: ZaloUserInfo = {
         user_id: payload.sender.id,
-        user_id_by_app: payload.user_id_by_app,
-        display_name: `Zalo User ${payload.user_id_by_app.substring(0, 8)}`,
+        user_id_by_app: userId,
+        display_name: `Zalo User ${userId.substring(0, 8)}`,
         avatar: undefined,
       };
 
       conversation = await this.conversationModel.create({
         platform: 'zalo',
-        platformConversationId: payload.user_id_by_app,
+        platformConversationId: userId,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         participants: [
           {
@@ -173,7 +176,7 @@ export class ZaloWebhookService {
       });
 
       this.logger.log(
-        `Created new conversation: ${conversation._id} for Zalo user ${payload.user_id_by_app}`,
+        `Created new conversation: ${conversation._id} for Zalo user ${userId}`,
       );
     }
 
@@ -198,7 +201,7 @@ export class ZaloWebhookService {
       conversationId: conversation._id,
       messageType,
       contentPreview: messageType === 'text' ? content.text?.substring(0, 50) : `[${messageType}]`,
-      senderId: payload.user_id_by_app,
+      senderId: userId,
     });
 
     const message = await this.messageModel.create({
@@ -209,10 +212,10 @@ export class ZaloWebhookService {
       type: messageType,
       content,
       sender: {
-        platformUserId: payload.user_id_by_app,
+        platformUserId: userId,
         name:
           conversation.participants[0]?.name ||
-          `Zalo User ${payload.user_id_by_app.substring(0, 8)}`,
+          `Zalo User ${userId.substring(0, 8)}`,
         avatar: conversation.participants[0]?.avatar,
       },
       status: 'sent',
@@ -228,7 +231,7 @@ export class ZaloWebhookService {
       lastMessage: {
         text: content.text || `[${messageType}]`,
         timestamp: new Date(parseInt(payload.timestamp)),
-        senderId: payload.user_id_by_app,
+        senderId: userId,
         messageId: message._id,
       },
       $inc: { unreadCount: 1 },
