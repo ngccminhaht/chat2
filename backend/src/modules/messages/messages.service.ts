@@ -125,10 +125,18 @@ export class MessagesService {
 
         // Helper function to refresh token
         const refreshAccessToken = async () => {
-          this.logger.log('Refreshing access token...');
+          this.logger.log('=== Starting token refresh ===');
+          this.logger.log(`Refresh token exists: ${!!platformConnection.credentials.refreshToken}`);
+          this.logger.log(`Refresh token length: ${platformConnection.credentials.refreshToken?.length}`);
+
           const tokenResponse = await this.zaloOAuthService.refreshToken(
             platformConnection.credentials.refreshToken,
           );
+
+          this.logger.log('Token refresh response received');
+          this.logger.log(`New access token length: ${tokenResponse.access_token?.length}`);
+          this.logger.log(`New refresh token length: ${tokenResponse.refresh_token?.length}`);
+          this.logger.log(`Expires in: ${tokenResponse.expires_in} seconds`);
 
           platformConnection.credentials.accessToken = tokenResponse.access_token;
           platformConnection.credentials.refreshToken = tokenResponse.refresh_token;
@@ -137,7 +145,8 @@ export class MessagesService {
           );
           await platformConnection.save();
 
-          this.logger.log('Access token refreshed successfully');
+          this.logger.log('Platform connection updated and saved');
+          this.logger.log('=== Token refresh completed ===');
           return tokenResponse.access_token;
         };
 
@@ -146,45 +155,65 @@ export class MessagesService {
         const expiresAt = platformConnection.credentials.expiresAt;
         const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
 
+        this.logger.log(`Current token expires at: ${expiresAt}`);
+        this.logger.log(`Current time: ${new Date()}`);
+        this.logger.log(`Time until expiry: ${expiresAt ? new Date(expiresAt).getTime() - new Date().getTime() : 'N/A'} ms`);
+
         if (expiresAt && new Date().getTime() >= new Date(expiresAt).getTime() - bufferTime) {
+          this.logger.log('Token will expire soon, proactively refreshing...');
           try {
             accessToken = await refreshAccessToken();
           } catch (refreshError) {
             this.logger.error('Proactive token refresh failed:', refreshError);
+            this.logger.error('Error details:', JSON.stringify(refreshError.response?.data || refreshError.message));
             // Continue with existing token, will retry if API call fails
           }
+        } else {
+          this.logger.log('Token is still valid, skipping proactive refresh');
         }
 
         // Try to send message, retry once with token refresh if it fails with invalid token
         let result;
         try {
+          this.logger.log('Attempting to send message with current token...');
           result = await this.zaloOAuthService.sendTextMessage(
             accessToken,
             customer.platformUserId,
             content.text,
           );
+          this.logger.log('Message sent successfully on first attempt');
         } catch (sendError) {
+          this.logger.error('First send attempt failed');
+          this.logger.error('Send error:', JSON.stringify(sendError.response?.data || sendError.message));
+
           // Check if error is due to invalid access token (Zalo error -216)
           const errorData = sendError.response?.data;
+          this.logger.log(`Error code: ${errorData?.error}`);
+          this.logger.log(`Error message: ${errorData?.message}`);
+
           if (errorData?.error === -216 || errorData?.message?.includes('Access token is invalid')) {
-            this.logger.log('Send failed with invalid token, refreshing and retrying...');
+            this.logger.log('=== Detected invalid token error, refreshing and retrying ===');
 
             try {
               accessToken = await refreshAccessToken();
 
+              this.logger.log('Retrying message send with new token...');
               // Retry sending with new token
               result = await this.zaloOAuthService.sendTextMessage(
                 accessToken,
                 customer.platformUserId,
                 content.text,
               );
+              this.logger.log('Message sent successfully on retry after token refresh');
             } catch (retryError) {
-              this.logger.error('Retry after token refresh failed:', retryError);
+              this.logger.error('=== Retry after token refresh failed ===');
+              this.logger.error('Retry error:', JSON.stringify(retryError.response?.data || retryError.message));
               throw new BadRequestException(
                 'Failed to send message after refreshing token. Please reconnect your Zalo OA.',
               );
             }
           } else {
+            this.logger.error('Error is not related to token, rethrowing');
             // Other error, rethrow
             throw sendError;
           }
