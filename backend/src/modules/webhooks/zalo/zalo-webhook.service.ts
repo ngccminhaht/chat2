@@ -197,7 +197,7 @@ export class ZaloWebhookService {
       // Fetch user info from Zalo API (simplified - you'll need to implement API call)
       const userInfo = {
         user_id: senderId, // Global user ID
-        display_name: `Zalo User ${senderId.substring(0, 8)}`,
+        display_name: `Zalo User ${senderId?.substring(0, 8) || 'Unknown'}`,
         avatar: undefined,
       };
 
@@ -247,7 +247,7 @@ export class ZaloWebhookService {
         platformUserId: senderId,
         name:
           conversation.participants[0]?.name ||
-          `Zalo User ${senderId.substring(0, 8)}`,
+          `Zalo User ${senderId?.substring(0, 8) || 'Unknown'}`,
         avatar: conversation.participants[0]?.avatar,
       },
       status: "sent",
