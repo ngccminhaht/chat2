@@ -631,19 +631,25 @@ export class ZaloOAuthService {
     try {
       return await this.sendTextMessage(accessToken, recipientId, text);
     } catch (error) {
+      this.logger.error('=== sendTextMessage failed, checking if we should retry ===');
+      this.logger.error(`Error type: ${error.constructor.name}`);
+      this.logger.error(`Has response: ${!!error.response}`);
+      this.logger.error(`Response data: ${JSON.stringify(error.response?.data)}`);
+
       // If send fails with error -216 (invalid token), force refresh and retry once
       const errorData = error.response?.data;
       if (errorData?.error === -216) {
-        this.logger.warn('Send failed with error -216 (invalid token), forcing refresh and retrying...');
+        this.logger.warn('🔄 Send failed with error -216 (invalid token), forcing refresh and retrying...');
 
         // Force refresh by setting expiresAt to past
         platformConnection.credentials.expiresAt = new Date(Date.now() - 1000);
         accessToken = await this.ensureFreshToken(platformConnection);
 
-        this.logger.log('Retrying send with refreshed token...');
+        this.logger.log('🔁 Retrying send with refreshed token...');
         return await this.sendTextMessage(accessToken, recipientId, text);
       }
 
+      this.logger.error('❌ Error is not -216, rethrowing without retry');
       // Other error, rethrow
       throw error;
     }
@@ -687,9 +693,13 @@ export class ZaloOAuthService {
 
       if (response.data.error) {
         this.logger.error('Zalo send message error:', response.data);
-        throw new BadRequestException(
+
+        // Create error with response data attached for retry logic
+        const err: any = new BadRequestException(
           `Failed to send Zalo message: ${response.data.message || response.data.error}`,
         );
+        err.response = { data: response.data };
+        throw err;
       }
 
       return {
@@ -701,10 +711,17 @@ export class ZaloOAuthService {
           status: error.response.status,
           data: error.response.data,
         });
+        // Preserve response data for retry logic
+        const err: any = new BadRequestException('Failed to send message to Zalo');
+        err.response = error.response;
+        throw err;
+      } else if (error instanceof BadRequestException) {
+        // Already a BadRequestException with response data, rethrow as-is
+        throw error;
       } else {
         this.logger.error('Failed to send text message:', error.message);
+        throw new BadRequestException('Failed to send message to Zalo');
       }
-      throw new BadRequestException('Failed to send message to Zalo');
     }
   }
 }
