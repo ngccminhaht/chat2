@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Box, CircularProgress } from '@mui/material';
 
-export default function PlatformConnectionsRedirect() {
+function RedirectComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -18,5 +18,19 @@ export default function PlatformConnectionsRedirect() {
     <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
       <CircularProgress />
     </Box>
+  );
+}
+
+export default function PlatformConnectionsRedirect() {
+  return (
+    <Suspense
+      fallback={
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <RedirectComponent />
+    </Suspense>
   );
 }
