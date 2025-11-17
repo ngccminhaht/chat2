@@ -110,23 +110,33 @@ class WebSocketClient {
   }
 
   joinConversation(conversationId: string) {
-    if (!this.socket) return;
+    console.log(`[WS] joinConversation called for ${conversationId}`);
 
     // Track this room for auto-rejoin on reconnect
     this.pendingRooms.add(conversationId);
 
+    if (!this.socket) {
+      console.warn(`[WS] Socket is null, conversation ${conversationId} added to pending`);
+      return;
+    }
+
     if (this.socket.connected) {
       this.socket.emit('join:conversation', { conversationId });
+      console.log(`[WS] Emitted join for ${conversationId}`);
+    } else {
+      console.log(`[WS] Socket not connected, ${conversationId} will join on connect event`);
     }
-    // If not connected, it will join when 'connect' event fires
   }
 
   leaveConversation(conversationId: string) {
-    // Remove from pending rooms
+    console.log(`[WS] leaveConversation called for ${conversationId}`);
+
+    // Remove from pending rooms first
     this.pendingRooms.delete(conversationId);
 
     if (this.socket?.connected) {
       this.socket.emit('leave:conversation', { conversationId });
+      console.log(`[WS] Emitted leave for ${conversationId}`);
     }
   }
 
