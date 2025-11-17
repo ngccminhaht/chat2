@@ -103,19 +103,34 @@ class WebSocketClient {
   }
 
   joinConversation(conversationId: string) {
-    this.socket?.emit('join:conversation', { conversationId });
+    if (!this.socket) return;
+
+    if (this.socket.connected) {
+      this.socket.emit('join:conversation', { conversationId });
+    } else {
+      // Wait for connection before joining
+      this.socket.once('connect', () => {
+        this.socket?.emit('join:conversation', { conversationId });
+      });
+    }
   }
 
   leaveConversation(conversationId: string) {
-    this.socket?.emit('leave:conversation', { conversationId });
+    if (this.socket?.connected) {
+      this.socket.emit('leave:conversation', { conversationId });
+    }
   }
 
   sendTypingStart(conversationId: string) {
-    this.socket?.emit('typing:start', { conversationId });
+    if (this.socket?.connected) {
+      this.socket.emit('typing:start', { conversationId });
+    }
   }
 
   sendTypingStop(conversationId: string) {
-    this.socket?.emit('typing:stop', { conversationId });
+    if (this.socket?.connected) {
+      this.socket.emit('typing:stop', { conversationId });
+    }
   }
 
   disconnect() {
