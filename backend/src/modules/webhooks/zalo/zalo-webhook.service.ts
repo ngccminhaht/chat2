@@ -150,14 +150,24 @@ export class ZaloWebhookService {
 
     // Get sender ID (global user ID across all OAs)
     const senderId = payload.sender?.id;
-    // Get OA ID (which OA received this message)
-    const oaId = payload.app_id;
+    // Get OA ID (which OA received this message) - recipient.id is the OA ID
+    const oaId = payload.recipient?.id;
 
     if (!senderId || typeof senderId !== 'string') {
       this.logger.error("Cannot process message: missing or invalid sender.id:", {
         hasSender: !!payload.sender,
         senderId: payload.sender?.id,
         senderIdType: typeof payload.sender?.id,
+        payload: JSON.stringify(payload, null, 2),
+      });
+      return;
+    }
+
+    if (!oaId || typeof oaId !== 'string') {
+      this.logger.error("Cannot process message: missing or invalid recipient.id (OA ID):", {
+        hasRecipient: !!payload.recipient,
+        oaId: payload.recipient?.id,
+        oaIdType: typeof payload.recipient?.id,
         payload: JSON.stringify(payload, null, 2),
       });
       return;

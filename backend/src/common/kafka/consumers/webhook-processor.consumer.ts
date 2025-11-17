@@ -188,12 +188,22 @@ export class WebhookProcessorConsumer implements OnModuleInit {
 
     // Use sender.id as user ID (global user ID)
     const senderId = payload.sender?.id;
-    const oaId = payload.app_id;
+    // OA ID is recipient.id (not app_id which is the Zalo app ID)
+    const oaId = payload.recipient?.id;
 
     if (!senderId || typeof senderId !== 'string') {
       this.logger.error("Invalid sender.id in Zalo payload:", {
         senderId,
         senderIdType: typeof senderId,
+        payload,
+      });
+      return;
+    }
+
+    if (!oaId || typeof oaId !== 'string') {
+      this.logger.error("Invalid recipient.id (OA ID) in Zalo payload:", {
+        oaId,
+        oaIdType: typeof oaId,
         payload,
       });
       return;
