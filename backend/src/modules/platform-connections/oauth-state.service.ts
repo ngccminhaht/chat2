@@ -15,15 +15,24 @@ export class OAuthStateService implements OnModuleDestroy {
   private readonly TTL = 600; // 10 minutes in seconds
 
   constructor() {
-    this.redis = new Redis({
+    const redisConfig = {
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
       password: process.env.REDIS_PASSWORD,
       db: parseInt(process.env.REDIS_DB || '0'),
+    };
+
+    console.log('🔧 Redis config for OAuth state:', {
+      host: redisConfig.host,
+      port: redisConfig.port,
+      db: redisConfig.db,
+      hasPassword: !!redisConfig.password,
     });
 
+    this.redis = new Redis(redisConfig);
+
     this.redis.on('error', (err) => {
-      console.error('Redis connection error:', err);
+      console.error('❌ Redis connection error:', err);
     });
 
     this.redis.on('connect', () => {
@@ -36,7 +45,9 @@ export class OAuthStateService implements OnModuleDestroy {
    */
   async storeState(state: string, data: OAuthStateData): Promise<void> {
     const key = this.PREFIX + state;
+    console.log('📝 Storing OAuth state:', { key, state, userId: data.userId });
     await this.redis.setex(key, this.TTL, JSON.stringify(data));
+    console.log('✅ OAuth state stored successfully');
   }
 
   /**
@@ -44,6 +55,7 @@ export class OAuthStateService implements OnModuleDestroy {
    */
   async getAndDeleteState(state: string): Promise<OAuthStateData | null> {
     const key = this.PREFIX + state;
+    console.log('🔍 Retrieving OAuth state:', { key, state });
 
     // Use pipeline for atomic get + delete
     const pipeline = this.redis.pipeline();
@@ -51,12 +63,15 @@ export class OAuthStateService implements OnModuleDestroy {
     pipeline.del(key);
 
     const results = await pipeline.exec();
+    console.log('📊 Redis pipeline results:', results);
 
     if (!results || !results[0] || !results[0][1]) {
+      console.error('❌ OAuth state not found in Redis');
       return null;
     }
 
     const data = results[0][1] as string;
+    console.log('✅ OAuth state retrieved successfully');
     return JSON.parse(data);
   }
 
