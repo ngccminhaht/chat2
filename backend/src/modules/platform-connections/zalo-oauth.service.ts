@@ -557,16 +557,20 @@ export class ZaloOAuthService {
     const expiresAt = platformConnection.credentials.expiresAt;
     const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
 
+    this.logger.log('=== ensureFreshToken check ===');
+    this.logger.log(`Current access token: ${platformConnection.credentials.accessToken?.substring(0, 30)}...`);
+    this.logger.log(`Token expires at: ${expiresAt}`);
+    this.logger.log(`Current time: ${now}`);
+    this.logger.log(`Time until expiry: ${expiresAt ? new Date(expiresAt).getTime() - now.getTime() : 'N/A'} ms`);
+
     // Check if token is still valid (not expired and won't expire in next 5 minutes)
     if (expiresAt && now.getTime() < new Date(expiresAt).getTime() - bufferTime) {
-      this.logger.log('Access token is still valid, using existing token');
-      this.logger.log(`Token expires at: ${expiresAt}, now: ${now}`);
+      this.logger.log('✅ Access token is still valid, using existing token');
       return platformConnection.credentials.accessToken;
     }
 
     // Token expired or will expire soon, refresh it
-    this.logger.log('Access token expired or expiring soon, refreshing...');
-    this.logger.log(`Token expires at: ${expiresAt}, now: ${now}`);
+    this.logger.log('⚠️ Access token expired or expiring soon, refreshing...');
 
     try {
       const tokenResponse = await this.refreshToken(
@@ -621,10 +625,28 @@ export class ZaloOAuthService {
     recipientId: string,
     text: string,
   ): Promise<{ message_id: string }> {
-    // Always refresh token before sending
-    const accessToken = await this.ensureFreshToken(platformConnection);
+    // Ensure token is valid (refresh if needed)
+    let accessToken = await this.ensureFreshToken(platformConnection);
 
-    return this.sendTextMessage(accessToken, recipientId, text);
+    try {
+      return await this.sendTextMessage(accessToken, recipientId, text);
+    } catch (error) {
+      // If send fails with error -216 (invalid token), force refresh and retry once
+      const errorData = error.response?.data;
+      if (errorData?.error === -216) {
+        this.logger.warn('Send failed with error -216 (invalid token), forcing refresh and retrying...');
+
+        // Force refresh by setting expiresAt to past
+        platformConnection.credentials.expiresAt = new Date(Date.now() - 1000);
+        accessToken = await this.ensureFreshToken(platformConnection);
+
+        this.logger.log('Retrying send with refreshed token...');
+        return await this.sendTextMessage(accessToken, recipientId, text);
+      }
+
+      // Other error, rethrow
+      throw error;
+    }
   }
 
   /**
@@ -641,6 +663,7 @@ export class ZaloOAuthService {
   ): Promise<{ message_id: string }> {
     try {
       this.logger.log(`Sending text message to Zalo user ${recipientId} using API v3`);
+      this.logger.log(`Using access token: ${accessToken?.substring(0, 30)}... (length: ${accessToken?.length})`);
 
       const response = await axios.post(
         'https://openapi.zalo.me/v3.0/oa/message/cs',
