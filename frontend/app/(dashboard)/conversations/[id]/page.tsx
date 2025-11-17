@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Paper, Typography, Chip, Stack } from '@mui/material';
 import { useMessages } from '@/features/conversations/hooks/useMessages';
 import { useConversationStore } from '@/features/conversations/stores/conversationStore';
+import { useWebSocketEvent } from '@/hooks/useWebSocketEvent';
 import MessageList from '@/features/conversations/components/MessageList';
 import MessageInput from '@/features/conversations/components/MessageInput';
 import ConversationList from '@/features/conversations/components/ConversationList';
@@ -27,15 +28,43 @@ export default function ConversationDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.data, conversationId]);
 
-  // Join conversation room for real-time updates
-  useEffect(() => {
-    if (conversationId) {
-      wsClient.joinConversation(conversationId);
-
-      return () => {
-        wsClient.leaveConversation(conversationId);
-      };
+  // WebSocket event handlers (using named functions for proper cleanup)
+  const handleNewMessage = useCallback((message: any) => {
+    if (message.conversationId === conversationId) {
+      useConversationStore.getState().addMessage(conversationId, message);
     }
+  }, [conversationId]);
+
+  const handleMessageStatus = useCallback((data: any) => {
+    if (data.conversationId === conversationId) {
+      useConversationStore.getState().updateMessageStatus(
+        conversationId,
+        data.messageId,
+        data.status
+      );
+    }
+  }, [conversationId]);
+
+  const handleConversationUpdated = useCallback((conversation: any) => {
+    if (conversation._id === conversationId) {
+      useConversationStore.getState().updateConversation(conversation);
+    }
+  }, [conversationId]);
+
+  // Register WebSocket event listeners (auto cleanup on unmount)
+  useWebSocketEvent('message:new', handleNewMessage);
+  useWebSocketEvent('message:status', handleMessageStatus);
+  useWebSocketEvent('conversation:updated', handleConversationUpdated);
+
+  // Join/leave conversation room
+  useEffect(() => {
+    if (!conversationId || !wsClient.connected) return;
+
+    wsClient.joinRoom(conversationId);
+
+    return () => {
+      wsClient.leaveRoom(conversationId);
+    };
   }, [conversationId]);
 
   return (

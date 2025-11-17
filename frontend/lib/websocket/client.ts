@@ -1,165 +1,146 @@
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/features/auth';
-import { useConversationStore } from '@/features/conversations';
 
+/**
+ * WebSocket Client Singleton
+ * Best practice: Initialize once, never disconnect except on logout
+ */
 class WebSocketClient {
   private socket: Socket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private pendingRooms: Set<string> = new Set();
+  private isInitialized = false;
 
-  connect() {
+  /**
+   * Initialize socket connection (call once on app mount when authenticated)
+   * Following Socket.IO best practice: separate initialization from React lifecycle
+   */
+  initialize() {
+    if (this.isInitialized) {
+      console.log('[WS] Already initialized');
+      return;
+    }
+
     const token = useAuthStore.getState().accessToken;
     if (!token) {
-      console.warn('No auth token available - WebSocket connection skipped');
+      console.warn('[WS] No auth token - skipping initialization');
       return;
     }
 
-    // Don't reconnect if already connected
-    if (this.socket?.connected) {
-      console.log('WebSocket already connected');
-      return;
-    }
-
-    // Disconnect existing socket if any
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket.removeAllListeners();
-    }
+    console.log('[WS] Initializing socket connection');
 
     this.socket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000', {
       auth: { token },
       transports: ['websocket', 'polling'],
-      autoConnect: true,
+      autoConnect: false, // Manual control per best practice
     });
 
-    this.setupListeners();
+    this.setupCoreListeners();
+    this.socket.connect();
+    this.isInitialized = true;
   }
 
-  private setupListeners() {
+  /**
+   * Core listeners that should always be active
+   * These handle connection lifecycle only
+   */
+  private setupCoreListeners() {
     if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      console.log('WebSocket connected');
-      this.reconnectAttempts = 0;
-
-      // Rejoin pending rooms after reconnection
-      this.pendingRooms.forEach((conversationId) => {
-        this.socket?.emit('join:conversation', { conversationId });
-      });
+      console.log('[WS] Connected');
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log('WebSocket disconnected:', reason);
-      // Don't auto-reconnect if disconnect was intentional
-      if (reason !== 'io client disconnect') {
-        this.handleReconnect();
-      }
+      console.log('[WS] Disconnected:', reason);
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error.message);
-      // Don't spam reconnect on auth errors
-      if (error.message.includes('Unauthorized') || error.message.includes('jwt')) {
-        console.error('Authentication failed - stopping reconnect attempts');
-        this.disconnect();
-      } else {
-        this.handleReconnect();
-      }
-    });
-
-    // Message events
-    this.socket.on('message:new', (message) => {
-      const store = useConversationStore.getState();
-      store.addMessage(message.conversationId, message);
-    });
-
-    this.socket.on('message:status', ({ conversationId, messageId, status }) => {
-      const store = useConversationStore.getState();
-      store.updateMessageStatus(conversationId, messageId, status);
-    });
-
-    this.socket.on('conversation:updated', (conversation) => {
-      const store = useConversationStore.getState();
-      store.updateConversation(conversation);
-    });
-
-    this.socket.on('typing:indicator', ({ conversationId, userId, isTyping }) => {
-      const store = useConversationStore.getState();
-      const currentTyping = store.typingUsers[conversationId] || [];
-
-      if (isTyping) {
-        if (!currentTyping.includes(userId)) {
-          store.setTypingUsers(conversationId, [...currentTyping, userId]);
-        }
-      } else {
-        store.setTypingUsers(
-          conversationId,
-          currentTyping.filter((id) => id !== userId)
-        );
-      }
+      console.error('[WS] Connection error:', error.message);
     });
   }
 
-  private handleReconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-      setTimeout(() => this.connect(), delay);
-    }
-  }
-
-  joinConversation(conversationId: string) {
-    console.log(`[WS] joinConversation called for ${conversationId}`);
-
-    // Track this room for auto-rejoin on reconnect
-    this.pendingRooms.add(conversationId);
-
+  /**
+   * Register message event listeners
+   * Call this from components/hooks with named functions for proper cleanup
+   */
+  on(event: string, handler: (...args: any[]) => void) {
     if (!this.socket) {
-      console.warn(`[WS] Socket is null, conversation ${conversationId} added to pending`);
+      console.warn(`[WS] Cannot register listener for ${event}: socket not initialized`);
+      return;
+    }
+    this.socket.on(event, handler);
+  }
+
+  /**
+   * Unregister message event listeners
+   * MUST be called in useEffect cleanup to prevent memory leaks
+   */
+  off(event: string, handler: (...args: any[]) => void) {
+    if (!this.socket) return;
+    this.socket.off(event, handler);
+  }
+
+  /**
+   * Join a conversation room
+   * Room membership persists across reconnections automatically via Socket.IO
+   */
+  joinRoom(conversationId: string) {
+    if (!this.socket?.connected) {
+      console.warn(`[WS] Cannot join room ${conversationId}: not connected`);
       return;
     }
 
-    if (this.socket.connected) {
-      this.socket.emit('join:conversation', { conversationId });
-      console.log(`[WS] Emitted join for ${conversationId}`);
-    } else {
-      console.log(`[WS] Socket not connected, ${conversationId} will join on connect event`);
-    }
+    console.log(`[WS] Joining room: ${conversationId}`);
+    this.socket.emit('join:conversation', { conversationId });
   }
 
-  leaveConversation(conversationId: string) {
-    console.log(`[WS] leaveConversation called for ${conversationId}`);
-
-    // Remove from pending rooms first
-    this.pendingRooms.delete(conversationId);
-
-    if (this.socket?.connected) {
-      this.socket.emit('leave:conversation', { conversationId });
-      console.log(`[WS] Emitted leave for ${conversationId}`);
+  /**
+   * Leave a conversation room
+   */
+  leaveRoom(conversationId: string) {
+    if (!this.socket?.connected) {
+      return;
     }
+
+    console.log(`[WS] Leaving room: ${conversationId}`);
+    this.socket.emit('leave:conversation', { conversationId });
   }
 
+  /**
+   * Send typing indicator
+   */
   sendTypingStart(conversationId: string) {
     if (this.socket?.connected) {
       this.socket.emit('typing:start', { conversationId });
     }
   }
 
+  /**
+   * Stop typing indicator
+   */
   sendTypingStop(conversationId: string) {
     if (this.socket?.connected) {
       this.socket.emit('typing:stop', { conversationId });
     }
   }
 
+  /**
+   * Check if socket is connected
+   */
+  get connected(): boolean {
+    return this.socket?.connected ?? false;
+  }
+
+  /**
+   * Disconnect and cleanup (only call on logout)
+   */
   disconnect() {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket.removeAllListeners();
-      this.socket = null;
-    }
-    this.pendingRooms.clear();
-    this.reconnectAttempts = 0;
+    if (!this.socket) return;
+
+    console.log('[WS] Disconnecting and cleaning up');
+    this.socket.removeAllListeners();
+    this.socket.disconnect();
+    this.socket = null;
+    this.isInitialized = false;
   }
 }
 
