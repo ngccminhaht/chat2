@@ -10,6 +10,10 @@ import {
   Message,
   MessageDocument,
 } from '@/common/database/schemas/message.schema';
+import {
+  PlatformConnection,
+  PlatformConnectionDocument,
+} from '@/common/database/schemas/platform-connection.schema';
 import { ZaloWebhookDto, ZaloUserInfo } from './dto/zalo-webhook.dto';
 
 @Injectable()
@@ -21,6 +25,8 @@ export class ZaloWebhookService {
     private conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name)
     private messageModel: Model<MessageDocument>,
+    @InjectModel(PlatformConnection.name)
+    private platformConnectionModel: Model<PlatformConnectionDocument>,
   ) {}
 
   /**
@@ -35,14 +41,39 @@ export class ZaloWebhookService {
 
   /**
    * Process incoming Zalo webhook event
+   * If platformConnectionId is not provided, it will be auto-found from payload.app_id
    */
   async processWebhook(
     payload: ZaloWebhookDto,
-    platformConnectionId: string,
+    platformConnectionId?: string,
   ): Promise<void> {
     this.logger.log(
       `Processing Zalo webhook event: ${payload.event_name} from user ${payload.user_id_by_app}`,
     );
+
+    // Auto-find platformConnectionId from OA ID if not provided
+    if (!platformConnectionId) {
+      const connection = await this.platformConnectionModel
+        .findOne({
+          platform: 'zalo',
+          platformAccountId: payload.app_id,
+        })
+        .exec();
+
+      if (!connection) {
+        this.logger.error(
+          `Platform connection not found for Zalo OA ID: ${payload.app_id}`,
+        );
+        throw new BadRequestException(
+          `Platform connection not found for OA ID: ${payload.app_id}`,
+        );
+      }
+
+      platformConnectionId = connection._id.toString();
+      this.logger.log(
+        `Found platform connection: ${platformConnectionId} for OA ID: ${payload.app_id}`,
+      );
+    }
 
     switch (payload.event_name) {
       case 'user_send_text':
