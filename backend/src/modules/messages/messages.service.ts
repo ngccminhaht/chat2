@@ -123,8 +123,38 @@ export class MessagesService {
 
         this.logger.log(`Sending Zalo message to user ${customer.platformUserId}`);
 
+        // Check if access token is expired and refresh if needed
+        let accessToken = platformConnection.credentials.accessToken;
+        const expiresAt = platformConnection.credentials.expiresAt;
+
+        if (expiresAt && new Date() >= new Date(expiresAt)) {
+          this.logger.log('Access token expired, refreshing...');
+
+          try {
+            const tokenResponse = await this.zaloOAuthService.refreshToken(
+              platformConnection.credentials.refreshToken,
+            );
+
+            // Update platform connection with new tokens
+            platformConnection.credentials.accessToken = tokenResponse.access_token;
+            platformConnection.credentials.refreshToken = tokenResponse.refresh_token;
+            platformConnection.credentials.expiresAt = new Date(
+              Date.now() + tokenResponse.expires_in * 1000,
+            );
+            await platformConnection.save();
+
+            accessToken = tokenResponse.access_token;
+            this.logger.log('Access token refreshed successfully');
+          } catch (refreshError) {
+            this.logger.error('Failed to refresh access token:', refreshError);
+            throw new BadRequestException(
+              'Access token expired and refresh failed. Please reconnect your Zalo OA.',
+            );
+          }
+        }
+
         const result = await this.zaloOAuthService.sendTextMessage(
-          platformConnection.credentials.accessToken,
+          accessToken,
           customer.platformUserId,
           content.text,
         );
