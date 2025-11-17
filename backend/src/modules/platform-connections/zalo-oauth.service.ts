@@ -101,6 +101,7 @@ export class ZaloOAuthService {
         grant_type: 'authorization_code',
       });
 
+      // Try OA-specific endpoint with secret_key header
       const response = await axios.post(
         'https://oauth.zaloapp.com/v4/oa/access_token',
         formData.toString(),
@@ -111,6 +112,8 @@ export class ZaloOAuthService {
           },
         },
       );
+
+      this.logger.log('Raw Zalo API response:', JSON.stringify(response.data, null, 2));
 
       this.logger.log('Zalo token response:', response.data);
 
