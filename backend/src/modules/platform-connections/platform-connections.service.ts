@@ -81,6 +81,19 @@ export class PlatformConnectionsService {
     }
 
     this.logger.log(`Found platform connection: ${platformConnection.platform} (${platformConnection.platformAccountName})`);
+    this.logger.log(`Platform connection ID: ${id}`);
+    this.logger.log(`Platform account ID: ${platformConnection.platformAccountId}`);
+
+    // Debug: Check all conversations in DB
+    const allConversations = await this.conversationModel.find({ platform: 'zalo' }).exec();
+    this.logger.log(`Total Zalo conversations in DB: ${allConversations.length}`);
+    if (allConversations.length > 0) {
+      this.logger.log('All Zalo conversations:', allConversations.map(c => ({
+        id: c._id.toString(),
+        platformConnectionId: c.platformConnectionId.toString(),
+        platformConversationId: c.platformConversationId,
+      })));
+    }
 
     // Find all conversations for this platform connection
     // Use platformConnectionId which is the correct foreign key relationship
@@ -88,7 +101,7 @@ export class PlatformConnectionsService {
       .find({ platformConnectionId: new Types.ObjectId(id) })
       .exec();
 
-    this.logger.log(`Found ${conversations.length} conversations to delete`);
+    this.logger.log(`Found ${conversations.length} conversations to delete for platformConnectionId: ${id}`);
 
     if (conversations.length > 0) {
       this.logger.log('Conversation IDs to delete:', conversations.map(c => c._id.toString()));
