@@ -1,16 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
   PlatformConnection,
   PlatformConnectionDocument,
 } from '@/common/database/schemas/platform-connection.schema';
+import {
+  Conversation,
+  ConversationDocument,
+} from '@/common/database/schemas/conversation.schema';
+import {
+  Message,
+  MessageDocument,
+} from '@/common/database/schemas/message.schema';
 
 @Injectable()
 export class PlatformConnectionsService {
+  private readonly logger = new Logger(PlatformConnectionsService.name);
+
   constructor(
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
+    @InjectModel(Conversation.name)
+    private conversationModel: Model<ConversationDocument>,
+    @InjectModel(Message.name)
+    private messageModel: Model<MessageDocument>,
   ) {}
 
   async findAllByUser(userId: string): Promise<any> {
@@ -56,6 +70,37 @@ export class PlatformConnectionsService {
   }
 
   async delete(id: string): Promise<void> {
+    // Find the platform connection first
+    const platformConnection = await this.platformConnectionModel.findById(id).exec();
+
+    if (!platformConnection) {
+      this.logger.warn(`Platform connection ${id} not found`);
+      return;
+    }
+
+    // Find all conversations for this platform connection
+    const conversations = await this.conversationModel
+      .find({ platformConnectionId: new Types.ObjectId(id) })
+      .exec();
+
+    const conversationIds = conversations.map((conv) => conv._id);
+
+    // Delete all messages in these conversations
+    const messageDeleteResult = await this.messageModel
+      .deleteMany({ conversationId: { $in: conversationIds } })
+      .exec();
+
+    // Delete all conversations
+    const conversationDeleteResult = await this.conversationModel
+      .deleteMany({ platformConnectionId: new Types.ObjectId(id) })
+      .exec();
+
+    // Delete the platform connection
     await this.platformConnectionModel.findByIdAndDelete(id).exec();
+
+    this.logger.log(
+      `Disconnected platform ${platformConnection.platform} (${platformConnection.platformAccountName}): ` +
+      `Deleted ${conversationDeleteResult.deletedCount} conversations and ${messageDeleteResult.deletedCount} messages`,
+    );
   }
 }

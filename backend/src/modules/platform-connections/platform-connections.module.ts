@@ -13,12 +13,17 @@ import {
   Conversation,
   ConversationSchema,
 } from '@/common/database/schemas/conversation.schema';
+import {
+  Message,
+  MessageSchema,
+} from '@/common/database/schemas/message.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
       { name: Conversation.name, schema: ConversationSchema },
+      { name: Message.name, schema: MessageSchema },
     ]),
   ],
   controllers: [PlatformConnectionsController, ZaloOAuthController],
