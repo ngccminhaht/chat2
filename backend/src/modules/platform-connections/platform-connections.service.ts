@@ -70,6 +70,8 @@ export class PlatformConnectionsService {
   }
 
   async delete(id: string): Promise<void> {
+    this.logger.log(`Starting deletion of platform connection: ${id}`);
+
     // Find the platform connection first
     const platformConnection = await this.platformConnectionModel.findById(id).exec();
 
@@ -78,10 +80,14 @@ export class PlatformConnectionsService {
       return;
     }
 
+    this.logger.log(`Found platform connection: ${platformConnection.platform} (${platformConnection.platformAccountName})`);
+
     // Find all conversations for this platform connection
     const conversations = await this.conversationModel
       .find({ platformConnectionId: new Types.ObjectId(id) })
       .exec();
+
+    this.logger.log(`Found ${conversations.length} conversations to delete`);
 
     const conversationIds = conversations.map((conv) => conv._id);
 
@@ -90,10 +96,14 @@ export class PlatformConnectionsService {
       .deleteMany({ conversationId: { $in: conversationIds } })
       .exec();
 
+    this.logger.log(`Deleted ${messageDeleteResult.deletedCount} messages`);
+
     // Delete all conversations
     const conversationDeleteResult = await this.conversationModel
       .deleteMany({ platformConnectionId: new Types.ObjectId(id) })
       .exec();
+
+    this.logger.log(`Deleted ${conversationDeleteResult.deletedCount} conversations`);
 
     // Delete the platform connection
     await this.platformConnectionModel.findByIdAndDelete(id).exec();
