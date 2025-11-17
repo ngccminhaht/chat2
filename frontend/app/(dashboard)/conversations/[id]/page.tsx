@@ -18,14 +18,14 @@ export default function ConversationDetailPage() {
 
   // Get messages from Zustand store (updated by WebSocket)
   const storeMessages = useConversationStore((state) => state.messages[conversationId] || []);
-  const setMessages = useConversationStore((state) => state.setMessages);
 
   // Sync initial query data to Zustand store
   useEffect(() => {
     if (data?.data && conversationId) {
-      setMessages(conversationId, data.data);
+      useConversationStore.getState().setMessages(conversationId, data.data);
     }
-  }, [data, conversationId, setMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.data, conversationId]);
 
   // Join conversation room for real-time updates
   useEffect(() => {
