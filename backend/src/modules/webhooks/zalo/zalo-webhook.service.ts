@@ -194,6 +194,13 @@ export class ZaloWebhookService {
     }
 
     // Create message
+    this.logger.log('Creating message in database:', {
+      conversationId: conversation._id,
+      messageType,
+      contentPreview: messageType === 'text' ? content.text?.substring(0, 50) : `[${messageType}]`,
+      senderId: payload.user_id_by_app,
+    });
+
     const message = await this.messageModel.create({
       conversationId: conversation._id,
       platform: 'zalo',
@@ -214,6 +221,8 @@ export class ZaloWebhookService {
       },
     });
 
+    this.logger.log(`✅ Message saved successfully: ${message._id}`);
+
     // Update conversation's last message
     await this.conversationModel.findByIdAndUpdate(conversation._id, {
       lastMessage: {
@@ -225,7 +234,7 @@ export class ZaloWebhookService {
       $inc: { unreadCount: 1 },
     });
 
-    this.logger.log(`Saved message: ${message._id}`);
+    this.logger.log(`✅ Conversation updated: ${conversation._id} (unreadCount incremented)`);
 
     // TODO: Emit WebSocket event for real-time update
     // TODO: Publish to Kafka topic 'messages.incoming'

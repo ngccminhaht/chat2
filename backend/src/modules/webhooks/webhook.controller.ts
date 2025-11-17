@@ -35,13 +35,29 @@ export class WebhookController {
   async handleZaloWebhook(
     @Body() payload: ZaloWebhookDto,
     @Headers('x-zalo-signature') signature: string,
+    @Headers() headers: Record<string, string>,
   ): Promise<{ success: boolean }> {
-    this.logger.log('Received Zalo webhook - Full payload:', JSON.stringify(payload, null, 2));
-    this.logger.log('Received Zalo webhook event:', {
+    this.logger.log('='.repeat(80));
+    this.logger.log('📥 ZALO WEBHOOK RECEIVED');
+    this.logger.log('='.repeat(80));
+    this.logger.log('Headers:', JSON.stringify({
+      'x-zalo-signature': signature,
+      'content-type': headers['content-type'],
+      'user-agent': headers['user-agent'],
+    }, null, 2));
+    this.logger.log('-'.repeat(80));
+    this.logger.log('Full Payload:', JSON.stringify(payload, null, 2));
+    this.logger.log('-'.repeat(80));
+    this.logger.log('Event Summary:', {
       event: payload.event_name,
       oaId: payload.app_id,
       userId: payload.user_id_by_app,
+      timestamp: payload.timestamp,
+      hasMessage: !!payload.message,
+      hasSender: !!payload.sender,
+      hasRecipient: !!payload.recipient,
     });
+    this.logger.log('='.repeat(80));
 
     // Verify signature (if provided)
     if (signature) {
