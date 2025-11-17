@@ -526,13 +526,58 @@ export class ZaloOAuthService {
   }
 
   /**
-   * Send text message to Zalo user
+   * Wrapper to ensure fresh access token before any Zalo OA API call
+   * Always refreshes token before making API request
+   * @param platformConnection - Platform connection document
+   * @returns Fresh access token
+   */
+  async ensureFreshToken(
+    platformConnection: PlatformConnectionDocument,
+  ): Promise<string> {
+    this.logger.log('Ensuring fresh access token by refreshing...');
+
+    const tokenResponse = await this.refreshToken(
+      platformConnection.credentials.refreshToken,
+    );
+
+    // Update platform connection with new tokens
+    platformConnection.credentials.accessToken = tokenResponse.access_token;
+    platformConnection.credentials.refreshToken = tokenResponse.refresh_token;
+    platformConnection.credentials.expiresAt = new Date(
+      Date.now() + tokenResponse.expires_in * 1000,
+    );
+    await platformConnection.save();
+
+    this.logger.log('Fresh token obtained and saved');
+    return tokenResponse.access_token;
+  }
+
+  /**
+   * Send text message to Zalo user with automatic token refresh
+   * @param platformConnection - Platform connection document (will be updated with new token)
+   * @param recipientId - Zalo user ID to send message to
+   * @param text - Message text content
+   * @returns Zalo message response with message_id
+   */
+  async sendTextMessageWithRefresh(
+    platformConnection: PlatformConnectionDocument,
+    recipientId: string,
+    text: string,
+  ): Promise<{ message_id: string }> {
+    // Always refresh token before sending
+    const accessToken = await this.ensureFreshToken(platformConnection);
+
+    return this.sendTextMessage(accessToken, recipientId, text);
+  }
+
+  /**
+   * Send text message to Zalo user (internal method)
    * @param accessToken - Zalo OA access token
    * @param recipientId - Zalo user ID to send message to
    * @param text - Message text content
    * @returns Zalo message response with message_id
    */
-  async sendTextMessage(
+  private async sendTextMessage(
     accessToken: string,
     recipientId: string,
     text: string,
