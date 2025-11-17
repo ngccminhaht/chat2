@@ -82,7 +82,7 @@ export class MessagesService {
       throw new BadRequestException('No customer found in conversation');
     }
 
-    // Get platform connection for access token
+    // Get platform connection for access token (optional for now)
     const platformConnection = await this.platformConnectionModel
       .findById(conversation.platformConnectionId)
       .exec();
@@ -91,9 +91,13 @@ export class MessagesService {
       throw new NotFoundException('Platform connection not found');
     }
 
-    if (platformConnection.status !== 'active') {
-      throw new BadRequestException('Platform connection is not active');
-    }
+    // Get sender info - prefer agent from conversation participants
+    const agent = conversation.participants.find((p) => p.role === 'agent');
+    const senderInfo = {
+      platformUserId: agent?.platformUserId || platformConnection.platformAccountId || 'system',
+      name: agent?.name || platformConnection.platformAccountName || 'Agent',
+      avatar: agent?.avatar || platformConnection.metadata?.avatar,
+    };
 
     // Create message with pending status
     const message = await this.messageModel.create({
@@ -103,11 +107,7 @@ export class MessagesService {
       direction: 'outbound',
       type,
       content,
-      sender: {
-        platformUserId: platformConnection.platformAccountId,
-        name: platformConnection.platformAccountName,
-        avatar: platformConnection.metadata?.avatar,
-      },
+      sender: senderInfo,
       status: 'pending',
       metadata: {
         sentByUserId: userId,

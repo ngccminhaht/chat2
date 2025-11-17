@@ -1,22 +1,26 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Kafka, Consumer, EachMessagePayload } from 'kafkajs';
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { Kafka, Consumer, EachMessagePayload } from "kafkajs";
 import {
   Conversation,
   ConversationDocument,
-} from '@/common/database/schemas/conversation.schema';
+} from "@/common/database/schemas/conversation.schema";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
+} from "@/common/database/schemas/message.schema";
 import {
   PlatformConnection,
   PlatformConnectionDocument,
-} from '@/common/database/schemas/platform-connection.schema';
-import { getKafkaConfig, KAFKA_TOPICS, KAFKA_CONSUMER_GROUPS } from '../kafka.config';
-import { WebhookRawEvent } from '../types/webhook.types';
-import { KafkaProducerService } from '../kafka-producer.service';
+} from "@/common/database/schemas/platform-connection.schema";
+import {
+  getKafkaConfig,
+  KAFKA_TOPICS,
+  KAFKA_CONSUMER_GROUPS,
+} from "../kafka.config";
+import { WebhookRawEvent } from "../types/webhook.types";
+import { KafkaProducerService } from "../kafka-producer.service";
 
 /**
  * Webhook Processor Consumer
@@ -38,7 +42,7 @@ export class WebhookProcessorConsumer implements OnModuleInit {
     private messageModel: Model<MessageDocument>,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
-    private kafkaProducer: KafkaProducerService,
+    private kafkaProducer: KafkaProducerService
   ) {}
 
   async onModuleInit() {
@@ -49,7 +53,7 @@ export class WebhookProcessorConsumer implements OnModuleInit {
     });
 
     await this.consumer.connect();
-    this.logger.log('✅ Webhook Processor Consumer connected');
+    this.logger.log("✅ Webhook Processor Consumer connected");
 
     await this.consumer.subscribe({
       topic: KAFKA_TOPICS.WEBHOOKS_RAW,
@@ -69,34 +73,36 @@ export class WebhookProcessorConsumer implements OnModuleInit {
     const { message } = payload;
 
     try {
-      const event: WebhookRawEvent = JSON.parse(message.value?.toString() || '{}');
+      const event: WebhookRawEvent = JSON.parse(
+        message.value?.toString() || "{}"
+      );
 
       this.logger.log(
-        `📨 Processing webhook event: ${event.platform}/${event.eventName} (ID: ${event.eventId})`,
+        `📨 Processing webhook event: ${event.platform}/${event.eventName} (ID: ${event.eventId})`
       );
 
       // Route to appropriate platform handler
       switch (event.platform) {
-        case 'zalo':
+        case "zalo":
           await this.processZaloWebhook(event);
           break;
-        case 'facebook':
+        case "facebook":
           // TODO: Implement Facebook handler
-          this.logger.warn('Facebook webhook processing not implemented yet');
+          this.logger.warn("Facebook webhook processing not implemented yet");
           break;
-        case 'tiktok':
+        case "tiktok":
           // TODO: Implement TikTok handler
-          this.logger.warn('TikTok webhook processing not implemented yet');
+          this.logger.warn("TikTok webhook processing not implemented yet");
           break;
-        case 'shopee':
+        case "shopee":
           // TODO: Implement Shopee handler
-          this.logger.warn('Shopee webhook processing not implemented yet');
+          this.logger.warn("Shopee webhook processing not implemented yet");
           break;
         default:
           this.logger.warn(`Unknown platform: ${event.platform}`);
       }
     } catch (error) {
-      this.logger.error('Failed to process webhook event:', error);
+      this.logger.error("Failed to process webhook event:", error);
       // Don't throw - let Kafka continue processing other messages
     }
   }
@@ -110,26 +116,29 @@ export class WebhookProcessorConsumer implements OnModuleInit {
     // Find or create platform connection
     let platformConnection = await this.platformConnectionModel
       .findOne({
-        platform: 'zalo',
+        platform: "zalo",
         platformAccountId: event.platformAccountId,
       })
       .exec();
 
     if (!platformConnection) {
       this.logger.warn(
-        `Platform connection not found for Zalo OA: ${event.platformAccountId}, creating placeholder`,
+        `Platform connection not found for Zalo OA: ${event.platformAccountId}, creating placeholder`
       );
 
       platformConnection = await this.platformConnectionModel.create({
-        platform: 'zalo',
+        platform: "zalo",
         platformAccountId: event.platformAccountId,
-        platformAccountName: `Zalo OA ${event.platformAccountId.substring(0, 8)}`,
+        platformAccountName: `Zalo OA ${event.platformAccountId.substring(
+          0,
+          8
+        )}`,
         credentials: {
-          accessToken: 'placeholder',
-          refreshToken: 'placeholder',
+          accessToken: "placeholder",
+          refreshToken: "placeholder",
           expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         },
-        status: 'pending',
+        status: "pending",
         metadata: {
           createdFromWebhook: true,
           oaId: event.platformAccountId,
@@ -142,21 +151,21 @@ export class WebhookProcessorConsumer implements OnModuleInit {
 
     // Route by event type
     switch (event.eventName) {
-      case 'user_send_text':
-      case 'user_send_image':
-      case 'user_send_video':
-      case 'user_send_file':
-      case 'user_send_audio':
-      case 'user_send_sticker':
-      case 'user_send_location':
+      case "user_send_text":
+      case "user_send_image":
+      case "user_send_video":
+      case "user_send_file":
+      case "user_send_audio":
+      case "user_send_sticker":
+      case "user_send_location":
         await this.handleZaloIncomingMessage(payload, platformConnectionId);
         break;
 
-      case 'user_received_message':
+      case "user_received_message":
         await this.handleZaloMessageDelivery(payload);
         break;
 
-      case 'user_seen_message':
+      case "user_seen_message":
         await this.handleZaloMessageRead(payload);
         break;
 
@@ -170,46 +179,50 @@ export class WebhookProcessorConsumer implements OnModuleInit {
    */
   private async handleZaloIncomingMessage(
     payload: any,
-    platformConnectionId: string,
+    platformConnectionId: string
   ): Promise<void> {
     if (!payload.message || !payload.sender) {
-      this.logger.error('Invalid Zalo message payload');
+      this.logger.error("Invalid Zalo message payload");
       return;
     }
 
-    const userId = payload.user_id_by_app || payload.sender.id;
+    const userId = payload.sender.id || payload.user_id_by_app;
 
     // Find or create conversation
     let conversation = await this.conversationModel
       .findOne({
-        platform: 'zalo',
+        platform: "zalo",
         platformConversationId: userId,
       })
       .exec();
 
     if (conversation) {
       // Update platformConnectionId if changed (reconnect scenario)
-      if (conversation.platformConnectionId.toString() !== platformConnectionId) {
+      if (
+        conversation.platformConnectionId.toString() !== platformConnectionId
+      ) {
         this.logger.log(
-          `Updating conversation ${conversation._id} to new connection ${platformConnectionId}`,
+          `Updating conversation ${conversation._id} to new connection ${platformConnectionId}`
         );
-        conversation.platformConnectionId = new Types.ObjectId(platformConnectionId);
+        conversation.platformConnectionId = new Types.ObjectId(
+          platformConnectionId
+        );
         await conversation.save();
       }
     } else {
       // Create new conversation
       conversation = await this.conversationModel.create({
-        platform: 'zalo',
+        platform: "zalo",
         platformConversationId: userId,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         participants: [
           {
             platformUserId: userId,
             name: `Zalo User ${userId.substring(0, 8)}`,
-            role: 'customer',
+            role: "customer",
           },
         ],
-        status: 'open',
+        status: "open",
         unreadCount: 0,
         metadata: {
           appId: payload.app_id,
@@ -225,17 +238,19 @@ export class WebhookProcessorConsumer implements OnModuleInit {
     // Create message
     const message = await this.messageModel.create({
       conversationId: conversation._id,
-      platform: 'zalo',
+      platform: "zalo",
       platformMessageId: payload.message.msg_id,
-      direction: 'inbound',
+      direction: "inbound",
       type: normalized.messageType,
       content: normalized.content,
       sender: {
         platformUserId: userId,
-        name: conversation.participants[0]?.name || `Zalo User ${userId.substring(0, 8)}`,
+        name:
+          conversation.participants[0]?.name ||
+          `Zalo User ${userId.substring(0, 8)}`,
         avatar: conversation.participants[0]?.avatar,
       },
-      status: 'sent',
+      status: "sent",
       metadata: {
         rawPayload: payload,
       },
@@ -261,13 +276,16 @@ export class WebhookProcessorConsumer implements OnModuleInit {
   /**
    * Normalize Zalo message content
    */
-  private normalizeZaloMessage(payload: any): { messageType: string; content: any } {
+  private normalizeZaloMessage(payload: any): {
+    messageType: string;
+    content: any;
+  } {
     const message = payload.message;
 
     // Text message
     if (message.text) {
       return {
-        messageType: 'text',
+        messageType: "text",
         content: { text: message.text },
       };
     }
@@ -277,44 +295,44 @@ export class WebhookProcessorConsumer implements OnModuleInit {
       const attachment = message.attachments[0];
 
       switch (attachment.type) {
-        case 'image':
+        case "image":
           return {
-            messageType: 'image',
+            messageType: "image",
             content: {
               mediaUrl: attachment.payload.url,
               thumbnailUrl: attachment.payload.thumbnail,
             },
           };
-        case 'video':
+        case "video":
           return {
-            messageType: 'video',
+            messageType: "video",
             content: {
               mediaUrl: attachment.payload.url,
               thumbnailUrl: attachment.payload.thumbnail,
             },
           };
-        case 'file':
+        case "file":
           return {
-            messageType: 'file',
+            messageType: "file",
             content: {
               mediaUrl: attachment.payload.url,
               fileName: attachment.payload.name,
               fileSize: attachment.payload.size,
             },
           };
-        case 'audio':
+        case "audio":
           return {
-            messageType: 'audio',
+            messageType: "audio",
             content: { mediaUrl: attachment.payload.url },
           };
-        case 'sticker':
+        case "sticker":
           return {
-            messageType: 'sticker',
+            messageType: "sticker",
             content: { stickerId: attachment.payload.id },
           };
-        case 'location':
+        case "location":
           return {
-            messageType: 'location',
+            messageType: "location",
             content: {
               latitude: attachment.payload.coordinates?.latitude,
               longitude: attachment.payload.coordinates?.longitude,
@@ -323,7 +341,7 @@ export class WebhookProcessorConsumer implements OnModuleInit {
       }
     }
 
-    throw new Error('Invalid Zalo message - no text or attachments');
+    throw new Error("Invalid Zalo message - no text or attachments");
   }
 
   /**
@@ -334,10 +352,10 @@ export class WebhookProcessorConsumer implements OnModuleInit {
 
     await this.messageModel.findOneAndUpdate(
       {
-        platform: 'zalo',
+        platform: "zalo",
         platformMessageId: payload.message.msg_id,
       },
-      { status: 'delivered' },
+      { status: "delivered" }
     );
 
     this.logger.log(`Message ${payload.message.msg_id} delivered`);
@@ -351,10 +369,10 @@ export class WebhookProcessorConsumer implements OnModuleInit {
 
     const message = await this.messageModel.findOneAndUpdate(
       {
-        platform: 'zalo',
+        platform: "zalo",
         platformMessageId: payload.message.msg_id,
       },
-      { status: 'read' },
+      { status: "read" }
     );
 
     if (message) {
@@ -371,13 +389,13 @@ export class WebhookProcessorConsumer implements OnModuleInit {
    */
   private async publishWebSocketNotification(
     conversation: ConversationDocument,
-    message: MessageDocument,
+    message: MessageDocument
   ): Promise<void> {
     try {
       await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
         key: conversation._id.toString(),
         value: {
-          type: 'new_message',
+          type: "new_message",
           conversationId: conversation._id.toString(),
           payload: {
             message: {
@@ -399,9 +417,11 @@ export class WebhookProcessorConsumer implements OnModuleInit {
         },
       });
 
-      this.logger.log(`📤 Published WebSocket notification for conversation ${conversation._id}`);
+      this.logger.log(
+        `📤 Published WebSocket notification for conversation ${conversation._id}`
+      );
     } catch (error) {
-      this.logger.error('Failed to publish WebSocket notification:', error);
+      this.logger.error("Failed to publish WebSocket notification:", error);
     }
   }
 }
