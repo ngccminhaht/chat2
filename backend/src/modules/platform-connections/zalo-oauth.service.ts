@@ -405,7 +405,7 @@ export class ZaloOAuthService {
     const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
 
     // Check if THIS USER already connected THIS SPECIFIC OA
-    const existing = await this.platformConnectionModel
+    let existing = await this.platformConnectionModel
       .findOne({
         userId: new Types.ObjectId(userId),
         platform: 'zalo',
@@ -413,8 +413,26 @@ export class ZaloOAuthService {
       })
       .exec();
 
+    // Also check for placeholder connection created from webhook (no userId)
+    if (!existing) {
+      existing = await this.platformConnectionModel
+        .findOne({
+          platform: 'zalo',
+          platformAccountId: oaInfo.oa_id,
+          'metadata.createdFromWebhook': true,
+        })
+        .exec();
+
+      if (existing) {
+        this.logger.log(
+          `Found placeholder connection from webhook, updating with user ${userId}`,
+        );
+      }
+    }
+
     if (existing) {
-      // Update existing connection (refresh tokens)
+      // Update existing connection (refresh tokens and activate)
+      existing.userId = new Types.ObjectId(userId);
       existing.platformAccountName = oaInfo.name;
       existing.credentials = {
         accessToken: tokenResponse.access_token,
@@ -423,9 +441,11 @@ export class ZaloOAuthService {
       };
       existing.status = 'active';
       existing.metadata = {
+        ...existing.metadata,
         oaId: oaInfo.oa_id,
         description: oaInfo.description,
         avatar: oaInfo.avatar,
+        createdFromWebhook: undefined, // Remove webhook flag
       };
       existing.lastSyncAt = new Date();
 
