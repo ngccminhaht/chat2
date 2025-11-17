@@ -12,7 +12,7 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: ["https://miagent.sapp.merket.io", "http://localhost:3001"],
+    origin: ["https://miagent.sapp.merket.io", "http://localhost:3001", "http://localhost:8315"],
     credentials: true,
   });
 
