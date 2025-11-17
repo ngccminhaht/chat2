@@ -207,6 +207,7 @@ export class ZaloWebhookService {
         platform: "zalo",
         platformConversationId: conversationKey, // Use composite key
         platformConnectionId: new Types.ObjectId(platformConnectionId),
+        platformAccountId: oaId, // Store OA ID for easy querying
         participants: [
           {
             platformUserId: senderId, // Global sender ID

@@ -392,6 +392,7 @@ export class ZaloOAuthService {
             platform: 'zalo',
             platformConversationId: conversationKey,
             platformConnectionId: new Types.ObjectId(platformConnectionId),
+            platformAccountId: oaId, // Store OA ID for easy querying
             participants: [
               {
                 platformUserId: customerId,
@@ -411,7 +412,6 @@ export class ZaloOAuthService {
             metadata: {
               syncedFromRecentChats: true,
               lastMessageId: chat.lastMessage.messageId,
-              oaId: oaId,
             },
           });
 

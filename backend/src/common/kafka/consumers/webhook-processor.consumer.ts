@@ -231,6 +231,7 @@ export class WebhookProcessorConsumer implements OnModuleInit {
         platform: "zalo",
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
+        platformAccountId: oaId, // Store OA ID for easy querying
         participants: [
           {
             platformUserId: senderId,

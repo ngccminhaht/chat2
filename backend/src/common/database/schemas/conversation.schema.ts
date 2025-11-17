@@ -17,6 +17,9 @@ export class Conversation {
   @Prop({ type: Types.ObjectId, ref: 'PlatformConnection', required: true })
   platformConnectionId: Types.ObjectId;
 
+  @Prop()
+  platformAccountId?: string; // OA ID for Zalo, Page ID for Facebook, etc.
+
   @Prop({
     type: [
       {
@@ -69,3 +72,4 @@ export const ConversationSchema = SchemaFactory.createForClass(Conversation);
 ConversationSchema.index({ status: 1, updatedAt: -1 });
 ConversationSchema.index({ platformConnectionId: 1, platformConversationId: 1 }, { unique: true });
 ConversationSchema.index({ assignedTo: 1 });
+ConversationSchema.index({ platform: 1, platformAccountId: 1 }); // For querying by OA/Page ID
