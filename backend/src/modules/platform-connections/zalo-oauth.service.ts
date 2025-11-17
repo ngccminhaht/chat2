@@ -101,10 +101,19 @@ export class ZaloOAuthService {
 
       const formData = new URLSearchParams(params);
 
-      this.logger.log('Exchanging code for token with Zalo API:', {
+      this.logger.log('=== Exchanging code for token - REQUEST ===');
+      this.logger.log('URL: https://oauth.zaloapp.com/v4/oa/access_token');
+      this.logger.log('Method: POST');
+      this.logger.log('Headers:', {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'secret_key': `${this.appSecret?.substring(0, 10)}...`,
+      });
+      this.logger.log('Body params:', {
         app_id: this.appId,
-        hasOaId: !!oaId,
+        code: `${code?.substring(0, 20)}...`,
+        code_verifier: `${codeVerifier?.substring(0, 20)}...`,
         grant_type: 'authorization_code',
+        oa_id: oaId || 'NOT PROVIDED',
       });
 
       // Try OA-specific endpoint with secret_key header
@@ -119,16 +128,37 @@ export class ZaloOAuthService {
         },
       );
 
-      this.logger.log('Raw Zalo API response:', JSON.stringify(response.data, null, 2));
-
-      this.logger.log('Zalo token response:', response.data);
+      this.logger.log('=== Exchanging code for token - RESPONSE ===');
+      this.logger.log('Status:', response.status);
+      this.logger.log('Full response:', JSON.stringify(response.data, null, 2));
 
       if (response.data.error) {
-        this.logger.error('Zalo OAuth error:', response.data);
+        this.logger.error('❌ Zalo OAuth ERROR in response:');
+        this.logger.error(`  Error code: ${response.data.error}`);
+        this.logger.error(`  Error name: ${response.data.error_name}`);
+        this.logger.error(`  Error description: ${response.data.error_description}`);
+        this.logger.error(`  Ref doc: ${response.data.ref_doc}`);
         throw new BadRequestException(
           `Zalo OAuth error: ${response.data.error_description || response.data.error}`,
         );
       }
+
+      // Validate response has required tokens
+      if (!response.data.access_token) {
+        this.logger.error('❌ Response missing access_token!');
+        throw new BadRequestException('Zalo OAuth response missing access_token');
+      }
+
+      if (!response.data.refresh_token) {
+        this.logger.error('⚠️ WARNING: Response missing refresh_token!');
+        this.logger.error('This will cause issues when the access token expires.');
+        this.logger.error('Full response:', JSON.stringify(response.data, null, 2));
+      }
+
+      this.logger.log('✅ Token exchange SUCCESS:');
+      this.logger.log(`  Access token: ${response.data.access_token?.substring(0, 30)}... (length: ${response.data.access_token?.length})`);
+      this.logger.log(`  Refresh token: ${response.data.refresh_token ? response.data.refresh_token.substring(0, 30) + '... (length: ' + response.data.refresh_token.length + ')' : 'NOT PROVIDED ❌'}`);
+      this.logger.log(`  Expires in: ${response.data.expires_in} seconds (${Math.floor(response.data.expires_in / 3600)} hours)`);
 
       return {
         access_token: response.data.access_token,
@@ -402,7 +432,26 @@ export class ZaloOAuthService {
     tokenResponse: ZaloTokenResponse,
     oaInfo: ZaloOAInfo,
   ): Promise<PlatformConnectionDocument> {
+    // Validate token response before saving
+    if (!tokenResponse.access_token) {
+      this.logger.error('❌ Cannot save platform connection: missing access_token');
+      throw new BadRequestException('Invalid token response: missing access_token');
+    }
+
+    if (!tokenResponse.refresh_token) {
+      this.logger.warn('⚠️ Token response missing refresh_token - connection will fail when access token expires!');
+      this.logger.warn('Token response:', JSON.stringify(tokenResponse, null, 2));
+    }
+
     const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
+
+    this.logger.log('=== Saving platform connection ===');
+    this.logger.log(`User ID: ${userId}`);
+    this.logger.log(`OA ID: ${oaInfo.oa_id}`);
+    this.logger.log(`OA Name: ${oaInfo.name}`);
+    this.logger.log(`Access Token: ${tokenResponse.access_token?.substring(0, 30)}... (length: ${tokenResponse.access_token?.length})`);
+    this.logger.log(`Refresh Token: ${tokenResponse.refresh_token ? tokenResponse.refresh_token.substring(0, 30) + '... (length: ' + tokenResponse.refresh_token.length + ')' : 'MISSING ❌'}`);
+    this.logger.log(`Expires At: ${expiresAt}`);
 
     // Check if THIS USER already connected THIS SPECIFIC OA
     let existing = await this.platformConnectionModel
@@ -432,6 +481,10 @@ export class ZaloOAuthService {
 
     if (existing) {
       // Update existing connection (refresh tokens and activate)
+      this.logger.log(`Found existing connection: ${existing._id}`);
+      this.logger.log(`Previous status: ${existing.status}`);
+      this.logger.log(`Previous refresh token: ${existing.credentials.refreshToken?.substring(0, 30)}... (length: ${existing.credentials.refreshToken?.length})`);
+
       existing.userId = new Types.ObjectId(userId);
       existing.platformAccountName = oaInfo.name;
       existing.credentials = {
@@ -449,9 +502,10 @@ export class ZaloOAuthService {
       };
       existing.lastSyncAt = new Date();
 
-      this.logger.log(
-        `Updated existing connection for user ${userId} and OA ${oaInfo.oa_id}`,
-      );
+      this.logger.log(`✅ Updated existing connection for user ${userId} and OA ${oaInfo.oa_id}`);
+      this.logger.log(`New status: ${existing.status}`);
+      this.logger.log(`New refresh token: ${existing.credentials.refreshToken?.substring(0, 30)}... (length: ${existing.credentials.refreshToken?.length})`);
+
       return existing.save();
     }
 
@@ -485,6 +539,16 @@ export class ZaloOAuthService {
    */
   async refreshToken(refreshToken: string): Promise<ZaloTokenResponse> {
     try {
+      // Validate refresh token before attempting refresh
+      if (!refreshToken || refreshToken === 'placeholder') {
+        this.logger.error('❌ Invalid refresh token provided:', {
+          isNull: !refreshToken,
+          isPlaceholder: refreshToken === 'placeholder',
+          value: refreshToken,
+        });
+        throw new BadRequestException('Invalid refresh token - please reconnect your Zalo OA');
+      }
+
       // Create URL-encoded form data for OA token refresh
       const params = new URLSearchParams({
         app_id: this.appId,
@@ -492,7 +556,19 @@ export class ZaloOAuthService {
         grant_type: 'refresh_token',
       });
 
-      this.logger.log('Refreshing Zalo OA access token');
+      this.logger.log('=== Refreshing Zalo OA access token - REQUEST ===');
+      this.logger.log('URL: https://oauth.zaloapp.com/v4/oa/access_token');
+      this.logger.log('Method: POST');
+      this.logger.log('Headers:', {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'secret_key': this.appSecret, // FULL secret for debug
+      });
+      this.logger.log('Body params:', {
+        app_id: this.appId,
+        refresh_token: refreshToken, // FULL refresh_token for debug
+        grant_type: 'refresh_token',
+      });
+      this.logger.log('⚠️ DEBUG MODE: Showing FULL tokens above (remove in production!)');
 
       const response = await axios.post(
         'https://oauth.zaloapp.com/v4/oa/access_token',
@@ -558,10 +634,30 @@ export class ZaloOAuthService {
     const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
 
     this.logger.log('=== ensureFreshToken check ===');
-    this.logger.log(`Current access token: ${platformConnection.credentials.accessToken?.substring(0, 30)}...`);
+    this.logger.log(`Platform Connection ID: ${platformConnection._id}`);
+    this.logger.log(`OA ID: ${platformConnection.platformAccountId}`);
+    this.logger.log(`Status: ${platformConnection.status}`);
+    this.logger.log(`Current access token: ${platformConnection.credentials.accessToken?.substring(0, 30)}... (length: ${platformConnection.credentials.accessToken?.length})`);
+    this.logger.log(`Current refresh token: ${platformConnection.credentials.refreshToken?.substring(0, 30)}... (length: ${platformConnection.credentials.refreshToken?.length})`);
     this.logger.log(`Token expires at: ${expiresAt}`);
     this.logger.log(`Current time: ${now}`);
     this.logger.log(`Time until expiry: ${expiresAt ? new Date(expiresAt).getTime() - now.getTime() : 'N/A'} ms`);
+
+    // Check for placeholder tokens from webhook-created connections
+    if (platformConnection.credentials.accessToken === 'placeholder' ||
+        platformConnection.credentials.refreshToken === 'placeholder') {
+      this.logger.error('❌ Platform connection has placeholder tokens!');
+      this.logger.error('This connection was created from a webhook and needs proper authentication.');
+      this.logger.error('Please reconnect your Zalo OA in Platform Connections settings.');
+
+      // Mark as inactive
+      platformConnection.status = 'pending';
+      await platformConnection.save();
+
+      throw new BadRequestException(
+        'Platform connection not properly authenticated. Please reconnect your Zalo OA in settings.',
+      );
+    }
 
     // Check if token is still valid (not expired and won't expire in next 5 minutes)
     if (expiresAt && now.getTime() < new Date(expiresAt).getTime() - bufferTime) {
@@ -589,26 +685,38 @@ export class ZaloOAuthService {
       this.logger.log(`New token expires at: ${platformConnection.credentials.expiresAt}`);
       return tokenResponse.access_token;
     } catch (error) {
+      this.logger.error('=== Token refresh FAILED ===');
+
       // Check if error is due to invalid refresh token (Zalo error -14014)
       const errorData = error.response?.data;
-      if (errorData?.error === -14014) {
-        this.logger.error('Refresh token is invalid or expired (90 days limit reached)');
+      this.logger.error('Error response data:', JSON.stringify(errorData, null, 2));
 
-        // Mark platform connection as inactive
-        platformConnection.status = 'inactive';
+      if (errorData?.error === -14014) {
+        this.logger.error('❌ Refresh token is invalid or expired (Zalo error -14014)');
+        this.logger.error('Possible causes:');
+        this.logger.error('  1. Refresh token expired (90 days limit)');
+        this.logger.error('  2. User revoked app permissions');
+        this.logger.error('  3. Refresh token was never properly set (placeholder token)');
+
+        // Mark platform connection as error status
+        platformConnection.status = 'error';
         platformConnection.metadata = {
           ...platformConnection.metadata,
           error: 'Refresh token expired',
+          errorCode: -14014,
           lastError: new Date(),
         };
         await platformConnection.save();
+
+        this.logger.error(`Platform connection ${platformConnection._id} marked as error status`);
 
         throw new BadRequestException(
           'Refresh token has expired. Please reconnect your Zalo OA in Platform Connections settings.',
         );
       }
 
-      // Other error, rethrow
+      // Other error types
+      this.logger.error('❌ Unknown error during token refresh:', error.message);
       throw error;
     }
   }
