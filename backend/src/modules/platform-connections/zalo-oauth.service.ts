@@ -8,6 +8,10 @@ import {
   PlatformConnection,
   PlatformConnectionDocument,
 } from '@/common/database/schemas/platform-connection.schema';
+import {
+  Conversation,
+  ConversationDocument,
+} from '@/common/database/schemas/conversation.schema';
 import { ZaloTokenResponse, ZaloOAInfo } from './dto/zalo-oauth.dto';
 
 @Injectable()
@@ -21,6 +25,8 @@ export class ZaloOAuthService {
     private configService: ConfigService,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
+    @InjectModel(Conversation.name)
+    private conversationModel: Model<ConversationDocument>,
   ) {
     this.appId = this.configService.get<string>('ZALO_APP_ID');
     this.appSecret = this.configService.get<string>('ZALO_APP_SECRET');
@@ -162,6 +168,166 @@ export class ZaloOAuthService {
     } catch (error) {
       this.logger.error('Failed to get OA info', error);
       throw new BadRequestException('Failed to fetch Zalo OA information');
+    }
+  }
+
+  /**
+   * Get recent chat list from Zalo OA
+   */
+  async getRecentChats(
+    accessToken: string,
+    offset: number = 0,
+    count: number = 10,
+  ): Promise<any> {
+    try {
+      const params = new URLSearchParams({
+        offset: offset.toString(),
+        count: count.toString(),
+      });
+
+      const response = await axios.get(
+        `https://openapi.zalo.me/v2.0/oa/listrecentchat?${params.toString()}`,
+        {
+          headers: {
+            access_token: accessToken,
+          },
+        },
+      );
+
+      this.logger.log('Zalo recent chats response:', response.data);
+
+      if (response.data.error) {
+        throw new BadRequestException(
+          `Failed to get recent chats: ${response.data.message}`,
+        );
+      }
+
+      return response.data.data;
+    } catch (error) {
+      this.logger.error('Failed to get recent chats', error);
+      throw new BadRequestException('Failed to fetch recent chats from Zalo');
+    }
+  }
+
+  /**
+   * Get user profile information
+   */
+  async getUserProfile(accessToken: string, userId: string): Promise<any> {
+    try {
+      const params = new URLSearchParams({
+        user_id: userId,
+      });
+
+      const response = await axios.get(
+        `https://openapi.zalo.me/v2.0/oa/getprofile?${params.toString()}`,
+        {
+          headers: {
+            access_token: accessToken,
+          },
+        },
+      );
+
+      if (response.data.error) {
+        this.logger.warn(
+          `Failed to get user profile for ${userId}: ${response.data.message}`,
+        );
+        return null;
+      }
+
+      return response.data.data;
+    } catch (error) {
+      this.logger.warn(`Failed to get user profile for ${userId}`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Sync conversations from Zalo recent chats
+   */
+  async syncConversations(
+    platformConnectionId: string,
+    accessToken: string,
+  ): Promise<number> {
+    try {
+      this.logger.log(
+        `Starting conversation sync for connection ${platformConnectionId}`,
+      );
+
+      // Get recent chats from Zalo (get up to 50 recent chats)
+      const recentChats = await this.getRecentChats(accessToken, 0, 50);
+
+      if (!recentChats || !recentChats.users) {
+        this.logger.warn('No recent chats found');
+        return 0;
+      }
+
+      let syncedCount = 0;
+
+      // Process each recent chat
+      for (const chat of recentChats.users) {
+        try {
+          const userIdByApp = chat.user_id;
+
+          // Check if conversation already exists
+          const existing = await this.conversationModel
+            .findOne({
+              platform: 'zalo',
+              platformConversationId: userIdByApp,
+              platformConnectionId: new Types.ObjectId(platformConnectionId),
+            })
+            .exec();
+
+          if (existing) {
+            this.logger.log(
+              `Conversation already exists for user ${userIdByApp}`,
+            );
+            continue;
+          }
+
+          // Get user profile for additional info
+          const userProfile = await this.getUserProfile(accessToken, userIdByApp);
+
+          const displayName = userProfile?.display_name || `Zalo User ${userIdByApp.substring(0, 8)}`;
+          const avatar = userProfile?.avatar;
+
+          // Create new conversation
+          await this.conversationModel.create({
+            platform: 'zalo',
+            platformConversationId: userIdByApp,
+            platformConnectionId: new Types.ObjectId(platformConnectionId),
+            participants: [
+              {
+                platformUserId: userIdByApp,
+                name: displayName,
+                avatar: avatar,
+                role: 'customer',
+              },
+            ],
+            status: 'open',
+            unreadCount: 0,
+            metadata: {
+              syncedFromRecentChats: true,
+            },
+          });
+
+          syncedCount++;
+          this.logger.log(`Created conversation for user ${userIdByApp}`);
+        } catch (error) {
+          this.logger.error(
+            `Failed to sync conversation for user ${chat.user_id}:`,
+            error,
+          );
+          // Continue with next chat even if one fails
+        }
+      }
+
+      this.logger.log(
+        `Conversation sync completed. Synced ${syncedCount} conversations.`,
+      );
+      return syncedCount;
+    } catch (error) {
+      this.logger.error('Failed to sync conversations:', error);
+      throw error;
     }
   }
 

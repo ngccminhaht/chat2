@@ -100,12 +100,21 @@ export class ZaloOAuthController {
     );
 
     // Save platform connection to database
+    let connectionId: string;
     if (storedStateData.userId) {
-      await this.zaloOAuthService.savePlatformConnection(
+      const connection = await this.zaloOAuthService.savePlatformConnection(
         storedStateData.userId,
         tokenResponse,
         oaInfo,
       );
+      connectionId = connection._id.toString();
+
+      // Sync conversations in background (don't wait for completion)
+      this.zaloOAuthService
+        .syncConversations(connectionId, tokenResponse.access_token)
+        .catch((error) => {
+          console.error('Failed to sync conversations:', error);
+        });
     }
 
     // Redirect to frontend with success message
@@ -172,6 +181,14 @@ export class ZaloOAuthController {
       tokenResponse,
       oaInfo,
     );
+
+    // Sync conversations in background (don't wait for completion)
+    const connectionId = connection._id.toString();
+    this.zaloOAuthService
+      .syncConversations(connectionId, tokenResponse.access_token)
+      .catch((error) => {
+        console.error('Failed to sync conversations:', error);
+      });
 
     return {
       success: true,

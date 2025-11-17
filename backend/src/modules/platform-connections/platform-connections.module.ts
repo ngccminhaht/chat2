@@ -9,11 +9,16 @@ import {
   PlatformConnection,
   PlatformConnectionSchema,
 } from '@/common/database/schemas/platform-connection.schema';
+import {
+  Conversation,
+  ConversationSchema,
+} from '@/common/database/schemas/conversation.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
+      { name: Conversation.name, schema: ConversationSchema },
     ]),
   ],
   controllers: [PlatformConnectionsController, ZaloOAuthController],
