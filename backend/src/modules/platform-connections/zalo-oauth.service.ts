@@ -180,6 +180,12 @@ export class ZaloOAuthService {
     count: number = 10,
   ): Promise<any> {
     try {
+      // Zalo API limit: maximum count is 10
+      if (count > 10) {
+        this.logger.warn(`Count ${count} exceeds Zalo limit, using max 10`);
+        count = 10;
+      }
+
       // Zalo API requires 'data' parameter as JSON string
       const data = JSON.stringify({ offset, count });
       const url = `https://openapi.zalo.me/v2.0/oa/listrecentchat?data=${encodeURIComponent(data)}`;
@@ -264,8 +270,8 @@ export class ZaloOAuthService {
         `Starting conversation sync for connection ${platformConnectionId}`,
       );
 
-      // Get recent chats from Zalo (get up to 50 recent chats)
-      const recentChats = await this.getRecentChats(accessToken, 0, 50);
+      // Get recent chats from Zalo (max 10 per Zalo API limit)
+      const recentChats = await this.getRecentChats(accessToken, 0, 10);
 
       if (!recentChats || !recentChats.users) {
         this.logger.warn('No recent chats found');
