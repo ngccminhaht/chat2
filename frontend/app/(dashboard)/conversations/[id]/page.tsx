@@ -62,21 +62,45 @@ export default function ConversationDetailPage() {
   useEffect(() => {
     if (!conversationId) return;
 
-    // Wait for socket to be connected
-    const checkAndJoin = () => {
-      if (wsClient.connected && !hasJoinedRef.current) {
-        wsClient.joinRoom(conversationId);
-        hasJoinedRef.current = true;
-      } else if (!wsClient.connected) {
-        // Retry after a short delay if not connected
-        setTimeout(checkAndJoin, 100);
+    let intervalId: NodeJS.Timeout | null = null;
+
+    // Try to join room, with retry if not connected yet
+    const tryJoin = () => {
+      if (wsClient.connected) {
+        if (!hasJoinedRef.current) {
+          wsClient.joinRoom(conversationId);
+          hasJoinedRef.current = true;
+        }
+        // Stop retrying once joined
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
       }
     };
 
-    checkAndJoin();
+    // Try immediately
+    tryJoin();
+
+    // If not connected, retry every 100ms (max 50 times = 5 seconds)
+    if (!hasJoinedRef.current) {
+      let attempts = 0;
+      intervalId = setInterval(() => {
+        attempts++;
+        if (attempts > 50 || hasJoinedRef.current) {
+          if (intervalId) clearInterval(intervalId);
+          return;
+        }
+        tryJoin();
+      }, 100);
+    }
 
     return () => {
-      // Only leave if we actually joined
+      // Cleanup interval
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      // Leave room if joined
       if (hasJoinedRef.current) {
         wsClient.leaveRoom(conversationId);
         hasJoinedRef.current = false;
