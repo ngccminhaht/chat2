@@ -51,11 +51,11 @@ export default function ConversationItem({ conversation, isActive }: Conversatio
           }
           secondary={
             <>
-              <Typography variant="body2" color="text.secondary" noWrap>
+              <Typography component="span" variant="body2" color="text.secondary" noWrap display="block">
                 {conversation.lastMessage?.text || 'No messages yet'}
               </Typography>
               {conversation.lastMessage && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography component="span" variant="caption" color="text.secondary" display="block">
                   {formatDistanceToNow(new Date(conversation.lastMessage.timestamp), {
                     addSuffix: true,
                   })}
