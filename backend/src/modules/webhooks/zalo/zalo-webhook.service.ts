@@ -107,7 +107,11 @@ export class ZaloWebhookService {
     platformConnectionId: string,
   ): Promise<void> {
     if (!payload.message || !payload.sender) {
-      this.logger.warn('Invalid message payload - missing required fields');
+      this.logger.error('Invalid message payload - missing required fields:', {
+        hasMessage: !!payload.message,
+        hasSender: !!payload.sender,
+        payload: JSON.stringify(payload, null, 2),
+      });
       return;
     }
 
@@ -154,7 +158,20 @@ export class ZaloWebhookService {
     }
 
     // Normalize message content
-    const { messageType, content } = this.normalizeMessageContent(payload);
+    let messageType: string;
+    let content: any;
+
+    try {
+      const normalized = this.normalizeMessageContent(payload);
+      messageType = normalized.messageType;
+      content = normalized.content;
+    } catch (error) {
+      this.logger.error('Failed to normalize message content:', {
+        error: error.message,
+        payload: JSON.stringify(payload, null, 2),
+      });
+      throw error;
+    }
 
     // Create message
     const message = await this.messageModel.create({

@@ -36,6 +36,7 @@ export class WebhookController {
     @Body() payload: ZaloWebhookDto,
     @Headers('x-zalo-signature') signature: string,
   ): Promise<{ success: boolean }> {
+    this.logger.log('Received Zalo webhook - Full payload:', JSON.stringify(payload, null, 2));
     this.logger.log('Received Zalo webhook event:', {
       event: payload.event_name,
       oaId: payload.app_id,
