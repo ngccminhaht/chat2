@@ -53,6 +53,8 @@ export class ZaloWebhookService {
 
     // Auto-find platformConnectionId from OA ID if not provided
     if (!platformConnectionId) {
+      this.logger.log(`=== Webhook: Looking for platform connection for OA ID: ${payload.app_id} ===`);
+
       let connection = await this.platformConnectionModel
         .findOne({
           platform: 'zalo',
@@ -61,37 +63,31 @@ export class ZaloWebhookService {
         .exec();
 
       if (!connection) {
-        this.logger.warn(
-          `Platform connection not found for Zalo OA ID: ${payload.app_id}, creating placeholder connection`,
+        this.logger.error(
+          `❌ Platform connection NOT FOUND for Zalo OA ID: ${payload.app_id}`,
         );
-
-        // Create a placeholder connection to allow webhook processing
-        // User will need to properly authenticate later to send messages
-        connection = await this.platformConnectionModel.create({
-          platform: 'zalo',
-          platformAccountId: payload.app_id,
-          platformAccountName: `Zalo OA ${payload.app_id.substring(0, 8)}`,
-          credentials: {
-            accessToken: 'placeholder', // Will be updated when user authenticates
-            refreshToken: 'placeholder',
-            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-          },
-          status: 'pending', // Mark as pending until proper authentication
-          metadata: {
-            createdFromWebhook: true,
-            oaId: payload.app_id,
-          },
-          lastSyncAt: new Date(),
-        });
-
-        this.logger.log(
-          `Created placeholder connection: ${connection._id} for OA ID: ${payload.app_id}`,
+        this.logger.error(`User must connect this OA via OAuth before receiving messages!`);
+        throw new Error(
+          `Platform connection not found for OA ${payload.app_id}. Please connect your Zalo OA first.`,
         );
+      }
+
+      // Connection found - log its state
+      this.logger.log(`✅ Found existing platform connection: ${connection._id}`);
+      this.logger.log(`  Status: ${connection.status}`);
+      this.logger.log(`  User ID: ${connection.userId || 'NOT SET'}`);
+      this.logger.log(`  Refresh Token: ${connection.credentials?.refreshToken?.substring(0, 30)}... (is placeholder: ${connection.credentials?.refreshToken === 'placeholder'})`);
+      this.logger.log(`  Created from webhook: ${connection.metadata?.createdFromWebhook || false}`);
+
+      // Validate connection has real tokens
+      if (connection.credentials?.refreshToken === 'placeholder') {
+        this.logger.error(`❌ Connection has PLACEHOLDER tokens! User must re-authenticate.`);
+        // Don't throw error - still process incoming message, but warn
       }
 
       platformConnectionId = connection._id.toString();
       this.logger.log(
-        `Found platform connection: ${platformConnectionId} for OA ID: ${payload.app_id}`,
+        `Using platform connection: ${platformConnectionId} for OA ID: ${payload.app_id}`,
       );
     }
 
