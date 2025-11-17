@@ -118,9 +118,9 @@ export class PlatformConnectionsService {
 
     this.logger.log(`Deleted ${messageDeleteResult.deletedCount} messages`);
 
-    // Delete all conversations
+    // Delete all conversations (use the conversationIds we found, not platformConnectionId)
     const conversationDeleteResult = await this.conversationModel
-      .deleteMany({ platformConnectionId: new Types.ObjectId(id) })
+      .deleteMany({ _id: { $in: conversationIds } })
       .exec();
 
     this.logger.log(`Deleted ${conversationDeleteResult.deletedCount} conversations`);
