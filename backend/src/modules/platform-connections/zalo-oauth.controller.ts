@@ -87,10 +87,11 @@ export class ZaloOAuthController {
       throw new BadRequestException('Invalid OAuth state');
     }
 
-    // Exchange code for access token
+    // Exchange code for access token (pass oa_id if available)
     const tokenResponse = await this.zaloOAuthService.exchangeCodeForToken(
       code,
       storedStateData.codeVerifier,
+      oaId, // Pass OA ID from callback
     );
 
     // Get OA information

@@ -77,25 +77,37 @@ export class ZaloOAuthService {
   async exchangeCodeForToken(
     code: string,
     codeVerifier: string,
+    oaId?: string,
   ): Promise<ZaloTokenResponse> {
     try {
       // Create URL-encoded form data
-      const params = new URLSearchParams({
+      const params: Record<string, string> = {
         app_id: this.appId,
-        app_secret: this.appSecret,
         code,
         code_verifier: codeVerifier,
         grant_type: 'authorization_code',
+      };
+
+      // Add oa_id if provided (required for OA OAuth)
+      if (oaId) {
+        params.oa_id = oaId;
+      }
+
+      const formData = new URLSearchParams(params);
+
+      this.logger.log('Exchanging code for token with Zalo API:', {
+        app_id: this.appId,
+        hasOaId: !!oaId,
+        grant_type: 'authorization_code',
       });
 
-      this.logger.log('Exchanging code for token with Zalo API');
-
       const response = await axios.post(
-        'https://oauth.zaloapp.com/v4/access_token',
-        params.toString(),
+        'https://oauth.zaloapp.com/v4/oa/access_token',
+        formData.toString(),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            'secret_key': this.appSecret,
           },
         },
       );
