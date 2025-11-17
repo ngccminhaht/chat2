@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Paper, Typography, Chip, Stack } from '@mui/material';
 import { useMessages } from '@/features/conversations/hooks/useMessages';
@@ -57,13 +57,30 @@ export default function ConversationDetailPage() {
   useWebSocketEvent('conversation:updated', handleConversationUpdated);
 
   // Join/leave conversation room
-  useEffect(() => {
-    if (!conversationId || !wsClient.connected) return;
+  const hasJoinedRef = useRef(false);
 
-    wsClient.joinRoom(conversationId);
+  useEffect(() => {
+    if (!conversationId) return;
+
+    // Wait for socket to be connected
+    const checkAndJoin = () => {
+      if (wsClient.connected && !hasJoinedRef.current) {
+        wsClient.joinRoom(conversationId);
+        hasJoinedRef.current = true;
+      } else if (!wsClient.connected) {
+        // Retry after a short delay if not connected
+        setTimeout(checkAndJoin, 100);
+      }
+    };
+
+    checkAndJoin();
 
     return () => {
-      wsClient.leaveRoom(conversationId);
+      // Only leave if we actually joined
+      if (hasJoinedRef.current) {
+        wsClient.leaveRoom(conversationId);
+        hasJoinedRef.current = false;
+      }
     };
   }, [conversationId]);
 
