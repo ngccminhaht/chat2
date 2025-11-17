@@ -129,10 +129,10 @@ export class WebhookProcessorConsumer implements OnModuleInit {
       platformConnection = await this.platformConnectionModel.create({
         platform: "zalo",
         platformAccountId: event.platformAccountId,
-        platformAccountName: `Zalo OA ${event.platformAccountId.substring(
+        platformAccountName: `Zalo OA ${event.platformAccountId?.substring(
           0,
-          8
-        )}`,
+          Math.min(8, event.platformAccountId?.length || 0)
+        ) || 'Unknown'}`,
         credentials: {
           accessToken: "placeholder",
           refreshToken: "placeholder",
@@ -186,13 +186,27 @@ export class WebhookProcessorConsumer implements OnModuleInit {
       return;
     }
 
-    const userId = payload.user_id_by_app;
+    // Use sender.id as user ID (global user ID)
+    const senderId = payload.sender?.id;
+    const oaId = payload.app_id;
+
+    if (!senderId || typeof senderId !== 'string') {
+      this.logger.error("Invalid sender.id in Zalo payload:", {
+        senderId,
+        senderIdType: typeof senderId,
+        payload,
+      });
+      return;
+    }
+
+    // Conversation key is composite of senderId + oaId
+    const conversationKey = `${senderId}_${oaId}`;
 
     // Find or create conversation
     let conversation = await this.conversationModel
       .findOne({
         platform: "zalo",
-        platformConversationId: userId,
+        platformConversationId: conversationKey,
       })
       .exec();
 
@@ -211,14 +225,16 @@ export class WebhookProcessorConsumer implements OnModuleInit {
       }
     } else {
       // Create new conversation
+      const displayName = `Zalo User ${senderId.substring(0, Math.min(8, senderId.length))}`;
+
       conversation = await this.conversationModel.create({
         platform: "zalo",
-        platformConversationId: userId,
+        platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         participants: [
           {
-            platformUserId: userId,
-            name: `Zalo User ${userId.substring(0, 8)}`,
+            platformUserId: senderId,
+            name: displayName,
             role: "customer",
           },
         ],
@@ -244,10 +260,10 @@ export class WebhookProcessorConsumer implements OnModuleInit {
       type: normalized.messageType,
       content: normalized.content,
       sender: {
-        platformUserId: userId,
+        platformUserId: senderId,
         name:
           conversation.participants[0]?.name ||
-          `Zalo User ${userId.substring(0, 8)}`,
+          `Zalo User ${senderId.substring(0, Math.min(8, senderId.length))}`,
         avatar: conversation.participants[0]?.avatar,
       },
       status: "sent",
@@ -263,7 +279,7 @@ export class WebhookProcessorConsumer implements OnModuleInit {
       lastMessage: {
         text: normalized.content.text || `[${normalized.messageType}]`,
         timestamp: new Date(parseInt(payload.timestamp)),
-        senderId: userId,
+        senderId: senderId,
         messageId: message._id,
       },
       $inc: { unreadCount: 1 },
