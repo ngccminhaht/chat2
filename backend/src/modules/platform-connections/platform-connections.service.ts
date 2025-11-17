@@ -82,26 +82,19 @@ export class PlatformConnectionsService {
 
     this.logger.log(`Found platform connection: ${platformConnection.platform} (${platformConnection.platformAccountName})`);
     this.logger.log(`Platform connection ID: ${id}`);
-    this.logger.log(`Platform account ID: ${platformConnection.platformAccountId}`);
+    this.logger.log(`Zalo OA ID: ${platformConnection.platformAccountId}`);
 
-    // Debug: Check all conversations in DB
-    const allConversations = await this.conversationModel.find({ platform: 'zalo' }).exec();
-    this.logger.log(`Total Zalo conversations in DB: ${allConversations.length}`);
-    if (allConversations.length > 0) {
-      this.logger.log('All Zalo conversations:', allConversations.map(c => ({
-        id: c._id.toString(),
-        platformConnectionId: c.platformConnectionId.toString(),
-        platformConversationId: c.platformConversationId,
-      })));
-    }
-
-    // Find all conversations for this platform connection
-    // Use platformConnectionId which is the correct foreign key relationship
+    // Find all conversations for this Zalo OA
+    // Query by platform + metadata.appId (set by webhook) to match all conversations from this OA
+    // This works regardless of which platformConnection created them
     const conversations = await this.conversationModel
-      .find({ platformConnectionId: new Types.ObjectId(id) })
+      .find({
+        platform: platformConnection.platform,
+        'metadata.appId': platformConnection.platformAccountId,
+      })
       .exec();
 
-    this.logger.log(`Found ${conversations.length} conversations to delete for platformConnectionId: ${id}`);
+    this.logger.log(`Found ${conversations.length} conversations for OA ${platformConnection.platformAccountId} using metadata.appId`);
 
     if (conversations.length > 0) {
       this.logger.log('Conversation IDs to delete:', conversations.map(c => c._id.toString()));
