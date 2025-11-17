@@ -491,4 +491,62 @@ export class ZaloOAuthService {
       throw new BadRequestException('Failed to refresh access token');
     }
   }
+
+  /**
+   * Send text message to Zalo user
+   * @param accessToken - Zalo OA access token
+   * @param recipientId - Zalo user ID to send message to
+   * @param text - Message text content
+   * @returns Zalo message response with message_id
+   */
+  async sendTextMessage(
+    accessToken: string,
+    recipientId: string,
+    text: string,
+  ): Promise<{ message_id: string }> {
+    try {
+      this.logger.log(`Sending text message to Zalo user ${recipientId}`);
+
+      const response = await axios.post(
+        'https://openapi.zalo.me/v2.0/oa/message',
+        {
+          recipient: {
+            user_id: recipientId,
+          },
+          message: {
+            text: text,
+          },
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: accessToken,
+          },
+        },
+      );
+
+      this.logger.log('Zalo send message response:', JSON.stringify(response.data, null, 2));
+
+      if (response.data.error) {
+        this.logger.error('Zalo send message error:', response.data);
+        throw new BadRequestException(
+          `Failed to send Zalo message: ${response.data.message || response.data.error}`,
+        );
+      }
+
+      return {
+        message_id: response.data.data.message_id,
+      };
+    } catch (error) {
+      if (error.response) {
+        this.logger.error('Zalo API error response:', {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      } else {
+        this.logger.error('Failed to send text message:', error.message);
+      }
+      throw new BadRequestException('Failed to send message to Zalo');
+    }
+  }
 }

@@ -1,18 +1,25 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Message, MessageDocument } from '@/common/database/schemas/message.schema';
 import { Conversation, ConversationDocument } from '@/common/database/schemas/conversation.schema';
+import { PlatformConnection, PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { ZaloOAuthService } from '@/modules/platform-connections/zalo-oauth.service';
 
 @Injectable()
 export class MessagesService {
+  private readonly logger = new Logger(MessagesService.name);
+
   constructor(
     @InjectModel(Message.name)
     private messageModel: Model<MessageDocument>,
     @InjectModel(Conversation.name)
     private conversationModel: Model<ConversationDocument>,
+    @InjectModel(PlatformConnection.name)
+    private platformConnectionModel: Model<PlatformConnectionDocument>,
+    private zaloOAuthService: ZaloOAuthService,
   ) {}
 
   async findByConversation(
@@ -69,10 +76,23 @@ export class MessagesService {
       throw new NotFoundException('Conversation not found');
     }
 
-    // Find user info from participants (agent sending message)
-    const agent = conversation.participants.find((p) => p.role === 'agent');
-    if (!agent) {
-      throw new BadRequestException('No agent assigned to conversation');
+    // Find customer info from participants (recipient of message)
+    const customer = conversation.participants.find((p) => p.role === 'customer');
+    if (!customer) {
+      throw new BadRequestException('No customer found in conversation');
+    }
+
+    // Get platform connection for access token
+    const platformConnection = await this.platformConnectionModel
+      .findById(conversation.platformConnectionId)
+      .exec();
+
+    if (!platformConnection) {
+      throw new NotFoundException('Platform connection not found');
+    }
+
+    if (platformConnection.status !== 'active') {
+      throw new BadRequestException('Platform connection is not active');
     }
 
     // Create message with pending status
@@ -84,9 +104,9 @@ export class MessagesService {
       type,
       content,
       sender: {
-        platformUserId: agent.platformUserId,
-        name: agent.name,
-        avatar: agent.avatar,
+        platformUserId: platformConnection.platformAccountId,
+        name: platformConnection.platformAccountName,
+        avatar: platformConnection.metadata?.avatar,
       },
       status: 'pending',
       metadata: {
@@ -94,7 +114,45 @@ export class MessagesService {
       },
     });
 
-    // TODO: Publish to Kafka topic 'messages.outgoing' for platform sender to process
+    try {
+      // Send message to platform
+      if (conversation.platform === 'zalo') {
+        if (type !== 'text') {
+          throw new BadRequestException('Only text messages are supported for Zalo');
+        }
+
+        this.logger.log(`Sending Zalo message to user ${customer.platformUserId}`);
+
+        const result = await this.zaloOAuthService.sendTextMessage(
+          platformConnection.credentials.accessToken,
+          customer.platformUserId,
+          content.text,
+        );
+
+        // Update message with actual platform message ID and status
+        message.platformMessageId = result.message_id;
+        message.status = 'sent';
+        await message.save();
+
+        this.logger.log(`Message sent successfully: ${result.message_id}`);
+      } else {
+        throw new BadRequestException(`Platform ${conversation.platform} not supported yet`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to send message to platform:', error);
+
+      // Update message status to failed
+      message.status = 'failed';
+      message.metadata = {
+        ...message.metadata,
+        error: error.message,
+      };
+      await message.save();
+
+      throw error;
+    }
+
+    // TODO: Publish to Kafka topic 'websocket.notifications' for real-time update
 
     return message;
   }
