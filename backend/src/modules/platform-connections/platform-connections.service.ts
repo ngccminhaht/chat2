@@ -82,26 +82,11 @@ export class PlatformConnectionsService {
 
     this.logger.log(`Found platform connection: ${platformConnection.platform} (${platformConnection.platformAccountName})`);
 
-    // Find all conversations for this platform and OA (platformAccountId)
-    // Note: We query by platform + platformAccountId to handle cases where
-    // the same OA might have been connected/disconnected multiple times
+    // Find all conversations for this platform connection
+    // Use platformConnectionId which is the correct foreign key relationship
     const conversations = await this.conversationModel
-      .find({
-        platform: platformConnection.platform,
-        'metadata.appId': platformConnection.platformAccountId,
-      })
+      .find({ platformConnectionId: new Types.ObjectId(id) })
       .exec();
-
-    // Fallback: if no conversations found with metadata.appId, try platformConnectionId
-    if (conversations.length === 0) {
-      this.logger.log('No conversations found with metadata.appId, trying platformConnectionId...');
-      const conversationsByConnectionId = await this.conversationModel
-        .find({ platformConnectionId: new Types.ObjectId(id) })
-        .exec();
-
-      this.logger.log(`Found ${conversationsByConnectionId.length} conversations by platformConnectionId`);
-      conversations.push(...conversationsByConnectionId);
-    }
 
     this.logger.log(`Found ${conversations.length} conversations to delete`);
 
