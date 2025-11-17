@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
 import { PlatformConnection } from '../types/platform-connection.types';
 
@@ -10,6 +10,20 @@ export const usePlatformConnections = () => {
         '/platform-connections'
       );
       return response.data;
+    },
+  });
+};
+
+export const useDeletePlatformConnection = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      await apiClient.delete(`/platform-connections/${connectionId}`);
+    },
+    onSuccess: () => {
+      // Refetch connections list after successful deletion
+      queryClient.invalidateQueries({ queryKey: ['platform-connections'] });
     },
   });
 };

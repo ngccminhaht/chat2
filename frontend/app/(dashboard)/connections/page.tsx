@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, Typography, Grid, Alert, CircularProgress } from '@mui/material';
-import { usePlatformConnections } from '@/features/platform-connections/hooks/usePlatformConnections';
+import { usePlatformConnections, useDeletePlatformConnection } from '@/features/platform-connections/hooks/usePlatformConnections';
 import PlatformConnectionCard from '@/features/platform-connections/components/PlatformConnectionCard';
 import ConnectPlatformButton from '@/features/platform-connections/components/ConnectPlatformButton';
 import { useSearchParams } from 'next/navigation';
@@ -12,6 +12,7 @@ function ConnectionsPageContent() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { data: connections, isLoading, error } = usePlatformConnections();
+  const deleteMutation = useDeletePlatformConnection();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,10 +37,20 @@ function ConnectionsPageContent() {
     }
   }, [searchParams, queryClient]);
 
-  const connectedPlatforms = connections?.map((c) => c.platform) || [];
-  const availablePlatforms = ['zalo', 'facebook', 'tiktok', 'shopee'].filter(
-    (p) => !connectedPlatforms.includes(p as any)
-  );
+  const handleDisconnect = async (connectionId: string) => {
+    if (confirm('Are you sure you want to disconnect this platform?')) {
+      try {
+        await deleteMutation.mutateAsync(connectionId);
+        setSuccessMessage('Platform disconnected successfully!');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } catch (error) {
+        console.error('Failed to disconnect platform:', error);
+      }
+    }
+  };
+
+  // Show all platforms - allow multiple accounts per platform
+  const allPlatforms = ['zalo', 'facebook', 'tiktok', 'shopee'];
 
   return (
     <Box>
@@ -74,7 +85,10 @@ function ConnectionsPageContent() {
           <Grid container spacing={2}>
             {connections.map((connection) => (
               <Grid size={{ xs: 12, md: 6 }} key={connection.id}>
-                <PlatformConnectionCard connection={connection} />
+                <PlatformConnectionCard
+                  connection={connection}
+                  onDisconnect={handleDisconnect}
+                />
               </Grid>
             ))}
           </Grid>
@@ -85,23 +99,24 @@ function ConnectionsPageContent() {
         </Alert>
       )}
 
-      {/* Available Platforms to Connect */}
-      {availablePlatforms.length > 0 && (
-        <Box>
-          <Typography variant="h6" gutterBottom>
-            Connect New Platform
-          </Typography>
-          <Grid container spacing={2}>
-            {availablePlatforms.map((platform) => (
-              <Grid size={{ xs: 12, sm: 6, md: 3 }} key={platform}>
-                <ConnectPlatformButton
-                  platform={platform as 'facebook' | 'zalo' | 'tiktok' | 'shopee'}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
+      {/* Available Platforms to Connect - Always show all platforms for multiple accounts */}
+      <Box>
+        <Typography variant="h6" gutterBottom>
+          Connect Platform
+        </Typography>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          You can connect multiple accounts for each platform
+        </Typography>
+        <Grid container spacing={2}>
+          {allPlatforms.map((platform) => (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={platform}>
+              <ConnectPlatformButton
+                platform={platform as 'facebook' | 'zalo' | 'tiktok' | 'shopee'}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
     </Box>
   );
 }

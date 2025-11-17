@@ -333,6 +333,7 @@ export class ZaloOAuthService {
 
   /**
    * Save platform connection to database
+   * Allows multiple accounts per platform per user
    */
   async savePlatformConnection(
     userId: string,
@@ -341,17 +342,17 @@ export class ZaloOAuthService {
   ): Promise<PlatformConnectionDocument> {
     const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
 
-    // Check if connection already exists
+    // Check if THIS USER already connected THIS SPECIFIC OA
     const existing = await this.platformConnectionModel
       .findOne({
+        userId: new Types.ObjectId(userId),
         platform: 'zalo',
         platformAccountId: oaInfo.oa_id,
       })
       .exec();
 
     if (existing) {
-      // Update existing connection
-      existing.userId = new Types.ObjectId(userId);
+      // Update existing connection (refresh tokens)
       existing.platformAccountName = oaInfo.name;
       existing.credentials = {
         accessToken: tokenResponse.access_token,
@@ -366,10 +367,16 @@ export class ZaloOAuthService {
       };
       existing.lastSyncAt = new Date();
 
+      this.logger.log(
+        `Updated existing connection for user ${userId} and OA ${oaInfo.oa_id}`,
+      );
       return existing.save();
     }
 
-    // Create new connection
+    // Create new connection (allows multiple OAs per user)
+    this.logger.log(
+      `Creating new connection for user ${userId} and OA ${oaInfo.oa_id}`,
+    );
     return this.platformConnectionModel.create({
       userId: new Types.ObjectId(userId),
       platform: 'zalo',
