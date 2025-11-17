@@ -480,32 +480,37 @@ export class ZaloOAuthService {
   }
 
   /**
-   * Refresh access token
+   * Refresh OA access token
+   * Uses Zalo OA-specific endpoint with secret_key header
    */
   async refreshToken(refreshToken: string): Promise<ZaloTokenResponse> {
     try {
-      // Create URL-encoded form data
+      // Create URL-encoded form data for OA token refresh
       const params = new URLSearchParams({
         app_id: this.appId,
-        app_secret: this.appSecret,
         refresh_token: refreshToken,
         grant_type: 'refresh_token',
       });
 
+      this.logger.log('Refreshing Zalo OA access token');
+
       const response = await axios.post(
-        'https://oauth.zaloapp.com/v4/access_token',
+        'https://oauth.zaloapp.com/v4/oa/access_token',
         params.toString(),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            'secret_key': this.appSecret,
           },
         },
       );
 
+      this.logger.log('Zalo OA token refresh response:', response.data);
+
       if (response.data.error) {
-        this.logger.error('Zalo token refresh error:', response.data);
+        this.logger.error('Zalo OA token refresh error:', response.data);
         throw new BadRequestException(
-          `Zalo token refresh error: ${response.data.error_description || response.data.error}`,
+          `Zalo OA token refresh error: ${response.data.error_description || response.data.error}`,
         );
       }
 
@@ -515,8 +520,8 @@ export class ZaloOAuthService {
         expires_in: response.data.expires_in,
       };
     } catch (error) {
-      this.logger.error('Failed to refresh token:', error.response?.data || error.message);
-      throw new BadRequestException('Failed to refresh access token');
+      this.logger.error('Failed to refresh OA token:', error.response?.data || error.message);
+      throw new BadRequestException('Failed to refresh OA access token');
     }
   }
 
