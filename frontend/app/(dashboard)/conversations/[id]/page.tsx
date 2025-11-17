@@ -1,20 +1,21 @@
 'use client';
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Paper, Typography, Chip, Stack } from '@mui/material';
 import { useMessages } from '@/features/conversations/hooks/useMessages';
 import { useConversationStore } from '@/features/conversations/stores/conversationStore';
-import { useWebSocketEvent } from '@/hooks/useWebSocketEvent';
+import { useWebSocket } from '@/lib/websocket/WebSocketContext';
+import { useWebSocketEvent } from '@/lib/websocket/useWebSocketEvent';
 import MessageList from '@/features/conversations/components/MessageList';
 import MessageInput from '@/features/conversations/components/MessageInput';
 import ConversationList from '@/features/conversations/components/ConversationList';
-import { wsClient } from '@/lib/websocket/client';
 
 export default function ConversationDetailPage() {
   const params = useParams();
   const conversationId = params.id as string;
 
+  const { wsClient, isConnected } = useWebSocket();
   const { data, isLoading } = useMessages({ conversationId });
 
   // Get messages from Zustand store (updated by WebSocket)
@@ -56,57 +57,18 @@ export default function ConversationDetailPage() {
   useWebSocketEvent('message:status', handleMessageStatus);
   useWebSocketEvent('conversation:updated', handleConversationUpdated);
 
-  // Join/leave conversation room
-  const hasJoinedRef = useRef(false);
-
+  // Join/leave conversation room when connected
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !isConnected) return;
 
-    let intervalId: NodeJS.Timeout | null = null;
-
-    // Try to join room, with retry if not connected yet
-    const tryJoin = () => {
-      if (wsClient.connected) {
-        if (!hasJoinedRef.current) {
-          wsClient.joinRoom(conversationId);
-          hasJoinedRef.current = true;
-        }
-        // Stop retrying once joined
-        if (intervalId) {
-          clearInterval(intervalId);
-          intervalId = null;
-        }
-      }
-    };
-
-    // Try immediately
-    tryJoin();
-
-    // If not connected, retry every 100ms (max 50 times = 5 seconds)
-    if (!hasJoinedRef.current) {
-      let attempts = 0;
-      intervalId = setInterval(() => {
-        attempts++;
-        if (attempts > 50 || hasJoinedRef.current) {
-          if (intervalId) clearInterval(intervalId);
-          return;
-        }
-        tryJoin();
-      }, 100);
-    }
+    console.log(`[Page] Joining room: ${conversationId}`);
+    wsClient.joinRoom(conversationId);
 
     return () => {
-      // Cleanup interval
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-      // Leave room if joined
-      if (hasJoinedRef.current) {
-        wsClient.leaveRoom(conversationId);
-        hasJoinedRef.current = false;
-      }
+      console.log(`[Page] Leaving room: ${conversationId}`);
+      wsClient.leaveRoom(conversationId);
     };
-  }, [conversationId]);
+  }, [conversationId, isConnected]);
 
   return (
     <Box sx={{ height: 'calc(100vh - 112px)' }}>

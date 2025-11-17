@@ -6,6 +6,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from '@/lib/theme';
 import { useState } from 'react';
+import { WebSocketProvider } from '@/lib/websocket/WebSocketContext';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -25,7 +26,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <QueryClientProvider client={queryClient}>
-          {children}
+          <WebSocketProvider>
+            {children}
+          </WebSocketProvider>
         </QueryClientProvider>
       </ThemeProvider>
     </AppRouterCacheProvider>
