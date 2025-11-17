@@ -143,8 +143,13 @@ class WebSocketClient {
   }
 
   disconnect() {
-    this.socket?.disconnect();
-    this.socket = null;
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket.removeAllListeners();
+      this.socket = null;
+    }
+    this.pendingRooms.clear();
+    this.reconnectAttempts = 0;
   }
 }
 

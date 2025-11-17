@@ -10,10 +10,8 @@ export function useWebSocket() {
   useEffect(() => {
     if (isAuthenticated) {
       wsClient.connect();
-
-      return () => {
-        wsClient.disconnect();
-      };
+    } else {
+      wsClient.disconnect();
     }
   }, [isAuthenticated]);
 
