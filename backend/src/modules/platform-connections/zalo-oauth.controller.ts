@@ -59,8 +59,17 @@ export class ZaloOAuthController {
   async callback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Query('oa_id') oaId: string,
+    @Query('code_challenge') codeChallenge: string,
     @Res() res: Response,
   ) {
+    console.log('🔙 Zalo callback received:', {
+      code: code?.substring(0, 20) + '...',
+      state,
+      oaId,
+      codeChallenge: codeChallenge?.substring(0, 20) + '...',
+    });
+
     if (!code || !state) {
       throw new BadRequestException('Authorization code and state are required');
     }
@@ -70,6 +79,8 @@ export class ZaloOAuthController {
     if (!storedStateData) {
       throw new BadRequestException('OAuth state not found or expired');
     }
+
+    console.log('✅ State verified, exchanging code for token');
 
     // Verify state matches
     if (state !== storedStateData.state) {
