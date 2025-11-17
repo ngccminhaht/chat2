@@ -71,7 +71,8 @@ export class WebhookPublisherService {
   private extractPlatformAccountId(platform: string, payload: any): string {
     switch (platform) {
       case "zalo":
-        return payload.app_id || "unknown";
+        // OA ID is recipient.id, NOT app_id (which is the Zalo application ID)
+        return payload.recipient?.id || payload.app_id || "unknown";
       case "facebook":
         return payload.entry?.[0]?.id || "unknown";
       case "tiktok":

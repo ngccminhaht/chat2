@@ -54,26 +54,33 @@ export class ZaloWebhookService {
 
     // Auto-find platformConnectionId from OA ID if not provided
     if (!platformConnectionId) {
+      const oaId = payload.recipient?.id;
+
+      if (!oaId) {
+        this.logger.error('❌ Cannot find platform connection: missing recipient.id (OA ID)');
+        throw new Error('Missing OA ID in webhook payload');
+      }
+
       this.logger.log(
-        `=== Webhook: Looking for platform connection for OA ID: ${payload.app_id} ===`
+        `=== Webhook: Looking for platform connection for OA ID: ${oaId} ===`
       );
 
       let connection = await this.platformConnectionModel
         .findOne({
           platform: "zalo",
-          platformAccountId: payload.app_id,
+          platformAccountId: oaId,
         })
         .exec();
 
       if (!connection) {
         this.logger.error(
-          `❌ Platform connection NOT FOUND for Zalo OA ID: ${payload.app_id}`
+          `❌ Platform connection NOT FOUND for Zalo OA ID: ${oaId}`
         );
         this.logger.error(
           `User must connect this OA via OAuth before receiving messages!`
         );
         throw new Error(
-          `Platform connection not found for OA ${payload.app_id}. Please connect your Zalo OA first.`
+          `Platform connection not found for OA ${oaId}. Please connect your Zalo OA first.`
         );
       }
 
