@@ -185,26 +185,35 @@ export class ZaloOAuthService {
         count: count.toString(),
       });
 
-      const response = await axios.get(
-        `https://openapi.zalo.me/v2.0/oa/listrecentchat?${params.toString()}`,
-        {
-          headers: {
-            access_token: accessToken,
-          },
-        },
-      );
+      const url = `https://openapi.zalo.me/v2.0/oa/listrecentchat?${params.toString()}`;
+      this.logger.log('Calling Zalo API:', { url, hasToken: !!accessToken });
 
-      this.logger.log('Zalo recent chats response:', response.data);
+      const response = await axios.get(url, {
+        headers: {
+          access_token: accessToken,
+        },
+      });
+
+      this.logger.log('Zalo recent chats response:', JSON.stringify(response.data, null, 2));
 
       if (response.data.error) {
+        this.logger.error('Zalo API error response:', response.data);
         throw new BadRequestException(
-          `Failed to get recent chats: ${response.data.message}`,
+          `Failed to get recent chats: ${response.data.message || response.data.error}`,
         );
       }
 
       return response.data.data;
     } catch (error) {
-      this.logger.error('Failed to get recent chats', error);
+      if (error.response) {
+        this.logger.error('Zalo API error response:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers,
+        });
+      } else {
+        this.logger.error('Failed to get recent chats:', error.message);
+      }
       throw new BadRequestException('Failed to fetch recent chats from Zalo');
     }
   }
