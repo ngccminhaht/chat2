@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Param, Query, Delete, UseGuards } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { GetConversationsDto } from './dto/get-conversations.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
@@ -16,5 +16,15 @@ export class ConversationsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.conversationsService.findOne(id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.conversationsService.remove(id);
+  }
+
+  @Delete()
+  removeAll() {
+    return this.conversationsService.removeAll();
   }
 }

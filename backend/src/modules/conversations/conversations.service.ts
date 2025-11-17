@@ -1,14 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Conversation, ConversationDocument } from '@/common/database/schemas/conversation.schema';
+import { Message, MessageDocument } from '@/common/database/schemas/message.schema';
 import { GetConversationsDto } from './dto/get-conversations.dto';
 
 @Injectable()
 export class ConversationsService {
+  private readonly logger = new Logger(ConversationsService.name);
+
   constructor(
     @InjectModel(Conversation.name)
     private conversationModel: Model<ConversationDocument>,
+    @InjectModel(Message.name)
+    private messageModel: Model<MessageDocument>,
   ) {}
 
   async findAll(dto: GetConversationsDto) {
@@ -100,5 +105,47 @@ export class ConversationsService {
         { new: true },
       )
       .exec();
+  }
+
+  async remove(id: string) {
+    // Delete conversation
+    const conversation = await this.conversationModel.findByIdAndDelete(id).exec();
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    // Delete all messages in this conversation
+    const deleteResult = await this.messageModel
+      .deleteMany({ conversationId: new Types.ObjectId(id) })
+      .exec();
+
+    this.logger.log(
+      `Deleted conversation ${id} and ${deleteResult.deletedCount} messages`,
+    );
+
+    return {
+      success: true,
+      deletedConversation: conversation._id,
+      deletedMessages: deleteResult.deletedCount,
+    };
+  }
+
+  async removeAll() {
+    // Delete all conversations
+    const conversationResult = await this.conversationModel.deleteMany({}).exec();
+
+    // Delete all messages
+    const messageResult = await this.messageModel.deleteMany({}).exec();
+
+    this.logger.warn(
+      `Deleted ALL data: ${conversationResult.deletedCount} conversations and ${messageResult.deletedCount} messages`,
+    );
+
+    return {
+      success: true,
+      deletedConversations: conversationResult.deletedCount,
+      deletedMessages: messageResult.deletedCount,
+    };
   }
 }
