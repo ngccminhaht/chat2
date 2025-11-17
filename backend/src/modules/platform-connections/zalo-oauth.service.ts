@@ -273,71 +273,102 @@ export class ZaloOAuthService {
       // Get recent chats from Zalo (max 10 per Zalo API limit)
       const recentChats = await this.getRecentChats(accessToken, 0, 10);
 
-      this.logger.log('Recent chats structure:', JSON.stringify(recentChats, null, 2));
+      this.logger.log('Recent chats response:', JSON.stringify(recentChats, null, 2));
 
-      if (!recentChats || !recentChats.users) {
+      // Zalo returns a flat array of messages, not grouped by user
+      // Response structure: [{ from_id, from_display_name, from_avatar, message, time, src, ... }]
+      if (!Array.isArray(recentChats) || recentChats.length === 0) {
         this.logger.warn('No recent chats found or invalid structure:', {
-          hasData: !!recentChats,
-          hasUsers: recentChats?.users !== undefined,
-          keys: recentChats ? Object.keys(recentChats) : [],
+          isArray: Array.isArray(recentChats),
+          length: recentChats?.length,
+          type: typeof recentChats,
         });
         return 0;
       }
 
+      // Group messages by customer user ID
+      // src=1: message from customer to OA (use from_id)
+      // src=0: message from OA to customer (use to_id)
+      const conversationsMap = new Map<string, any>();
+
+      for (const message of recentChats) {
+        // Determine the customer user ID based on message direction
+        const customerId = message.src === 1 ? message.from_id : message.to_id;
+        const customerName = message.src === 1 ? message.from_display_name : message.to_display_name;
+        const customerAvatar = message.src === 1 ? message.from_avatar : message.to_avatar;
+
+        // Keep the most recent message for each conversation
+        if (!conversationsMap.has(customerId) || message.time > conversationsMap.get(customerId).time) {
+          conversationsMap.set(customerId, {
+            userId: customerId,
+            displayName: customerName,
+            avatar: customerAvatar,
+            lastMessage: {
+              text: message.message || `[${message.type}]`,
+              time: message.time,
+              messageId: message.message_id,
+            },
+          });
+        }
+      }
+
+      this.logger.log(
+        `Grouped ${conversationsMap.size} unique conversations from ${recentChats.length} messages`,
+      );
+
       let syncedCount = 0;
 
-      // Process each recent chat
-      for (const chat of recentChats.users) {
+      // Process each unique conversation
+      for (const [customerId, chat] of conversationsMap) {
         try {
-          const userIdByApp = chat.user_id;
-
           // Check if conversation already exists
           const existing = await this.conversationModel
             .findOne({
               platform: 'zalo',
-              platformConversationId: userIdByApp,
+              platformConversationId: customerId,
               platformConnectionId: new Types.ObjectId(platformConnectionId),
             })
             .exec();
 
           if (existing) {
             this.logger.log(
-              `Conversation already exists for user ${userIdByApp}`,
+              `Conversation already exists for user ${customerId}`,
             );
             continue;
           }
 
-          // Get user profile for additional info
-          const userProfile = await this.getUserProfile(accessToken, userIdByApp);
-
-          const displayName = userProfile?.display_name || `Zalo User ${userIdByApp.substring(0, 8)}`;
-          const avatar = userProfile?.avatar;
-
-          // Create new conversation
+          // Create new conversation with data from recent messages
           await this.conversationModel.create({
             platform: 'zalo',
-            platformConversationId: userIdByApp,
+            platformConversationId: customerId,
             platformConnectionId: new Types.ObjectId(platformConnectionId),
             participants: [
               {
-                platformUserId: userIdByApp,
-                name: displayName,
-                avatar: avatar,
+                platformUserId: customerId,
+                name: chat.displayName || `Zalo User ${customerId.substring(0, 8)}`,
+                avatar: chat.avatar,
                 role: 'customer',
               },
             ],
             status: 'open',
             unreadCount: 0,
+            lastMessage: {
+              text: chat.lastMessage.text,
+              timestamp: new Date(chat.lastMessage.time),
+              senderId: customerId,
+              messageId: new Types.ObjectId(), // Temporary ID
+            },
             metadata: {
               syncedFromRecentChats: true,
+              lastMessageId: chat.lastMessage.messageId,
             },
           });
 
           syncedCount++;
-          this.logger.log(`Created conversation for user ${userIdByApp}`);
+          this.logger.log(`Created conversation for user ${customerId} (${chat.displayName})`);
         } catch (error) {
           this.logger.error(
-            `Failed to sync conversation for user ${chat.user_id}:`,
+            `Failed to sync conversation for user ${customerId}:`,
             error,
           );
           // Continue with next chat even if one fails
