@@ -53,8 +53,8 @@ export class WebhookController {
     this.logger.log('-'.repeat(80));
     this.logger.log('Event Summary:', {
       event: payload.event_name,
-      oaId: payload.app_id,
-      userId: payload.user_id_by_app,
+      oaId: payload.recipient?.id, // OA ID is recipient.id
+      senderId: payload.sender?.id,
       timestamp: payload.timestamp,
       hasMessage: !!payload.message,
       hasSender: !!payload.sender,
