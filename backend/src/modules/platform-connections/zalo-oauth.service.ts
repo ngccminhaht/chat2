@@ -526,16 +526,29 @@ export class ZaloOAuthService {
   }
 
   /**
-   * Wrapper to ensure fresh access token before any Zalo OA API call
-   * Always refreshes token before making API request
+   * Wrapper to ensure valid access token before any Zalo OA API call
+   * Only refreshes token if it's expired or will expire soon (within 5 minutes)
    * @param platformConnection - Platform connection document
-   * @returns Fresh access token
+   * @returns Valid access token (existing or refreshed)
    * @throws BadRequestException if refresh token is invalid/expired
    */
   async ensureFreshToken(
     platformConnection: PlatformConnectionDocument,
   ): Promise<string> {
-    this.logger.log('Ensuring fresh access token by refreshing...');
+    const now = new Date();
+    const expiresAt = platformConnection.credentials.expiresAt;
+    const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
+
+    // Check if token is still valid (not expired and won't expire in next 5 minutes)
+    if (expiresAt && now.getTime() < new Date(expiresAt).getTime() - bufferTime) {
+      this.logger.log('Access token is still valid, using existing token');
+      this.logger.log(`Token expires at: ${expiresAt}, now: ${now}`);
+      return platformConnection.credentials.accessToken;
+    }
+
+    // Token expired or will expire soon, refresh it
+    this.logger.log('Access token expired or expiring soon, refreshing...');
+    this.logger.log(`Token expires at: ${expiresAt}, now: ${now}`);
 
     try {
       const tokenResponse = await this.refreshToken(
@@ -551,12 +564,13 @@ export class ZaloOAuthService {
       await platformConnection.save();
 
       this.logger.log('Fresh token obtained and saved');
+      this.logger.log(`New token expires at: ${platformConnection.credentials.expiresAt}`);
       return tokenResponse.access_token;
     } catch (error) {
       // Check if error is due to invalid refresh token (Zalo error -14014)
       const errorData = error.response?.data;
       if (errorData?.error === -14014) {
-        this.logger.error('Refresh token is invalid or expired');
+        this.logger.error('Refresh token is invalid or expired (90 days limit reached)');
 
         // Mark platform connection as inactive
         platformConnection.status = 'inactive';
