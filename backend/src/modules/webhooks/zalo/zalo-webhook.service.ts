@@ -151,7 +151,16 @@ export class ZaloWebhookService {
     }
 
     // Use user_id_by_app if available, otherwise fall back to sender.id
-    const userId = payload.user_id_by_app;
+    const userId = payload.user_id_by_app || payload.sender?.id;
+
+    if (!userId) {
+      this.logger.error('Cannot process message: missing user_id_by_app and sender.id:', {
+        user_id_by_app: payload.user_id_by_app,
+        senderId: payload.sender?.id,
+        payload: JSON.stringify(payload, null, 2),
+      });
+      return;
+    }
 
     // Find conversation by platform and platformConversationId first
     // Don't filter by platformConnectionId to handle reconnect scenarios
