@@ -205,12 +205,17 @@ export class ShopeeOAuthService {
       this.logger.log(`  Access token: ${tokenData.access_token?.substring(0, 30)}...`);
       this.logger.log(`  Refresh token: ${tokenData.refresh_token?.substring(0, 30)}...`);
       this.logger.log(`  Expires in: ${tokenData.expire_in} seconds`);
+      this.logger.log(`  Shop ID from response: ${tokenData.shop_id}`);
+
+      // Shopee doesn't return shop_id in token response, use the one from callback
+      const finalShopId = tokenData.shop_id || shopIdInt;
+      this.logger.log(`  Using shop_id: ${finalShopId}`);
 
       return {
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         expire_in: tokenData.expire_in,
-        shop_id: tokenData.shop_id,
+        shop_id: finalShopId,
       };
     } catch (error) {
       this.logger.error('Failed to exchange code for token:', error.response?.data || error.message);
@@ -227,29 +232,50 @@ export class ShopeeOAuthService {
       const timestamp = Math.floor(Date.now() / 1000);
       const partnerId = parseInt(this.partnerId);
 
+      this.logger.log('=== Getting shop info - REQUEST ===');
+      this.logger.log(`URL: ${this.apiHost}${path}`);
+      this.logger.log(`Shop ID (input): ${shopId} (type: ${typeof shopId})`);
+      this.logger.log(`Access token: ${accessToken?.substring(0, 30)}...`);
+
       // Generate signature with access_token and shop_id
       const baseString = `${partnerId}${path}${timestamp}${accessToken}${shopId}`;
       const hmac = createHmac('sha256', this.partnerKey);
       hmac.update(baseString);
       const sign = hmac.digest('hex');
 
+      this.logger.log(`Base string: ${baseString.substring(0, 100)}...`);
+      this.logger.log(`Signature: ${sign}`);
+
+      const requestParams = {
+        partner_id: partnerId,
+        shop_id: shopId,
+        timestamp,
+        access_token: accessToken,
+        sign,
+      };
+
+      this.logger.log('Request params:', JSON.stringify(requestParams, null, 2));
+
       const response = await axios.get(`${this.apiHost}${path}`, {
-        params: {
-          partner_id: partnerId,
-          shop_id: shopId,
-          timestamp,
-          access_token: accessToken,
-          sign,
-        },
+        params: requestParams,
       });
 
+      this.logger.log('=== Get shop info - RESPONSE ===');
+      this.logger.log('Status:', response.status);
+      this.logger.log('Response:', JSON.stringify(response.data, null, 2));
+
       if (response.data.error) {
+        this.logger.error('❌ Get shop info ERROR:', response.data);
         throw new BadRequestException(
           `Failed to get shop info: ${response.data.message}`,
         );
       }
 
       const shopData = response.data.response;
+      this.logger.log('✅ Shop info retrieved successfully');
+      this.logger.log(`  Shop ID: ${shopData.shop_id}`);
+      this.logger.log(`  Shop Name: ${shopData.shop_name}`);
+
       return {
         shop_id: shopData.shop_id,
         shop_name: shopData.shop_name,
@@ -258,7 +284,12 @@ export class ShopeeOAuthService {
         logo: shopData.shop_logo,
       };
     } catch (error) {
-      this.logger.error('Failed to get shop info', error);
+      this.logger.error('Failed to get shop info:', error.response?.data || error.message);
+      if (error.response?.data) {
+        throw new BadRequestException(
+          `Failed to fetch Shopee shop information: ${error.response.data.message || error.response.data.error}`,
+        );
+      }
       throw new BadRequestException('Failed to fetch Shopee shop information');
     }
   }
