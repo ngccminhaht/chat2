@@ -16,10 +16,12 @@ export class ShopeeWebhookDto {
   data: ShopeeWebhookData;
 
   @IsNumber()
-  timestamp: number;
+  @IsOptional()
+  timestamp?: number; // Optional for verification messages
 
   @IsNumber()
-  shop_id: number;
+  @IsOptional()
+  shop_id?: number; // Optional for verification messages
 }
 
 /**
