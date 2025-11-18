@@ -2,6 +2,7 @@
 
 import { Button, Box, Typography } from '@mui/material';
 import { useConnectZalo } from '../hooks/useConnectZalo';
+import { useConnectShopee } from '../hooks/useConnectShopee';
 
 interface ConnectPlatformButtonProps {
   platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
@@ -33,13 +34,19 @@ const platformInfo = {
 export default function ConnectPlatformButton({
   platform,
 }: ConnectPlatformButtonProps) {
-  const { connectZalo, isLoading, error } = useConnectZalo();
+  const { connectZalo, isLoading: isLoadingZalo, error: errorZalo } = useConnectZalo();
+  const { connectShopee, isLoading: isLoadingShopee, error: errorShopee } = useConnectShopee();
 
   const info = platformInfo[platform];
+
+  const isLoading = isLoadingZalo || isLoadingShopee;
+  const error = errorZalo || errorShopee;
 
   const handleConnect = () => {
     if (platform === 'zalo') {
       connectZalo();
+    } else if (platform === 'shopee') {
+      connectShopee();
     } else {
       // TODO: Implement other platforms
       alert(`${info.name} connection coming soon!`);
