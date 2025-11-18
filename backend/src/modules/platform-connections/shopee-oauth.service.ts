@@ -188,6 +188,7 @@ export class ShopeeOAuthService {
       this.logger.log('Status:', response.status);
       this.logger.log('Response:', JSON.stringify(response.data, null, 2));
 
+      // Check for errors first
       if (response.data.error) {
         this.logger.error('❌ Shopee OAuth ERROR:', response.data);
         throw new BadRequestException(
@@ -195,9 +196,16 @@ export class ShopeeOAuthService {
         );
       }
 
-      const tokenData = response.data;
+      // Shopee API v2 may return data in 'response' field or at root level
+      const tokenData = response.data.response || response.data;
+
+      if (!tokenData) {
+        this.logger.error('❌ Empty response from Shopee:', response.data);
+        throw new BadRequestException('Empty response from Shopee OAuth');
+      }
 
       if (!tokenData.access_token) {
+        this.logger.error('❌ Missing access_token in response:', tokenData);
         throw new BadRequestException('Shopee OAuth response missing access_token');
       }
 
@@ -265,20 +273,23 @@ export class ShopeeOAuthService {
       this.logger.log('Status:', response.status);
       this.logger.log('Response:', JSON.stringify(response.data, null, 2));
 
-      if (response.data.error) {
+      // Check for error (Shopee returns error as non-empty string)
+      if (response.data.error && response.data.error !== '') {
         this.logger.error('❌ Get shop info ERROR:', response.data);
         throw new BadRequestException(
           `Failed to get shop info: ${response.data.message}`,
         );
       }
 
-      const shopData = response.data.response;
+      const shopData = response.data;
       this.logger.log('✅ Shop info retrieved successfully');
-      this.logger.log(`  Shop ID: ${shopData.shop_id}`);
+      this.logger.log(`  Shop ID (from input): ${shopId}`);
       this.logger.log(`  Shop Name: ${shopData.shop_name}`);
+      this.logger.log(`  Region: ${shopData.region}`);
+      this.logger.log(`  Status: ${shopData.status}`);
 
       return {
-        shop_id: shopData.shop_id,
+        shop_id: shopId, // Use the shopId parameter since Shopee doesn't return it
         shop_name: shopData.shop_name,
         region: shopData.region,
         status: shopData.status,
