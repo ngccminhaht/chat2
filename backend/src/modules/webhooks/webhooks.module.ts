@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { WebhookController } from './webhook.controller';
 import { WebhookPublisherService } from './webhook-publisher.service';
-import { ZaloWebhookService } from './zalo/zalo-webhook.service';
-import { ShopeeWebhookService } from './shopee/shopee-webhook.service';
+import { ZaloWebhookService } from './zalo-webhook.service';
+import { ShopeeWebhookService } from './shopee-webhook.service';
 import {
   Conversation,
   ConversationSchema,

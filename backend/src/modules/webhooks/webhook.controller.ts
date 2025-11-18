@@ -5,11 +5,14 @@ import {
   Headers,
   HttpCode,
   Logger,
+  Req,
+  RawBodyRequest,
 } from '@nestjs/common';
-import { ZaloWebhookService } from './zalo/zalo-webhook.service';
-import { ZaloWebhookDto } from './zalo/dto/zalo-webhook.dto';
-import { ShopeeWebhookService } from './shopee/shopee-webhook.service';
-import { ShopeeWebhookDto } from './shopee/dto/shopee-webhook.dto';
+import { Request } from 'express';
+import { ZaloWebhookService } from './zalo-webhook.service';
+import { ZaloWebhookDto } from './zalo-webhook.dto';
+import { ShopeeWebhookService } from './shopee-webhook.service';
+import { ShopeeWebhookDto } from './shopee-webhook.dto';
 import { WebhookPublisherService } from './webhook-publisher.service';
 
 /**
@@ -137,13 +140,17 @@ export class WebhookController {
    *
    * Receives webhook events from Shopee.
    * Publishes to Kafka immediately and returns 200.
+   *
+   * Shopee Signature Format:
+   * Authorization: HMAC-SHA256(full_url + "|" + request_body, partner_key)
    */
   @Post('shopee')
   @HttpCode(200)
   async handleShopeeWebhook(
+    @Req() req: RawBodyRequest<Request>,
     @Body() payload: ShopeeWebhookDto,
     @Headers('authorization') authorization: string,
-  ): Promise<{ success: boolean }> {
+  ): Promise<{ code: number; message: string }> {
     this.logger.log('='.repeat(80));
     this.logger.log('📥 SHOPEE WEBHOOK RECEIVED');
     this.logger.log('='.repeat(80));
@@ -157,6 +164,8 @@ export class WebhookController {
       conversationId: payload.data?.conversation_id,
       messageId: payload.data?.message_id,
       messageType: payload.data?.message_type,
+      fromId: payload.data?.from_id,
+      fromName: payload.data?.from_name,
     });
     this.logger.log('='.repeat(80));
 
@@ -164,13 +173,37 @@ export class WebhookController {
     if (authorization) {
       const partnerKey = process.env.SHOPEE_PARTNER_KEY;
       if (!partnerKey) {
-        this.logger.error('SHOPEE_PARTNER_KEY not configured');
-        return { success: true }; // Return 200 to avoid retries
+        this.logger.error('❌ SHOPEE_PARTNER_KEY not configured');
+        return { code: 1, message: 'Server configuration error' };
       }
 
-      // Note: Shopee signature verification requires full URL and body
-      // You may need to implement this based on your setup
-      // const isValid = this.shopeeWebhookService.verifySignature(...);
+      // Build full URL for signature verification
+      const protocol = req.protocol;
+      const host = req.get('host');
+      const fullUrl = `${protocol}://${host}${req.originalUrl}`;
+
+      // Get raw body for signature verification
+      const rawBody = req.rawBody?.toString('utf8') || JSON.stringify(payload);
+
+      this.logger.log(`Verifying signature...`);
+      this.logger.log(`  URL: ${fullUrl}`);
+      this.logger.log(`  Authorization: ${authorization?.substring(0, 30)}...`);
+
+      const isValid = this.shopeeWebhookService.verifySignature(
+        fullUrl,
+        rawBody,
+        authorization,
+        partnerKey,
+      );
+
+      if (!isValid) {
+        this.logger.error('❌ Invalid Shopee webhook signature');
+        return { code: 1, message: 'Invalid signature' };
+      }
+
+      this.logger.log('✅ Webhook signature verified');
+    } else {
+      this.logger.warn('⚠️ No authorization header - processing anyway (development mode)');
     }
 
     // Publish to Kafka and return immediately
@@ -180,7 +213,7 @@ export class WebhookController {
         this.logger.error('Failed to publish Shopee webhook to Kafka:', error);
       });
 
-    // Return 200 immediately to Shopee to acknowledge receipt
-    return { success: true };
+    // Return success response to Shopee
+    return { code: 0, message: 'success' };
   }
 }
