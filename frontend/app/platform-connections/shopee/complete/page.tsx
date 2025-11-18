@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Box, Container, Typography, CircularProgress, Alert } from '@mui/material';
 import apiClient from '@/lib/api/client';
 
-export default function ShopeeCompletePage() {
+function ShopeeCompleteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -86,5 +86,31 @@ export default function ShopeeCompletePage() {
         )}
       </Box>
     </Container>
+  );
+}
+
+export default function ShopeeCompletePage() {
+  return (
+    <Suspense
+      fallback={
+        <Container maxWidth="sm">
+          <Box
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            minHeight="100vh"
+            gap={3}
+          >
+            <CircularProgress size={60} />
+            <Typography variant="h5" textAlign="center">
+              Loading...
+            </Typography>
+          </Box>
+        </Container>
+      }
+    >
+      <ShopeeCompleteContent />
+    </Suspense>
   );
 }
