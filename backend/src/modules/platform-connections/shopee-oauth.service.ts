@@ -88,8 +88,19 @@ export class ShopeeOAuthService {
     const path = '/api/v2/shop/auth_partner';
     const timestamp = Math.floor(Date.now() / 1000);
 
-    // Auth partner endpoint doesn't include partner_id in signature
-    const sign = this.generateSignature(path, timestamp, undefined, false);
+    // Auth partner: partner_id + path + timestamp
+    const baseString = `${this.partnerId}${path}${timestamp}`;
+    const sign = this.generateSignature(path, timestamp);
+
+    this.logger.log('=== Shopee auth_partner URL generation ===');
+    this.logger.log(`API Host: ${this.apiHost}`);
+    this.logger.log(`Partner ID: ${this.partnerId}`);
+    this.logger.log(`Path: ${path}`);
+    this.logger.log(`Timestamp: ${timestamp}`);
+    this.logger.log(`Base string: ${baseString}`);
+    this.logger.log(`Partner Key (first 20 chars): ${this.partnerKey?.substring(0, 20)}...`);
+    this.logger.log(`Signature: ${sign}`);
+    this.logger.log(`Redirect URI: ${this.redirectUri}`);
 
     const params = new URLSearchParams({
       partner_id: this.partnerId,
@@ -98,8 +109,11 @@ export class ShopeeOAuthService {
       timestamp: timestamp.toString(),
     });
 
+    const fullUrl = `${this.apiHost}${path}?${params.toString()}`;
+    this.logger.log(`Full URL: ${fullUrl}`);
+
     return {
-      url: `${this.apiHost}${path}?${params.toString()}`,
+      url: fullUrl,
       state: finalState,
     };
   }
