@@ -50,12 +50,20 @@ export class ShopeeOAuthService {
 
   /**
    * Generate HMAC-SHA256 signature for Shopee API
+   *
+   * For auth_partner endpoint: basestring = path + timestamp
+   * For other endpoints: basestring = partner_id + path + timestamp + [access_token] + [shop_id]
    */
-  private generateSignature(path: string, timestamp: number, body?: any): string {
+  private generateSignature(
+    path: string,
+    timestamp: number,
+    body?: any,
+    includePartnerId: boolean = true,
+  ): string {
     const partnerId = parseInt(this.partnerId);
 
-    // Base string format: partner_id + path + timestamp + [access_token] + [shop_id]
-    let baseString = `${partnerId}${path}${timestamp}`;
+    // Auth partner endpoint doesn't include partner_id in signature
+    let baseString = includePartnerId ? `${partnerId}${path}${timestamp}` : `${path}${timestamp}`;
 
     if (body?.access_token) {
       baseString += body.access_token;
@@ -80,7 +88,8 @@ export class ShopeeOAuthService {
     const path = '/api/v2/shop/auth_partner';
     const timestamp = Math.floor(Date.now() / 1000);
 
-    const sign = this.generateSignature(path, timestamp);
+    // Auth partner endpoint doesn't include partner_id in signature
+    const sign = this.generateSignature(path, timestamp, undefined, false);
 
     const params = new URLSearchParams({
       partner_id: this.partnerId,
