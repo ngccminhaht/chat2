@@ -2,10 +2,14 @@ import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 
 export interface OAuthStateData {
-  codeVerifier: string;
+  codeVerifier?: string; // Optional - used by Zalo (PKCE)
   state: string;
   userId?: string;
   createdAt: number;
+  // Shopee-specific temporary data
+  tokenResponse?: any;
+  shopInfo?: any;
+  [key: string]: any; // Allow other platform-specific fields
 }
 
 @Injectable()

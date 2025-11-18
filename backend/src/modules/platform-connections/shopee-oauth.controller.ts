@@ -92,6 +92,7 @@ export class ShopeeOAuthController {
     // Frontend will need to call complete endpoint with userId
     const tempId = Math.random().toString(36).substring(7);
     await this.oauthStateService.storeState(`temp_shopee_${tempId}`, {
+      state: tempId,
       tokenResponse,
       shopInfo,
       createdAt: Date.now(),
