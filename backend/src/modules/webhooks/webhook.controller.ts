@@ -180,8 +180,15 @@ export class WebhookController {
       messageType: payload.data?.message_type,
       fromId: payload.data?.from_id,
       fromName: payload.data?.from_name,
+      verifyInfo: payload.data?.verify_info,
     });
     this.logger.log('='.repeat(80));
+
+    // Check if this is a verification message from Shopee
+    if (payload.data?.verify_info) {
+      this.logger.log('✅ Shopee verification message detected - responding with success');
+      return { code: 0, message: 'success' };
+    }
 
     // Verify signature (Shopee uses Authorization header with HMAC-SHA256)
     if (authorization) {
