@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   Headers,
   HttpCode,
@@ -132,6 +133,19 @@ export class WebhookController {
     // TODO: Implement TikTok webhook handling
 
     return { success: true };
+  }
+
+  /**
+   * Shopee webhook verification endpoint
+   * GET /api/webhook/shopee
+   *
+   * Shopee sends GET request to verify the callback URL
+   */
+  @Get('shopee')
+  @HttpCode(200)
+  async verifyShopeeWebhook(): Promise<{ code: number; message: string }> {
+    this.logger.log('📋 Shopee webhook verification (GET) received');
+    return { code: 0, message: 'success' };
   }
 
   /**
