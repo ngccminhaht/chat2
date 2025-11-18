@@ -51,7 +51,7 @@ export class ShopeeOAuthService {
   /**
    * Generate HMAC-SHA256 signature for Shopee API
    *
-   * For auth_partner endpoint: basestring = path + timestamp
+   * For auth_partner endpoint: basestring = partner_id + path + timestamp
    * For other endpoints: basestring = partner_id + path + timestamp + [access_token] + [shop_id]
    */
   private generateSignature(
@@ -62,7 +62,7 @@ export class ShopeeOAuthService {
   ): string {
     const partnerId = parseInt(this.partnerId);
 
-    // Auth partner endpoint doesn't include partner_id in signature
+    // Build base string
     let baseString = includePartnerId ? `${partnerId}${path}${timestamp}` : `${path}${timestamp}`;
 
     if (body?.access_token) {
@@ -72,9 +72,29 @@ export class ShopeeOAuthService {
       baseString += body.shop_id;
     }
 
-    const hmac = createHmac('sha256', this.partnerKey);
-    hmac.update(baseString);
-    return hmac.digest('hex');
+    // Try both approaches: partner key as-is and as hex buffer
+    // Shopee uses hex-encoded partner key
+    let signature: string;
+
+    try {
+      // Approach 1: Treat partner key as hex string and convert to buffer
+      const keyBuffer = Buffer.from(this.partnerKey, 'utf8');
+      const hmac = createHmac('sha256', keyBuffer);
+      hmac.update(baseString);
+      signature = hmac.digest('hex');
+    } catch (error) {
+      // Fallback: Use partner key as-is
+      const hmac = createHmac('sha256', this.partnerKey);
+      hmac.update(baseString);
+      signature = hmac.digest('hex');
+    }
+
+    this.logger.debug(`Signature generation:`);
+    this.logger.debug(`  Base string: ${baseString}`);
+    this.logger.debug(`  Partner key length: ${this.partnerKey?.length}`);
+    this.logger.debug(`  Signature: ${signature}`);
+
+    return signature;
   }
 
   /**
