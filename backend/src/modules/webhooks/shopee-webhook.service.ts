@@ -14,7 +14,7 @@ import {
   PlatformConnection,
   PlatformConnectionDocument,
 } from '@/common/database/schemas/platform-connection.schema';
-import { ShopeeWebhookDto, ShopeeMessageType } from './shopee-webhook.dto';
+import { ShopeeWebhookDto, ShopeeMessageType } from './dto/shopee-webhook.dto';
 
 @Injectable()
 export class ShopeeWebhookService {

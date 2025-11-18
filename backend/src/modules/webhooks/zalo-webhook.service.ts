@@ -14,7 +14,7 @@ import {
   PlatformConnection,
   PlatformConnectionDocument,
 } from "@/common/database/schemas/platform-connection.schema";
-import { ZaloWebhookDto, ZaloUserInfo } from "./zalo-webhook.dto";
+import { ZaloWebhookDto, ZaloUserInfo } from "./dto/zalo-webhook.dto";
 
 @Injectable()
 export class ZaloWebhookService {

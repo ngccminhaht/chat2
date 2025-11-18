@@ -10,9 +10,9 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ZaloWebhookService } from './zalo-webhook.service';
-import { ZaloWebhookDto } from './zalo-webhook.dto';
+import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
 import { ShopeeWebhookService } from './shopee-webhook.service';
-import { ShopeeWebhookDto } from './shopee-webhook.dto';
+import { ShopeeWebhookDto } from './dto/shopee-webhook.dto';
 import { WebhookPublisherService } from './webhook-publisher.service';
 
 /**
