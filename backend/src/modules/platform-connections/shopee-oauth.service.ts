@@ -188,8 +188,8 @@ export class ShopeeOAuthService {
       this.logger.log('Status:', response.status);
       this.logger.log('Response:', JSON.stringify(response.data, null, 2));
 
-      // Check for errors first
-      if (response.data.error) {
+      // Check for errors first (Shopee returns error as non-empty string)
+      if (response.data.error && response.data.error !== '') {
         this.logger.error('❌ Shopee OAuth ERROR:', response.data);
         throw new BadRequestException(
           `Shopee OAuth error: ${response.data.message || response.data.error}`,
