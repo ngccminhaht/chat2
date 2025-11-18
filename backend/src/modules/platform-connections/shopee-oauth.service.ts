@@ -40,7 +40,12 @@ export class ShopeeOAuthService {
     // Shopee API host varies by region (sg, my, th, tw, id, vn, ph)
     // Default to Vietnam region
     const region = this.configService.get<string>('SHOPEE_REGION') || 'vn';
-    this.apiHost = `https://partner.shopeemobile.com`;
+
+    // Choose API host based on environment
+    const isTestEnv = this.configService.get<string>('SHOPEE_ENV') === 'test';
+    this.apiHost = isTestEnv
+      ? `https://partner.test-stable.shopeemobile.com`  // Test environment
+      : `https://partner.shopeemobile.com`;             // Production
   }
 
   /**
