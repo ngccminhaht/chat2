@@ -1,12 +1,23 @@
-'use client';
+"use client";
 
-import { Box, Typography, Grid, Alert, CircularProgress } from '@mui/material';
-import { usePlatformConnections, useDeletePlatformConnection } from '@/features/platform-connections/hooks/usePlatformConnections';
-import PlatformConnectionCard from '@/features/platform-connections/components/PlatformConnectionCard';
-import ConnectPlatformButton from '@/features/platform-connections/components/ConnectPlatformButton';
-import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import {
+  Box,
+  Typography,
+  Grid,
+  Alert,
+  CircularProgress,
+  Tabs,
+  Tab,
+} from "@mui/material";
+import {
+  usePlatformConnections,
+  useDeletePlatformConnection,
+} from "@/features/platform-connections/hooks/usePlatformConnections";
+import PlatformConnectionCard from "@/features/platform-connections/components/PlatformConnectionCard";
+import ConnectPlatformButton from "@/features/platform-connections/components/ConnectPlatformButton";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 function ConnectionsPageContent() {
   const searchParams = useSearchParams();
@@ -15,22 +26,27 @@ function ConnectionsPageContent() {
   const deleteMutation = useDeletePlatformConnection();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Show all platforms - allow multiple accounts per platform
+  const allPlatforms = ["zalo", "facebook", "tiktok", "shopee"];
+
+  const [selectedTab, setSelectedTab] = useState<string>(allPlatforms[0]);
+
   useEffect(() => {
     // Check if OAuth callback with success status
-    const status = searchParams.get('status');
-    const platform = searchParams.get('platform');
-    const account = searchParams.get('account');
+    const status = searchParams.get("status");
+    const platform = searchParams.get("platform");
+    const account = searchParams.get("account");
 
-    if (status === 'success' && platform) {
+    if (status === "success" && platform) {
       setSuccessMessage(
-        `Successfully connected ${platform}${account ? `: ${account}` : ''}!`
+        `Successfully connected ${platform}${account ? `: ${account}` : ""}!`
       );
 
       // Refetch connections to show the new one
-      queryClient.invalidateQueries({ queryKey: ['platform-connections'] });
+      queryClient.invalidateQueries({ queryKey: ["platform-connections"] });
 
       // Clear URL params after showing message
-      window.history.replaceState({}, '', '/connections');
+      window.history.replaceState({}, "", "/connections");
 
       // Auto-hide message after 5 seconds
       setTimeout(() => setSuccessMessage(null), 5000);
@@ -38,35 +54,72 @@ function ConnectionsPageContent() {
   }, [searchParams, queryClient]);
 
   const handleDisconnect = async (connectionId: string) => {
-    if (confirm('Are you sure you want to disconnect this platform?')) {
+    if (confirm("Are you sure you want to disconnect this platform?")) {
       try {
         await deleteMutation.mutateAsync(connectionId);
-        setSuccessMessage('Platform disconnected successfully!');
+        setSuccessMessage("Platform disconnected successfully!");
         setTimeout(() => setSuccessMessage(null), 3000);
       } catch (error) {
-        console.error('Failed to disconnect platform:', error);
+        console.error("Failed to disconnect platform:", error);
       }
     }
   };
 
-  // Show all platforms - allow multiple accounts per platform
-  const allPlatforms = ['zalo', 'facebook', 'tiktok', 'shopee'];
+  // Filter connections based on selected tab
+  const filteredConnections = connections?.filter(
+    (conn) => conn.platform === selectedTab
+  );
+
+  // Count connections per platform
+  const platformCounts = allPlatforms.reduce((acc, platform) => {
+    acc[platform] =
+      connections?.filter((conn) => conn.platform === platform).length || 0;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
         Platform Connections
       </Typography>
-      <Typography variant="body1" color="text.secondary" paragraph>
-        Connect your social media and e-commerce platforms to manage all
-        conversations in one place.
-      </Typography>
 
       {successMessage && (
-        <Alert severity="success">
-          {successMessage}
-        </Alert>
+        <Box mb={2}>
+          <Alert severity="success">
+            {successMessage}
+          </Alert>
+        </Box>
       )}
+
+      {/* Platform Tabs and Connect Button */}
+      <Box mb={3}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid size="grow">
+            <Tabs
+              value={selectedTab}
+              onChange={(_, newValue) => setSelectedTab(newValue)}
+              variant="scrollable"
+            >
+              {allPlatforms.map((platform) => (
+                <Tab
+                  key={platform}
+                  label={`${
+                    platform.charAt(0).toUpperCase() + platform.slice(1)
+                  } (${platformCounts[platform]})`}
+                  value={platform}
+                />
+              ))}
+            </Tabs>
+          </Grid>
+          <Grid size="auto">
+            <ConnectPlatformButton
+              platform={
+                selectedTab as "facebook" | "zalo" | "tiktok" | "shopee"
+              }
+            />
+          </Grid>
+        </Grid>
+      </Box>
 
       {/* Connected Platforms */}
       {isLoading ? (
@@ -74,16 +127,11 @@ function ConnectionsPageContent() {
           <CircularProgress />
         </Box>
       ) : error ? (
-        <Alert severity="error">
-          Failed to load connections
-        </Alert>
-      ) : connections && connections.length > 0 ? (
+        <Alert severity="error">Failed to load connections</Alert>
+      ) : filteredConnections && filteredConnections.length > 0 ? (
         <Box mb={4}>
-          <Typography variant="h6" gutterBottom>
-            Connected Platforms
-          </Typography>
           <Grid container spacing={2}>
-            {connections.map((connection) => (
+            {filteredConnections.map((connection) => (
               <Grid size={{ xs: 12, md: 6 }} key={connection.id}>
                 <PlatformConnectionCard
                   connection={connection}
@@ -95,28 +143,9 @@ function ConnectionsPageContent() {
         </Box>
       ) : (
         <Alert severity="info">
-          No platforms connected yet. Connect your first platform below!
+          No {selectedTab} connections yet. Use the connect button above!
         </Alert>
       )}
-
-      {/* Available Platforms to Connect - Always show all platforms for multiple accounts */}
-      <Box>
-        <Typography variant="h6" gutterBottom>
-          Connect Platform
-        </Typography>
-        <Typography variant="body2" color="text.secondary" mb={2}>
-          You can connect multiple accounts for each platform
-        </Typography>
-        <Grid container spacing={2}>
-          {allPlatforms.map((platform) => (
-            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={platform}>
-              <ConnectPlatformButton
-                platform={platform as 'facebook' | 'zalo' | 'tiktok' | 'shopee'}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      </Box>
     </Box>
   );
 }

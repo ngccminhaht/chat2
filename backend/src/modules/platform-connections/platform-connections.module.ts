@@ -6,6 +6,8 @@ import { ZaloOAuthController } from './zalo-oauth.controller';
 import { ZaloOAuthService } from './zalo-oauth.service';
 import { ShopeeOAuthController } from './shopee-oauth.controller';
 import { ShopeeOAuthService } from './shopee-oauth.service';
+import { FacebookOAuthController } from './facebook-oauth.controller';
+import { FacebookOAuthService } from './facebook-oauth.service';
 import { OAuthStateService } from './oauth-state.service';
 import {
   PlatformConnection,
@@ -32,17 +34,20 @@ import {
     PlatformConnectionsController,
     ZaloOAuthController,
     ShopeeOAuthController,
+    FacebookOAuthController,
   ],
   providers: [
     PlatformConnectionsService,
     ZaloOAuthService,
     ShopeeOAuthService,
+    FacebookOAuthService,
     OAuthStateService,
   ],
   exports: [
     PlatformConnectionsService,
     ZaloOAuthService,
     ShopeeOAuthService,
+    FacebookOAuthService,
     OAuthStateService,
   ],
 })

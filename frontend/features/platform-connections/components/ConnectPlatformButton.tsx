@@ -1,8 +1,9 @@
 'use client';
 
-import { Button, Box, Typography } from '@mui/material';
+import { Button, CircularProgress } from '@mui/material';
 import { useConnectZalo } from '../hooks/useConnectZalo';
 import { useConnectShopee } from '../hooks/useConnectShopee';
+import { useConnectFacebook } from '../hooks/useConnectFacebook';
 
 interface ConnectPlatformButtonProps {
   platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
@@ -11,23 +12,19 @@ interface ConnectPlatformButtonProps {
 const platformInfo = {
   facebook: {
     name: 'Facebook Page',
-    color: '#1877F2',
-    icon: 'F',
+    description: 'Connect your Facebook Page to manage messages',
   },
   zalo: {
     name: 'Zalo OA',
-    color: '#0068FF',
-    icon: 'Z',
+    description: 'Connect your Zalo Official Account',
   },
   tiktok: {
     name: 'TikTok Shop',
-    color: '#000000',
-    icon: 'T',
+    description: 'Connect your TikTok Shop account',
   },
   shopee: {
     name: 'Shopee',
-    color: '#EE4D2D',
-    icon: 'S',
+    description: 'Connect your Shopee store',
   },
 };
 
@@ -36,51 +33,47 @@ export default function ConnectPlatformButton({
 }: ConnectPlatformButtonProps) {
   const { connectZalo, isLoading: isLoadingZalo, error: errorZalo } = useConnectZalo();
   const { connectShopee, isLoading: isLoadingShopee, error: errorShopee } = useConnectShopee();
+  const { connectFacebook, isLoading: isLoadingFacebook, error: errorFacebook } = useConnectFacebook();
 
   const info = platformInfo[platform];
 
-  const isLoading = isLoadingZalo || isLoadingShopee;
-  const error = errorZalo || errorShopee;
+  // Get platform-specific loading state and error
+  let isLoading = false;
+  let error: string | null = null;
+
+  if (platform === 'facebook') {
+    isLoading = isLoadingFacebook;
+    error = errorFacebook;
+  } else if (platform === 'zalo') {
+    isLoading = isLoadingZalo;
+    error = errorZalo;
+  } else if (platform === 'shopee') {
+    isLoading = isLoadingShopee;
+    error = errorShopee;
+  }
 
   const handleConnect = () => {
-    if (platform === 'zalo') {
+    if (platform === 'facebook') {
+      connectFacebook();
+    } else if (platform === 'zalo') {
       connectZalo();
     } else if (platform === 'shopee') {
       connectShopee();
-    } else {
-      // TODO: Implement other platforms
+    } else if (platform === 'tiktok') {
       alert(`${info.name} connection coming soon!`);
     }
   };
 
   return (
-    <Box>
-      <Button
-        variant="contained"
-        fullWidth
-        onClick={handleConnect}
-        disabled={isLoading}
-        sx={{
-          bgcolor: info.color,
-          '&:hover': {
-            bgcolor: info.color,
-            opacity: 0.9,
-          },
-          py: 2,
-        }}
-      >
-        <Box textAlign="center">
-          <Typography variant="h6">Connect {info.name}</Typography>
-          {isLoading && (
-            <Typography variant="caption">Redirecting...</Typography>
-          )}
-        </Box>
-      </Button>
-      {error && (
-        <Typography variant="caption" color="error" mt={1}>
-          {error}
-        </Typography>
-      )}
-    </Box>
+    <Button
+      variant="contained"
+      color="primary"
+      size="large"
+      onClick={handleConnect}
+      disabled={isLoading || platform === 'tiktok'}
+      startIcon={isLoading && <CircularProgress size={20} color="inherit" />}
+    >
+      {isLoading ? 'Connecting...' : platform === 'tiktok' ? 'Coming Soon' : `Connect ${info.name}`}
+    </Button>
   );
 }

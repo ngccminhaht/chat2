@@ -4,6 +4,7 @@ import { WebhookController } from './webhook.controller';
 import { WebhookPublisherService } from './webhook-publisher.service';
 import { ZaloWebhookService } from './zalo-webhook.service';
 import { ShopeeWebhookService } from './shopee-webhook.service';
+import { FacebookWebhookService } from './facebook-webhook.service';
 import {
   Conversation,
   ConversationSchema,
@@ -26,7 +27,7 @@ import {
     ]),
   ],
   controllers: [WebhookController],
-  providers: [WebhookPublisherService, ZaloWebhookService, ShopeeWebhookService],
-  exports: [ZaloWebhookService, ShopeeWebhookService],
+  providers: [WebhookPublisherService, ZaloWebhookService, ShopeeWebhookService, FacebookWebhookService],
+  exports: [ZaloWebhookService, ShopeeWebhookService, FacebookWebhookService],
 })
 export class WebhooksModule {}
