@@ -47,11 +47,18 @@ export class ShopeeOAuthService {
     // Default to Vietnam region
     const region = this.configService.get<string>('SHOPEE_REGION') || 'vn';
 
-    // Choose API host based on environment
+    // Choose API host based on environment and region
     const isTestEnv = this.configService.get<string>('SHOPEE_ENV') === 'test';
-    this.apiHost = isTestEnv
-      ? `https://partner.test-stable.shopeemobile.com`  // Test environment
-      : `https://partner.shopeemobile.com`;             // Production
+
+    if (isTestEnv) {
+      // Test environment - use region-specific sandbox
+      // Singapore: https://openplatform.sandbox.test-stable.shopee.sg
+      // Others may use: https://partner.test-stable.shopeemobile.com
+      this.apiHost = `https://openplatform.sandbox.test-stable.shopee.sg`;
+    } else {
+      // Production environment
+      this.apiHost = `https://partner.shopeemobile.com`;
+    }
   }
 
   /**
@@ -78,13 +85,10 @@ export class ShopeeOAuthService {
       baseString += body.shop_id;
     }
 
-    // Following Python example: encode both partner_key and base_string to bytes
-    // partner_key.encode() and base_string.encode() in Python
-    const partnerKeyBuffer = Buffer.from(this.partnerKey, 'utf8');
-    const baseStringBuffer = Buffer.from(baseString, 'utf8');
-
-    const hmac = createHmac('sha256', partnerKeyBuffer);
-    hmac.update(baseStringBuffer);
+    // Generate HMAC-SHA256 signature
+    // Equivalent to PHP: hash_hmac('sha256', $baseString, $partnerKey)
+    const hmac = createHmac('sha256', this.partnerKey);
+    hmac.update(baseString);
     const signature = hmac.digest('hex');
 
     this.logger.debug(`Signature generation:`);
