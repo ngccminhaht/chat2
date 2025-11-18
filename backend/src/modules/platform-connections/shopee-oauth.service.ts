@@ -78,9 +78,13 @@ export class ShopeeOAuthService {
       baseString += body.shop_id;
     }
 
-    // Shopee partner key is used as UTF-8 string directly
-    const hmac = createHmac('sha256', this.partnerKey);
-    hmac.update(baseString);
+    // Following Python example: encode both partner_key and base_string to bytes
+    // partner_key.encode() and base_string.encode() in Python
+    const partnerKeyBuffer = Buffer.from(this.partnerKey, 'utf8');
+    const baseStringBuffer = Buffer.from(baseString, 'utf8');
+
+    const hmac = createHmac('sha256', partnerKeyBuffer);
+    hmac.update(baseStringBuffer);
     const signature = hmac.digest('hex');
 
     this.logger.debug(`Signature generation:`);
