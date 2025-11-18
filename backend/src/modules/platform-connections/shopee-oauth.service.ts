@@ -34,7 +34,13 @@ export class ShopeeOAuthService {
     private conversationModel: Model<ConversationDocument>,
   ) {
     this.partnerId = this.configService.get<string>('SHOPEE_PARTNER_ID');
-    this.partnerKey = this.configService.get<string>('SHOPEE_PARTNER_KEY');
+    const rawPartnerKey = this.configService.get<string>('SHOPEE_PARTNER_KEY');
+
+    // Remove 'shpk' prefix if present (newer Shopee partner keys)
+    this.partnerKey = rawPartnerKey?.startsWith('shpk')
+      ? rawPartnerKey.substring(4)
+      : rawPartnerKey;
+
     this.redirectUri = this.configService.get<string>('SHOPEE_REDIRECT_URI');
 
     // Shopee API host varies by region (sg, my, th, tw, id, vn, ph)
@@ -72,25 +78,14 @@ export class ShopeeOAuthService {
       baseString += body.shop_id;
     }
 
-    // Try both approaches: partner key as-is and as hex buffer
-    // Shopee uses hex-encoded partner key
-    let signature: string;
-
-    try {
-      // Approach 1: Treat partner key as hex string and convert to buffer
-      const keyBuffer = Buffer.from(this.partnerKey, 'utf8');
-      const hmac = createHmac('sha256', keyBuffer);
-      hmac.update(baseString);
-      signature = hmac.digest('hex');
-    } catch (error) {
-      // Fallback: Use partner key as-is
-      const hmac = createHmac('sha256', this.partnerKey);
-      hmac.update(baseString);
-      signature = hmac.digest('hex');
-    }
+    // Shopee partner key is used as UTF-8 string directly
+    const hmac = createHmac('sha256', this.partnerKey);
+    hmac.update(baseString);
+    const signature = hmac.digest('hex');
 
     this.logger.debug(`Signature generation:`);
     this.logger.debug(`  Base string: ${baseString}`);
+    this.logger.debug(`  Partner key: ${this.partnerKey?.substring(0, 10)}...`);
     this.logger.debug(`  Partner key length: ${this.partnerKey?.length}`);
     this.logger.debug(`  Signature: ${signature}`);
 
