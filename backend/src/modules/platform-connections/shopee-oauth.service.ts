@@ -246,19 +246,20 @@ export class ShopeeOAuthService {
       this.logger.log(`Base string: ${baseString.substring(0, 100)}...`);
       this.logger.log(`Signature: ${sign}`);
 
-      const requestParams = {
+      // Build query string manually to ensure proper parameter ordering
+      const queryString = `partner_id=${partnerId}&shop_id=${shopId}&timestamp=${timestamp}&access_token=${encodeURIComponent(accessToken)}&sign=${sign}`;
+      const fullUrl = `${this.apiHost}${path}?${queryString}`;
+
+      this.logger.log('Full request URL:', fullUrl.replace(accessToken, accessToken.substring(0, 20) + '...'));
+      this.logger.log('Request params:', {
         partner_id: partnerId,
         shop_id: shopId,
         timestamp,
-        access_token: accessToken,
+        access_token: accessToken.substring(0, 30) + '...',
         sign,
-      };
-
-      this.logger.log('Request params:', JSON.stringify(requestParams, null, 2));
-
-      const response = await axios.get(`${this.apiHost}${path}`, {
-        params: requestParams,
       });
+
+      const response = await axios.get(fullUrl);
 
       this.logger.log('=== Get shop info - RESPONSE ===');
       this.logger.log('Status:', response.status);

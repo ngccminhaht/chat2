@@ -103,6 +103,27 @@ export class EnvSchema {
   @IsOptional()
   TIKTOK_REDIRECT_URI: string
 
+  // Shopee
+  @IsString()
+  @IsOptional()
+  SHOPEE_ENV: string
+
+  @IsString()
+  @IsOptional()
+  SHOPEE_PARTNER_ID: string
+
+  @IsString()
+  @IsOptional()
+  SHOPEE_PARTNER_KEY: string
+
+  @IsUrl()
+  @IsOptional()
+  SHOPEE_REDIRECT_URI: string
+
+  @IsString()
+  @IsOptional()
+  SHOPEE_REGION: string
+
   // WebSocket
   @Type(() => Number)
   @IsNumber()
