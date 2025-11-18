@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { WebhookController } from './webhook.controller';
 import { WebhookPublisherService } from './webhook-publisher.service';
 import { ZaloWebhookService } from './zalo/zalo-webhook.service';
+import { ShopeeWebhookService } from './shopee/shopee-webhook.service';
 import {
   Conversation,
   ConversationSchema,
@@ -25,7 +26,7 @@ import {
     ]),
   ],
   controllers: [WebhookController],
-  providers: [WebhookPublisherService, ZaloWebhookService],
-  exports: [ZaloWebhookService],
+  providers: [WebhookPublisherService, ZaloWebhookService, ShopeeWebhookService],
+  exports: [ZaloWebhookService, ShopeeWebhookService],
 })
 export class WebhooksModule {}

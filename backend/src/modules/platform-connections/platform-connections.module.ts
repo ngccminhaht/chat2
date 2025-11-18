@@ -4,6 +4,8 @@ import { PlatformConnectionsController } from './platform-connections.controller
 import { PlatformConnectionsService } from './platform-connections.service';
 import { ZaloOAuthController } from './zalo-oauth.controller';
 import { ZaloOAuthService } from './zalo-oauth.service';
+import { ShopeeOAuthController } from './shopee-oauth.controller';
+import { ShopeeOAuthService } from './shopee-oauth.service';
 import { OAuthStateService } from './oauth-state.service';
 import {
   PlatformConnection,
@@ -26,8 +28,22 @@ import {
       { name: Message.name, schema: MessageSchema },
     ]),
   ],
-  controllers: [PlatformConnectionsController, ZaloOAuthController],
-  providers: [PlatformConnectionsService, ZaloOAuthService, OAuthStateService],
-  exports: [PlatformConnectionsService, ZaloOAuthService, OAuthStateService],
+  controllers: [
+    PlatformConnectionsController,
+    ZaloOAuthController,
+    ShopeeOAuthController,
+  ],
+  providers: [
+    PlatformConnectionsService,
+    ZaloOAuthService,
+    ShopeeOAuthService,
+    OAuthStateService,
+  ],
+  exports: [
+    PlatformConnectionsService,
+    ZaloOAuthService,
+    ShopeeOAuthService,
+    OAuthStateService,
+  ],
 })
 export class PlatformConnectionsModule {}
