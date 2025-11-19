@@ -261,11 +261,27 @@ export class MessagesService {
 
     this.logger.log(`Marked ${updatedMessages.length} messages as read in conversation ${conversationId}`);
 
+    // Reset conversation unread count to 0
+    await this.conversationModel.findByIdAndUpdate(conversationId, {
+      unreadCount: 0,
+    }).exec();
+
+    // Get updated conversation
+    const updatedConversation = await this.conversationModel
+      .findById(conversationId)
+      .lean()
+      .exec();
+
     // Emit WebSocket event for real-time update
     this.websocketGateway.emitMessagesRead(
       conversationId,
       updatedMessages.map((m) => m._id.toString()),
     );
+
+    // Emit conversation update to refresh unread count in UI
+    if (updatedConversation) {
+      this.websocketGateway.emitConversationUpdated(updatedConversation);
+    }
 
     return {
       updated: updatedMessages.length,
