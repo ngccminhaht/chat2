@@ -108,6 +108,67 @@ Common utilities in `src/common/`:
 - `kafka`: Producers and consumers (to be implemented)
 - `guards`: JWT auth guards
 - `decorators`: Custom parameter decorators
+- `env`: Type-safe environment variable service
+
+### Environment Configuration (Backend)
+
+**EnvService** provides type-safe access to environment variables with runtime validation using `class-validator`.
+
+**Location:** `backend/src/common/env/`
+
+**Key files:**
+- `env.schema.ts`: Defines all environment variables with validation decorators
+- `env.service.ts`: Simple service with generic `get()` method
+- `env.module.ts`: Global module with validation logic
+
+**Usage pattern:**
+```typescript
+import { EnvService } from '@/common/env';
+
+@Injectable()
+export class MyService {
+  constructor(private readonly envService: EnvService) {}
+
+  myMethod() {
+    // ✅ CORRECT - Type-safe access with autocomplete
+    const port = this.envService.get('PORT');           // Type: number
+    const mongoUri = this.envService.get('MONGODB_URI'); // Type: string
+    const corsOrigins = this.envService.get('CORS_ORIGINS'); // Type: string[]
+
+    // ❌ WRONG - Never access process.env directly
+    const port = process.env.PORT; // No type safety, no validation
+  }
+}
+```
+
+**Adding new environment variables:**
+1. Add property to `EnvSchema` class in `env.schema.ts` with validation decorators
+2. Use `@Transform()` for type conversion (e.g., string to number)
+3. Use `@IsOptional()` for optional variables
+4. Access via `envService.get('VARIABLE_NAME')` - autocomplete will work
+
+**Example:**
+```typescript
+// In env.schema.ts
+export class EnvSchema {
+  @IsNumber()
+  @Transform(({ value }) => parseInt(value, 10))
+  NEW_PORT: number = 8080;
+
+  @IsString()
+  @IsOptional()
+  NEW_API_KEY?: string;
+}
+
+// In your service
+const port = this.envService.get('NEW_PORT');      // number
+const apiKey = this.envService.get('NEW_API_KEY'); // string | undefined
+```
+
+**Validation:**
+- All environment variables are validated on application startup
+- Invalid values throw errors before the app starts
+- Type conversion happens automatically via `@Transform()` decorators
 
 ### Feature-Based Organization (Frontend)
 

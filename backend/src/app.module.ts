@@ -21,7 +21,7 @@ import { MediaModule } from './modules/media/media.module';
     MongooseModule.forRootAsync({
       inject: [EnvService],
       useFactory: (envService: EnvService) => ({
-        uri: envService.mongoUri,
+        uri: envService.get('MONGODB_URI'),
       }),
     }),
 

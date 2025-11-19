@@ -57,7 +57,7 @@ export class WebhookController {
 
     // Verify signature (if provided)
     if (signature) {
-      const appSecret = this.envService.zaloAppSecret;
+      const appSecret = this.envService.get('ZALO_APP_SECRET');
       if (!appSecret) {
         this.logger.error('ZALO_APP_SECRET not configured');
         return { success: true };
@@ -102,7 +102,7 @@ export class WebhookController {
     this.logger.log('📋 Facebook webhook verification (GET) received');
     this.logger.log('Query params:', { mode, challenge, verifyToken });
 
-    const expectedToken = this.envService.facebookVerifyToken;
+    const expectedToken = this.envService.get('FACEBOOK_VERIFY_TOKEN');
     if (!expectedToken) {
       this.logger.error('FACEBOOK_VERIFY_TOKEN not configured');
       throw new BadRequestException('Server configuration error');
@@ -146,7 +146,7 @@ export class WebhookController {
 
     // Verify signature (if provided)
     if (signature) {
-      const appSecret = this.envService.facebookAppSecret;
+      const appSecret = this.envService.get('FACEBOOK_APP_SECRET');
       if (!appSecret) {
         this.logger.error('FACEBOOK_APP_SECRET not configured');
         return { success: true };
@@ -232,7 +232,7 @@ export class WebhookController {
 
     // Verify signature (Shopee uses Authorization header with HMAC-SHA256)
     if (authorization) {
-      const partnerKey = this.envService.shopeePartnerKey;
+      const partnerKey = this.envService.get('SHOPEE_PARTNER_KEY');
       if (!partnerKey) {
         this.logger.error('❌ SHOPEE_PARTNER_KEY not configured');
         return { code: 1, message: 'Server configuration error' };

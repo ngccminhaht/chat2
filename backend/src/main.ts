@@ -12,18 +12,18 @@ async function bootstrap() {
 
   // Get EnvService (already initialized with validated config)
   const envService = app.get(EnvService);
-  logger.log(`Environment: ${envService.nodeEnv}`);
+  logger.log(`Environment: ${envService.get('NODE_ENV')}`);
 
   // Enable cookie parser
   app.use(cookieParser());
 
   // Enable CORS with environment-based origins
   app.enableCors({
-    origin: envService.corsOrigins,
+    origin: envService.get('CORS_ORIGINS'),
     credentials: true,
   });
 
-  logger.log(`CORS enabled for origins: ${envService.corsOrigins.join(', ')}`);
+  logger.log(`CORS enabled for origins: ${envService.get('CORS_ORIGINS').join(', ')}`);
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -37,10 +37,10 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix("api");
 
-  await app.listen(envService.port);
+  await app.listen(envService.get('PORT'));
 
-  logger.log(`🚀 Application is running on: http://localhost:${envService.port}/api`);
-  logger.log(`📡 WebSocket server is running on: http://localhost:${envService.port}`);
+  logger.log(`🚀 Application is running on: http://localhost:${envService.get('PORT')}/api`);
+  logger.log(`📡 WebSocket server is running on: http://localhost:${envService.get('PORT')}`);
 }
 
 bootstrap();
