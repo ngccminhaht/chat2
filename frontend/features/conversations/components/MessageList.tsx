@@ -34,7 +34,7 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
   return (
     <Box
       sx={{
-        flexGrow: 1,
+        height: '100%',
         overflowY: 'auto',
         p: 2,
         display: 'flex',

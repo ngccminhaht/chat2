@@ -80,14 +80,23 @@ export default function ConversationDetailPage() {
         <Box sx={{ width: '33%', minWidth: 300 }}>
           <ConversationList activeConversationId={conversationId} />
         </Box>
-        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-          <Paper sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <Paper sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+            {/* Fixed Header */}
+            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
               <Typography variant="h6">Conversation</Typography>
               <Chip label={conversationId} size="small" variant="outlined" />
             </Box>
-            <MessageList messages={storeMessages} isLoading={isLoading && storeMessages.length === 0} />
-            <MessageInput conversationId={conversationId} />
+
+            {/* Scrollable Message List */}
+            <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+              <MessageList messages={storeMessages} isLoading={isLoading && storeMessages.length === 0} />
+            </Box>
+
+            {/* Fixed Message Input */}
+            <Box sx={{ flexShrink: 0 }}>
+              <MessageInput conversationId={conversationId} />
+            </Box>
           </Paper>
         </Box>
       </Stack>

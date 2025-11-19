@@ -30,7 +30,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
     );
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -38,8 +38,8 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
   };
 
   return (
-    <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-      <Box sx={{ display: 'flex', gap: 1 }}>
+    <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
         <TextField
           fullWidth
           multiline
@@ -47,13 +47,15 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
           placeholder="Type a message..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyDown}
           disabled={isPending}
+          size="small"
         />
         <IconButton
           color="primary"
           onClick={handleSend}
           disabled={!message.trim() || isPending}
+          size="large"
         >
           {isPending ? <CircularProgress size={24} /> : <SendIcon />}
         </IconButton>
