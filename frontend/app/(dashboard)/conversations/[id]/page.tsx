@@ -4,6 +4,7 @@ import { useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Paper, Typography, Chip, Stack, Avatar } from '@mui/material';
 import { useMessages } from '@/features/conversations/hooks/useMessages';
+import { useConversation } from '@/features/conversations/hooks/useConversation';
 import { useConversationStore } from '@/features/conversations/stores/conversationStore';
 import { useWebSocket } from '@/lib/websocket/WebSocketContext';
 import { useWebSocketEvent } from '@/lib/websocket/useWebSocketEvent';
@@ -20,15 +21,19 @@ export default function ConversationDetailPage() {
 
   const { socket, isConnected } = useWebSocket();
   const { data, isLoading } = useMessages({ conversationId });
+  const { data: conversationData } = useConversation({ conversationId });
 
   // Get messages from Zustand store (updated by WebSocket)
   const messagesFromStore = useConversationStore((state) => state.messages[conversationId]);
   const storeMessages = messagesFromStore || EMPTY_MESSAGES;
 
   // Get conversation from Zustand store
-  const conversation = useConversationStore((state) =>
+  const conversationFromStore = useConversationStore((state) =>
     state.conversations.find((c) => c._id === conversationId)
   );
+
+  // Use conversation from API if store doesn't have it
+  const conversation = conversationFromStore || conversationData;
 
   // Get customer participant
   const customer = conversation?.participants.find((p) => p.role === 'customer');
@@ -40,6 +45,13 @@ export default function ConversationDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.data, conversationId]);
+
+  // Sync conversation data to store
+  useEffect(() => {
+    if (conversationData) {
+      useConversationStore.getState().updateConversation(conversationData);
+    }
+  }, [conversationData]);
 
   // WebSocket event handlers (using named functions for proper cleanup)
   const handleNewMessage = useCallback((message: any) => {
