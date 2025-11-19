@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Kafka, Producer, ProducerRecord, RecordMetadata } from 'kafkajs';
 import { getKafkaConfig } from './kafka.config';
+import { EnvService } from '../env';
 
 /**
  * Kafka Producer Service
@@ -13,8 +14,10 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   private producer: Producer;
   private isConnected = false;
 
+  constructor(private readonly envService: EnvService) {}
+
   async onModuleInit() {
-    const config = getKafkaConfig();
+    const config = getKafkaConfig(this.envService);
     this.kafka = new Kafka(config);
     this.producer = this.kafka.producer();
 

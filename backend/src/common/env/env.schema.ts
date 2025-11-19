@@ -45,7 +45,10 @@ export class EnvSchema {
 
   // Kafka
   @IsString()
-  KAFKA_BROKER: string = 'localhost:9092';
+  KAFKA_BROKERS: string = 'localhost:8311';
+
+  @IsString()
+  KAFKA_CLIENT_ID: string = 'omnichat-backend';
 
   // Zalo
   @IsString()

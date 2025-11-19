@@ -1,6 +1,6 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { Kafka, Consumer, EachMessagePayload } from 'kafkajs';
-import { getKafkaConfig, KAFKA_TOPICS, KAFKA_CONSUMER_GROUPS } from '../kafka.config';
+import { Controller, Logger } from '@nestjs/common';
+import { MessagePattern, Payload, Ctx, KafkaContext } from '@nestjs/microservices';
+import { KAFKA_TOPICS } from '../kafka.config';
 import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 
 /**
@@ -9,55 +9,16 @@ import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
  *
  * This bridges Kafka messages to Socket.IO for real-time frontend updates
  */
-@Injectable()
-export class WebSocketBridgeConsumer implements OnModuleInit, OnModuleDestroy {
+@Controller()
+export class WebSocketBridgeConsumer {
   private readonly logger = new Logger(WebSocketBridgeConsumer.name);
-  private kafka: Kafka;
-  private consumer: Consumer;
 
   constructor(private websocketGateway: WebsocketGateway) {}
 
-  async onModuleInit() {
-    const config = getKafkaConfig();
-    this.kafka = new Kafka(config);
-    this.consumer = this.kafka.consumer({
-      groupId: KAFKA_CONSUMER_GROUPS.WEBSOCKET_BRIDGE,
-    });
-
+  @MessagePattern(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS)
+  async handleMessage(@Payload() message: any, @Ctx() context: KafkaContext): Promise<void> {
     try {
-      await this.consumer.connect();
-      this.logger.log('✅ WebSocket Bridge Consumer connected');
-
-      await this.consumer.subscribe({
-        topic: KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS,
-        fromBeginning: false,
-      });
-
-      await this.consumer.run({
-        eachMessage: async (payload: EachMessagePayload) => {
-          await this.handleMessage(payload);
-        },
-      });
-
-      this.logger.log(`🌉 WebSocket Bridge listening to: ${KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS}`);
-    } catch (error) {
-      this.logger.error('❌ Failed to initialize WebSocket Bridge Consumer:', error);
-      // Don't throw - allow app to start even if Kafka is down
-    }
-  }
-
-  async onModuleDestroy() {
-    if (this.consumer) {
-      await this.consumer.disconnect();
-      this.logger.log('WebSocket Bridge Consumer disconnected');
-    }
-  }
-
-  private async handleMessage(payload: EachMessagePayload): Promise<void> {
-    const { message } = payload;
-
-    try {
-      const notification = JSON.parse(message.value?.toString() || '{}');
+      const notification = message;
 
       this.logger.log(
         `📢 Broadcasting notification: ${notification.type} for conversation ${notification.conversationId}`,
