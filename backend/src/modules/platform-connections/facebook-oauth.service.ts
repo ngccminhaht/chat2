@@ -285,6 +285,51 @@ export class FacebookOAuthService {
   }
 
   /**
+   * Sync all pages for a user (requires new OAuth authorization)
+   * This method is used when user wants to refresh their page list
+   * Returns the authorization URL for user to re-authenticate
+   */
+  async syncPagesForUser(userId: string): Promise<{ authUrl: string; state: string }> {
+    this.logger.log(`Initiating page sync for user ${userId}`);
+
+    // Generate new OAuth URL with rerequest to force showing all permissions
+    const { url, state } = this.getAuthorizationUrl();
+
+    return {
+      authUrl: url,
+      state,
+    };
+  }
+
+  /**
+   * Get sync status for user's Facebook pages
+   * Returns list of connected pages and last sync time
+   */
+  async getSyncStatus(userId: string): Promise<{
+    connectedPages: number;
+    lastSyncAt: Date | null;
+  }> {
+    const connections = await this.platformConnectionModel
+      .find({
+        userId: new Types.ObjectId(userId),
+        platform: 'facebook',
+        status: 'active',
+      })
+      .exec();
+
+    const lastSyncAt = connections.length > 0
+      ? connections.reduce((latest, conn) => {
+          return conn.lastSyncAt > latest ? conn.lastSyncAt : latest;
+        }, connections[0].lastSyncAt)
+      : null;
+
+    return {
+      connectedPages: connections.length,
+      lastSyncAt,
+    };
+  }
+
+  /**
    * Sync conversations from Facebook page (placeholder implementation)
    * Facebook doesn't provide a list of recent conversations via Graph API,
    * so conversations are created when webhooks arrive

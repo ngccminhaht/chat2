@@ -8,11 +8,13 @@ import {
   CircularProgress,
   Tabs,
   Tab,
+  Button,
 } from "@mui/material";
 import {
   usePlatformConnections,
   useDeletePlatformConnection,
 } from "@/features/platform-connections/hooks/usePlatformConnections";
+import { useSyncFacebookPages } from "@/features/platform-connections/hooks/useSyncFacebookPages";
 import PlatformConnectionCard from "@/features/platform-connections/components/PlatformConnectionCard";
 import ConnectPlatformButton from "@/features/platform-connections/components/ConnectPlatformButton";
 import { useSearchParams } from "next/navigation";
@@ -24,6 +26,7 @@ function ConnectionsPageContent() {
   const queryClient = useQueryClient();
   const { data: connections, isLoading, error } = usePlatformConnections();
   const deleteMutation = useDeletePlatformConnection();
+  const { syncPages, isLoading: isSyncing } = useSyncFacebookPages();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Show all platforms - allow multiple accounts per platform
@@ -36,10 +39,12 @@ function ConnectionsPageContent() {
     const status = searchParams.get("status");
     const platform = searchParams.get("platform");
     const account = searchParams.get("account");
+    const action = searchParams.get("action");
 
     if (status === "success" && platform) {
+      const actionText = action === "synced" ? "synced" : "connected";
       setSuccessMessage(
-        `Successfully connected ${platform}${account ? `: ${account}` : ""}!`
+        `Successfully ${actionText} ${platform}${account ? `: ${account}` : ""}!`
       );
 
       // Refetch connections to show the new one
@@ -112,11 +117,24 @@ function ConnectionsPageContent() {
             </Tabs>
           </Grid>
           <Grid size="auto">
-            <ConnectPlatformButton
-              platform={
-                selectedTab as "facebook" | "zalo" | "tiktok" | "shopee"
-              }
-            />
+            <Box display="flex" gap={1}>
+              {/* Show sync button for Facebook if there are existing connections */}
+              {selectedTab === "facebook" && platformCounts["facebook"] > 0 && (
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={syncPages}
+                  disabled={isSyncing}
+                >
+                  {isSyncing ? "Syncing..." : "Sync Pages"}
+                </Button>
+              )}
+              <ConnectPlatformButton
+                platform={
+                  selectedTab as "facebook" | "zalo" | "tiktok" | "shopee"
+                }
+              />
+            </Box>
           </Grid>
         </Grid>
       </Box>

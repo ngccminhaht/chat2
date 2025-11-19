@@ -6,6 +6,7 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
@@ -15,6 +16,8 @@ import { FacebookAuthUrlDto, FacebookCallbackDto } from './dto/facebook-oauth.dt
 
 @Controller('platform-connections/facebook')
 export class FacebookOAuthController {
+  private readonly logger = new Logger(FacebookOAuthController.name);
+
   constructor(
     private readonly facebookOAuthService: FacebookOAuthService,
     private readonly oauthStateService: OAuthStateService,
@@ -105,6 +108,7 @@ export class FacebookOAuthController {
 
     // Save each page as a separate platform connection
     const userId = storedStateData.userId;
+    const isSyncMode = storedStateData.syncMode || false;
     let firstPageName = '';
 
     for (const page of pages) {
@@ -132,10 +136,13 @@ export class FacebookOAuthController {
 
     // Redirect to frontend with success message
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const action = isSyncMode ? 'synced' : 'connected';
+    const message = isSyncMode
+      ? `Synced ${pages.length} page${pages.length > 1 ? 's' : ''}`
+      : `${pages.length} page${pages.length > 1 ? 's' : ''}`;
+
     return res.redirect(
-      `${frontendUrl}/platform-connections?status=success&platform=facebook&account=${encodeURIComponent(
-        `${pages.length} page${pages.length > 1 ? 's' : ''}`,
-      )}`,
+      `${frontendUrl}/platform-connections?status=success&platform=facebook&action=${action}&account=${encodeURIComponent(message)}`,
     );
   }
 
@@ -246,5 +253,48 @@ export class FacebookOAuthController {
       message: `Connected ${connections.length} Facebook page${connections.length > 1 ? 's' : ''}`,
       connections,
     };
+  }
+
+  /**
+   * Get sync status for user's Facebook pages
+   * GET /api/platform-connections/facebook/sync-status
+   */
+  @Get('sync-status')
+  @UseGuards(JwtAuthGuard)
+  async getSyncStatus(@Request() req: any) {
+    const userId = req.user.userId;
+    const status = await this.facebookOAuthService.getSyncStatus(userId);
+
+    return {
+      success: true,
+      ...status,
+    };
+  }
+
+  /**
+   * Initiate Facebook pages sync (redirects to OAuth)
+   * GET /api/platform-connections/facebook/sync-pages
+   * This will redirect user to Facebook OAuth to re-authorize and sync all pages
+   */
+  @Get('sync-pages')
+  @UseGuards(JwtAuthGuard)
+  async syncPages(@Request() req: any, @Res() res: Response) {
+    const userId = req.user.userId;
+
+    this.logger.log(`User ${userId} initiating Facebook pages sync`);
+
+    // Generate OAuth URL for re-authentication
+    const { authUrl, state } = await this.facebookOAuthService.syncPagesForUser(userId);
+
+    // Store state in Redis for callback verification
+    await this.oauthStateService.storeState(state, {
+      state,
+      userId,
+      createdAt: Date.now(),
+      syncMode: true, // Flag to indicate this is a sync operation
+    });
+
+    // Redirect to Facebook OAuth
+    return res.redirect(authUrl);
   }
 }
