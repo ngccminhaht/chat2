@@ -3,9 +3,9 @@
  * Replaces platform-specific hooks (useConnectFacebook, useConnectZalo, etc.)
  */
 
-import { useState } from 'react';
-import { Platform } from '@/lib/constants';
-import apiClient from '@/lib/api/client';
+import { useState } from "react";
+import { Platform } from "@/lib/constants";
+import apiClient from "@/lib/api/client";
 
 interface PlatformAuthUrlResponse {
   authUrl: string;
@@ -74,7 +74,7 @@ export function usePlatformConnection(options?: UsePlatformConnectionOptions) {
   const toggleStatus = async (
     connectionId: string,
     platform: Platform,
-    newStatus: 'active' | 'inactive'
+    newStatus: "active" | "inactive"
   ) => {
     try {
       setIsLoading(true);

@@ -44,7 +44,9 @@ function ConnectionsPageContent() {
     if (status === "success" && platform) {
       const actionText = action === "synced" ? "synced" : "connected";
       setSuccessMessage(
-        `Successfully ${actionText} ${platform}${account ? `: ${account}` : ""}!`
+        `Successfully ${actionText} ${platform}${
+          account ? `: ${account}` : ""
+        }!`
       );
 
       // Refetch connections to show the new one
@@ -80,7 +82,9 @@ function ConnectionsPageContent() {
         status: newStatus,
       });
       setSuccessMessage(
-        `Platform ${newStatus === ConnectionStatus.ACTIVE ? "activated" : "deactivated"} successfully!`
+        `Platform ${
+          newStatus === ConnectionStatus.ACTIVE ? "activated" : "deactivated"
+        } successfully!`
       );
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
@@ -103,14 +107,12 @@ function ConnectionsPageContent() {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        Platform Connections
+        Connections
       </Typography>
 
       {successMessage && (
         <Box mb={2}>
-          <Alert severity="success">
-            {successMessage}
-          </Alert>
+          <Alert severity="success">{successMessage}</Alert>
         </Box>
       )}
 
