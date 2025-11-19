@@ -35,7 +35,14 @@ export default function ConversationList({ activeConversationId }: ConversationL
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
   }, [queryClient]);
 
+  // Listen for connection creation events and refetch conversations
+  const handleConnectionCreated = useCallback(() => {
+    // Invalidate and refetch conversations when a new connection is created
+    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+  }, [queryClient]);
+
   useWebSocketEvent('connection:deleted', handleConnectionDeleted);
+  useWebSocketEvent('connection:created', handleConnectionCreated);
 
   const handleStatusChange = (_event: React.SyntheticEvent, newValue: string) => {
     setStatus(newValue as 'open' | 'closed' | 'archived');

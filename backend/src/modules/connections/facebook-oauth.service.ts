@@ -13,6 +13,7 @@ import {
   FacebookPageInfo,
   FacebookUserInfo,
 } from './dto/facebook-oauth.dto';
+import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 
 @Injectable()
 export class FacebookOAuthService {
@@ -26,6 +27,7 @@ export class FacebookOAuthService {
     private envService: EnvService,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
+    private websocketGateway: WebsocketGateway,
   ) {
     this.appId = this.envService.get('FACEBOOK_APP_ID');
     this.appSecret = this.envService.get('FACEBOOK_APP_SECRET');
@@ -269,7 +271,17 @@ export class FacebookOAuthService {
 
       this.logger.log(`✅ Updated existing connection for user ${userId} and page ${pageInfo.id}`);
 
-      return existing.save();
+      const savedConnection = await existing.save();
+
+      // Emit WebSocket event to notify frontend
+      this.websocketGateway.server.emit('connection:created', {
+        connectionId: savedConnection._id.toString(),
+        platform: 'facebook',
+        accountName: pageInfo.name,
+        isUpdate: true,
+      });
+
+      return savedConnection;
     }
 
     // Create new connection (allows multiple pages per user)
@@ -277,7 +289,7 @@ export class FacebookOAuthService {
       `Creating new connection for user ${userId} and page ${pageInfo.id}`,
     );
 
-    return this.platformConnectionModel.create({
+    const newConnection = await this.platformConnectionModel.create({
       userId: new Types.ObjectId(userId),
       platform: 'facebook',
       platformAccountId: pageInfo.id,
@@ -294,6 +306,18 @@ export class FacebookOAuthService {
       },
       lastSyncAt: new Date(),
     });
+
+    // Emit WebSocket event to notify frontend
+    this.websocketGateway.server.emit('connection:created', {
+      connectionId: newConnection._id.toString(),
+      platform: 'facebook',
+      accountName: pageInfo.name,
+      isUpdate: false,
+    });
+
+    this.logger.log(`📤 Emitted connection:created event for connection ${newConnection._id}`);
+
+    return newConnection;
   }
 
   /**
