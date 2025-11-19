@@ -21,6 +21,7 @@ import {
   Message,
   MessageSchema,
 } from '@/common/database/schemas/message.schema';
+import { WebsocketModule } from '@/modules/websocket/websocket.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import {
       { name: Conversation.name, schema: ConversationSchema },
       { name: Message.name, schema: MessageSchema },
     ]),
+    WebsocketModule,
   ],
   controllers: [
     ConnectionsController,

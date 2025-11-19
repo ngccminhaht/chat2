@@ -13,6 +13,7 @@ import {
   Message,
   MessageDocument,
 } from '@/common/database/schemas/message.schema';
+import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 
 @Injectable()
 export class ConnectionsService {
@@ -25,6 +26,7 @@ export class ConnectionsService {
     private conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name)
     private messageModel: Model<MessageDocument>,
+    private websocketGateway: WebsocketGateway,
   ) {}
 
   async findAllByUser(userId: string): Promise<any> {
@@ -145,5 +147,15 @@ export class ConnectionsService {
       `Disconnected platform ${platformConnection.platform} (${platformConnection.platformAccountName}): ` +
       `Deleted ${conversationDeleteResult.deletedCount} conversations and ${messageDeleteResult.deletedCount} messages`,
     );
+
+    // Emit WebSocket event to notify all clients to refresh conversations
+    // Emit to all connected clients (they will filter by their own organizationId on the frontend)
+    this.websocketGateway.server.emit('connection:deleted', {
+      connectionId: id,
+      platform: platformConnection.platform,
+      deletedConversationIds: conversationIds.map(id => id.toString()),
+    });
+
+    this.logger.log(`📤 Emitted connection:deleted event for connection ${id}`);
   }
 }
