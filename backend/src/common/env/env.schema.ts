@@ -48,6 +48,10 @@ export class EnvSchema {
   @IsOptional()
   ZALO_APP_SECRET?: string;
 
+  @IsString()
+  @IsOptional()
+  ZALO_REDIRECT_URI?: string;
+
   // Facebook
   @IsString()
   @IsOptional()
@@ -61,6 +65,10 @@ export class EnvSchema {
   @IsOptional()
   FACEBOOK_VERIFY_TOKEN?: string;
 
+  @IsString()
+  @IsOptional()
+  FACEBOOK_REDIRECT_URI?: string;
+
   // Shopee
   @IsString()
   @IsOptional()
@@ -70,6 +78,10 @@ export class EnvSchema {
   @IsOptional()
   SHOPEE_PARTNER_KEY?: string;
 
+  @IsString()
+  @IsOptional()
+  SHOPEE_REDIRECT_URI?: string;
+
   // TikTok
   @IsString()
   @IsOptional()
@@ -78,4 +90,8 @@ export class EnvSchema {
   @IsString()
   @IsOptional()
   TIKTOK_APP_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  TIKTOK_REDIRECT_URI?: string;
 }
