@@ -9,7 +9,6 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { randomBytes } from 'crypto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { FacebookOAuthService } from './facebook-oauth.service';
 import { OAuthStateService } from './oauth-state.service';
@@ -95,6 +94,7 @@ export class FacebookOAuthController {
     );
 
     // Get list of pages the user has access to
+    // Note: If user selected pages in Facebook's dialog, only those pages will be returned
     const pages = await this.facebookOAuthService.getPages(
       tokenResponse.access_token,
     );
@@ -110,22 +110,38 @@ export class FacebookOAuthController {
     const userId = storedStateData.userId;
     const isSyncMode = storedStateData.syncMode || false;
 
-    // Generate a selection token for page selection flow
-    const selectionToken = randomBytes(32).toString('hex');
+    // Automatically save all pages (user already selected them on Facebook's side)
+    const connections = [];
+    for (const page of pages) {
+      try {
+        const connection = await this.facebookOAuthService.savePlatformConnection(
+          userId,
+          page,
+        );
 
-    // Store pages temporarily in Redis for user to select (expires in 10 minutes)
-    await this.oauthStateService.storeState(`pages_${selectionToken}`, {
-      state: selectionToken,
-      userId,
-      pages,
-      isSyncMode,
-      createdAt: Date.now(),
-    });
+        connections.push({
+          id: connection._id,
+          platform: connection.platform,
+          accountName: connection.platformAccountName,
+          status: connection.status,
+        });
 
-    // Redirect to frontend page selection UI
+        // Sync conversations in background
+        this.facebookOAuthService
+          .syncConversations(connection._id.toString())
+          .catch((error) => {
+            console.error('Failed to sync conversations:', error);
+          });
+      } catch (error) {
+        console.error(`Failed to save page ${page.id}:`, error);
+      }
+    }
+
+    // Redirect to connections page with success message
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const actionText = isSyncMode ? 'synced' : 'connected';
     return res.redirect(
-      `${frontendUrl}/connections/select-pages?token=${selectionToken}&platform=facebook`,
+      `${frontendUrl}/connections?status=success&platform=facebook&account=${connections.length} page${connections.length > 1 ? 's' : ''}&action=${actionText}`,
     );
   }
 
