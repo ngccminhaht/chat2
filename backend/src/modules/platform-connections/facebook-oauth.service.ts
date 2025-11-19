@@ -20,7 +20,7 @@ export class FacebookOAuthService {
   private readonly appId: string;
   private readonly appSecret: string;
   private readonly redirectUri: string;
-  private readonly graphApiVersion: string = 'v18.0';
+  private readonly graphApiVersion: string = 'v19.0';
 
   constructor(
     private configService: ConfigService,
