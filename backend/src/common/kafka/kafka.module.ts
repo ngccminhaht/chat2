@@ -33,7 +33,8 @@ import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
     WebsocketModule, // Import WebSocket module for WebSocketBridgeConsumer
     WebhooksModule, // Import Webhooks module for FacebookWebhookService
   ],
-  providers: [KafkaProducerService, WebhookProcessorConsumer, WebSocketBridgeConsumer],
+  controllers: [WebhookProcessorConsumer, WebSocketBridgeConsumer],
+  providers: [KafkaProducerService],
   exports: [KafkaProducerService],
 })
 export class KafkaModule {}
