@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   Card,
@@ -6,24 +6,23 @@ import {
   Typography,
   Button,
   Box,
-  Chip,
   Avatar,
   Switch,
   FormControlLabel,
-} from '@mui/material';
-import { PlatformConnection } from '../types/platform-connection.types';
+} from "@mui/material";
+import { PlatformConnection } from "../types/platform-connection.types";
 
 interface PlatformConnectionCardProps {
   connection: PlatformConnection;
   onDisconnect?: (id: string) => void;
-  onToggleStatus?: (id: string, newStatus: 'active' | 'inactive') => void;
+  onToggleStatus?: (id: string, newStatus: "active" | "inactive") => void;
 }
 
 const platformNames: Record<string, string> = {
-  facebook: 'Facebook',
-  zalo: 'Zalo OA',
-  tiktok: 'TikTok Shop',
-  shopee: 'Shopee',
+  facebook: "Facebook",
+  zalo: "Zalo OA",
+  tiktok: "TikTok Shop",
+  shopee: "Shopee",
 };
 
 export default function PlatformConnectionCard({
@@ -31,18 +30,11 @@ export default function PlatformConnectionCard({
   onDisconnect,
   onToggleStatus,
 }: PlatformConnectionCardProps) {
-  const statusColor =
-    connection.status === 'active'
-      ? 'success'
-      : connection.status === 'expired'
-        ? 'warning'
-        : 'error';
-
-  const isActive = connection.status === 'active';
+  const isActive = connection.status === "active";
 
   const handleToggle = () => {
     if (onToggleStatus) {
-      const newStatus = isActive ? 'inactive' : 'active';
+      const newStatus = isActive ? "inactive" : "active";
       onToggleStatus(connection.id, newStatus);
     }
   };
@@ -51,9 +43,7 @@ export default function PlatformConnectionCard({
     <Card>
       <CardContent>
         <Box display="flex" alignItems="center" gap={2} mb={2}>
-          <Avatar
-            src={connection.metadata.avatar}
-          >
+          <Avatar src={connection.metadata.avatar}>
             {platformNames[connection.platform]?.charAt(0)}
           </Avatar>
           <Box flex={1}>
@@ -64,22 +54,19 @@ export default function PlatformConnectionCard({
               {platformNames[connection.platform]}
             </Typography>
           </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Chip label={connection.status} color={statusColor} size="small" />
-            {onToggleStatus && (
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={isActive}
-                    onChange={handleToggle}
-                    color="primary"
-                    size="small"
-                  />
-                }
-                label=""
-              />
-            )}
-          </Box>
+          {onToggleStatus && (
+            <FormControlLabel
+              sx={{ marginRight: "-7px" }}
+              control={
+                <Switch
+                  checked={isActive}
+                  onChange={handleToggle}
+                  color="primary"
+                />
+              }
+              label=""
+            />
+          )}
         </Box>
 
         {connection.metadata.description && (
@@ -90,10 +77,10 @@ export default function PlatformConnectionCard({
 
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="caption" color="text.secondary">
-            Last synced:{' '}
+            Last synced:{" "}
             {connection.lastSyncAt
               ? new Date(connection.lastSyncAt).toLocaleDateString()
-              : 'Never'}
+              : "Never"}
           </Typography>
           {onDisconnect && (
             <Button
