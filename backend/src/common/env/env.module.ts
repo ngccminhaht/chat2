@@ -7,7 +7,7 @@ import { validateSync } from 'class-validator';
 
 @Global()
 @Module({
-  providers: [EnvService, ConfigService],
+  providers: [EnvService],
   imports: [
     ConfigModule.forRoot({
       validate(config: Record<string, unknown>) {
