@@ -227,10 +227,20 @@ export class MessagesService {
     // Verify conversation exists
     const conversation = await this.conversationModel
       .findById(conversationId)
+      .populate('platformConnectionId')
       .exec();
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
+    }
+
+    // Get userId from platform connection
+    const platformConnection = conversation.platformConnectionId as any;
+    const connectionUserId = platformConnection?.userId?.toString();
+
+    if (!connectionUserId) {
+      this.logger.warn(`No userId found for conversation ${conversationId}`);
+      throw new BadRequestException('Platform connection has no associated user');
     }
 
     // Find all inbound messages that are not read yet
@@ -272,15 +282,16 @@ export class MessagesService {
       .lean()
       .exec();
 
-    // Emit WebSocket event for real-time update
+    // Emit WebSocket event for real-time update to the connection owner
     this.websocketGateway.emitMessagesRead(
+      connectionUserId,
       conversationId,
       updatedMessages.map((m) => m._id.toString()),
     );
 
     // Emit conversation update to refresh unread count in UI
     if (updatedConversation) {
-      this.websocketGateway.emitConversationUpdated(updatedConversation);
+      this.websocketGateway.emitConversationUpdated(connectionUserId, updatedConversation);
     }
 
     return {

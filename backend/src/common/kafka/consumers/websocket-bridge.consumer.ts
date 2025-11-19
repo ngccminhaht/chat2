@@ -20,8 +20,15 @@ export class WebSocketBridgeConsumer {
     try {
       const notification = message;
 
+      if (!notification.userId) {
+        this.logger.warn(
+          `Notification missing userId - cannot route to user room: ${notification.type}`,
+        );
+        return;
+      }
+
       this.logger.log(
-        `📢 Broadcasting notification: ${notification.type} for conversation ${notification.conversationId}`,
+        `📢 Sending notification to user ${notification.userId}: ${notification.type} for conversation ${notification.conversationId}`,
       );
 
       // Route notification to appropriate WebSocket event
@@ -49,45 +56,46 @@ export class WebSocketBridgeConsumer {
 
   /**
    * Handle new message notification
+   * Emits to user-specific room instead of conversation room
    */
   private async handleNewMessage(notification: any): Promise<void> {
-    const { conversationId, payload } = notification;
+    const { userId, conversationId, payload } = notification;
 
-    // Emit to conversation room
-    this.websocketGateway.server
-      .to(`conversation:${conversationId}`)
-      .emit('message:new', payload.message);
+    // Emit new message to user-specific room
+    this.websocketGateway.emitNewMessage(userId, payload.message);
 
-    // Also emit conversation update to all clients
-    this.websocketGateway.server.emit('conversation:updated', payload.conversation);
+    // Also emit conversation update to refresh conversation list
+    this.websocketGateway.emitConversationUpdated(userId, payload.conversation);
 
-    this.logger.debug(`✅ Emitted new message for conversation ${conversationId}`);
+    this.logger.debug(`✅ Emitted new message for user ${userId} (conversation ${conversationId})`);
   }
 
   /**
    * Handle message status update
+   * Emits to user-specific room instead of conversation room
    */
   private async handleMessageStatus(notification: any): Promise<void> {
-    const { conversationId, payload } = notification;
+    const { userId, conversationId, payload } = notification;
 
-    this.websocketGateway.server
-      .to(`conversation:${conversationId}`)
-      .emit('message:status', {
-        messageId: payload.messageId,
-        status: payload.status,
-      });
+    this.websocketGateway.emitMessageStatus(
+      userId,
+      conversationId,
+      payload.messageId,
+      payload.status,
+    );
 
-    this.logger.debug(`✅ Emitted status update for message ${payload.messageId}`);
+    this.logger.debug(`✅ Emitted status update for user ${userId} (message ${payload.messageId})`);
   }
 
   /**
    * Handle conversation update
+   * Emits to user-specific room instead of broadcasting
    */
   private async handleConversationUpdated(notification: any): Promise<void> {
-    const { payload } = notification;
+    const { userId, payload } = notification;
 
-    this.websocketGateway.server.emit('conversation:updated', payload.conversation);
+    this.websocketGateway.emitConversationUpdated(userId, payload.conversation);
 
-    this.logger.debug(`✅ Emitted conversation update ${payload.conversation._id}`);
+    this.logger.debug(`✅ Emitted conversation update for user ${userId} (conversation ${payload.conversation._id})`);
   }
 }

@@ -308,10 +308,25 @@ export class ZaloWebhookService {
     message: MessageDocument
   ): Promise<void> {
     try {
+      // Get userId from platform connection
+      const platformConnection = await this.platformConnectionModel
+        .findById(conversation.platformConnectionId)
+        .exec();
+
+      if (!platformConnection?.userId) {
+        this.logger.warn(
+          `Cannot publish WebSocket notification: no userId for conversation ${conversation._id}`
+        );
+        return;
+      }
+
+      const userId = platformConnection.userId.toString();
+
       await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
         key: conversation._id.toString(),
         value: {
           type: "new_message",
+          userId, // Add userId for user-specific room routing
           conversationId: conversation._id.toString(),
           payload: {
             message: {
@@ -334,7 +349,7 @@ export class ZaloWebhookService {
       });
 
       this.logger.log(
-        `📤 Published WebSocket notification for conversation ${conversation._id}`
+        `📤 Published WebSocket notification for user ${userId} (conversation ${conversation._id})`
       );
     } catch (error) {
       this.logger.error("Failed to publish WebSocket notification:", error);
