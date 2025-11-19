@@ -20,6 +20,8 @@ import {
   FacebookChange,
   FacebookChangeValue,
 } from "./dto/facebook-webhook.dto";
+import { KafkaProducerService } from "@/common/kafka/kafka-producer.service";
+import { KAFKA_TOPICS } from "@/common/kafka/kafka.config";
 
 @Injectable()
 export class FacebookWebhookService {
@@ -31,7 +33,8 @@ export class FacebookWebhookService {
     @InjectModel(Message.name)
     private messageModel: Model<MessageDocument>,
     @InjectModel(PlatformConnection.name)
-    private platformConnectionModel: Model<PlatformConnectionDocument>
+    private platformConnectionModel: Model<PlatformConnectionDocument>,
+    private kafkaProducer: KafkaProducerService
   ) {}
 
   /**
@@ -299,8 +302,11 @@ export class FacebookWebhookService {
       `✅ Conversation updated: ${conversation._id} (unreadCount incremented)`
     );
 
-    // TODO: Emit WebSocket event for real-time update
-    // TODO: Publish to Kafka topic 'messages.incoming'
+    // Reload conversation to get updated unreadCount
+    const updatedConversation = await this.conversationModel.findById(conversation._id).exec();
+
+    // Publish WebSocket notification
+    await this.publishWebSocketNotification(updatedConversation, newMessage);
   }
 
   /**
@@ -577,7 +583,54 @@ export class FacebookWebhookService {
       `✅ Conversation updated: ${conversation._id} (unreadCount incremented)`
     );
 
-    // TODO: Emit WebSocket event for real-time update
-    // TODO: Publish to Kafka topic 'messages.incoming'
+    // Reload conversation to get updated unreadCount
+    const updatedConversation = await this.conversationModel.findById(conversation._id).exec();
+
+    // Publish WebSocket notification
+    await this.publishWebSocketNotification(updatedConversation, newMessage);
+  }
+
+  /**
+   * Publish WebSocket notification to frontend
+   */
+  private async publishWebSocketNotification(
+    conversation: ConversationDocument,
+    message: MessageDocument
+  ): Promise<void> {
+    try {
+      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+        key: conversation._id.toString(),
+        value: {
+          type: "new_message",
+          conversationId: conversation._id.toString(),
+          payload: {
+            message: {
+              _id: message._id,
+              conversationId: message.conversationId,
+              platform: message.platform,
+              type: message.type,
+              content: message.content,
+              sender: message.sender,
+              status: message.status,
+              createdAt: (message as any).createdAt,
+            },
+            conversation: {
+              _id: conversation._id,
+              platform: conversation.platform,
+              platformConversationId: conversation.platformConversationId,
+              unreadCount: conversation.unreadCount,
+              lastMessage: conversation.lastMessage,
+            },
+          },
+          timestamp: Date.now(),
+        },
+      });
+
+      this.logger.log(
+        `📤 Published WebSocket notification for conversation ${conversation._id}`
+      );
+    } catch (error) {
+      this.logger.error("Failed to publish WebSocket notification:", error);
+    }
   }
 }

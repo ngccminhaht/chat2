@@ -16,6 +16,7 @@ import {
   PlatformConnectionSchema,
 } from '@/common/database/schemas/platform-connection.schema';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
+import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 
 /**
  * Global Kafka Module
@@ -30,6 +31,7 @@ import { WebsocketModule } from '@/modules/websocket/websocket.module';
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
     WebsocketModule, // Import WebSocket module for WebSocketBridgeConsumer
+    WebhooksModule, // Import Webhooks module for FacebookWebhookService
   ],
   providers: [KafkaProducerService, WebhookProcessorConsumer, WebSocketBridgeConsumer],
   exports: [KafkaProducerService],

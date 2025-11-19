@@ -21,6 +21,8 @@ import {
 } from "../kafka.config";
 import { WebhookRawEvent } from "../types/webhook.types";
 import { KafkaProducerService } from "../kafka-producer.service";
+import { FacebookWebhookService } from "@/modules/webhooks/facebook-webhook.service";
+import { FacebookWebhookDto } from "@/modules/webhooks/dto/facebook-webhook.dto";
 
 /**
  * Webhook Processor Consumer
@@ -42,7 +44,8 @@ export class WebhookProcessorConsumer implements OnModuleInit {
     private messageModel: Model<MessageDocument>,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
-    private kafkaProducer: KafkaProducerService
+    private kafkaProducer: KafkaProducerService,
+    private facebookWebhookService: FacebookWebhookService
   ) {}
 
   async onModuleInit() {
@@ -87,8 +90,7 @@ export class WebhookProcessorConsumer implements OnModuleInit {
           await this.processZaloWebhook(event);
           break;
         case "facebook":
-          // TODO: Implement Facebook handler
-          this.logger.warn("Facebook webhook processing not implemented yet");
+          await this.processFacebookWebhook(event);
           break;
         case "tiktok":
           // TODO: Implement TikTok handler
@@ -409,6 +411,21 @@ export class WebhookProcessorConsumer implements OnModuleInit {
 
       this.logger.log(`Message ${payload.message.msg_id} read`);
     }
+  }
+
+  /**
+   * Process Facebook webhook events
+   */
+  private async processFacebookWebhook(event: WebhookRawEvent): Promise<void> {
+    const payload: FacebookWebhookDto = event.payload;
+
+    this.logger.log(`Processing Facebook webhook event: ${event.eventName}`);
+
+    // Use the FacebookWebhookService to process the webhook
+    // This service handles all the message processing, conversation creation, etc.
+    await this.facebookWebhookService.processWebhook(payload);
+
+    this.logger.log(`✅ Facebook webhook processed successfully`);
   }
 
   /**

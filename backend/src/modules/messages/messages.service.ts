@@ -7,6 +7,7 @@ import { PlatformConnection, PlatformConnectionDocument } from '@/common/databas
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ZaloOAuthService } from '@/modules/connections/zalo-oauth.service';
+import { FacebookOAuthService } from '@/modules/connections/facebook-oauth.service';
 
 @Injectable()
 export class MessagesService {
@@ -20,6 +21,7 @@ export class MessagesService {
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private zaloOAuthService: ZaloOAuthService,
+    private facebookOAuthService: FacebookOAuthService,
   ) {}
 
   async findByConversation(
@@ -129,6 +131,42 @@ export class MessagesService {
         // Use wrapper method that automatically refreshes token if needed
         const result = await this.zaloOAuthService.sendTextMessageWithRefresh(
           platformConnection,
+          customer.platformUserId,
+          content.text,
+        );
+
+        // Update message with actual platform message ID and status
+        message.platformMessageId = result.message_id;
+        message.status = 'sent';
+        await message.save();
+
+        // Update conversation's last message
+        await this.conversationModel.findByIdAndUpdate(conversationId, {
+          lastMessage: {
+            text: content.text,
+            timestamp: new Date(),
+            senderId: platformConnection.platformAccountId,
+            messageId: message._id,
+          },
+        });
+
+        this.logger.log(`✅ Message sent successfully: ${result.message_id}`);
+      } else if (conversation.platform === 'facebook') {
+        if (type !== 'text') {
+          throw new BadRequestException('Only text messages are supported for Facebook');
+        }
+
+        this.logger.log('=== Sending Facebook message ===');
+        this.logger.log(`  Recipient platformUserId: ${customer.platformUserId}`);
+        this.logger.log(`  Platform connection: ${platformConnection._id}`);
+        this.logger.log(`  Message content: ${content.text?.substring(0, 50)}...`);
+
+        // Get page access token from platform connection
+        const pageAccessToken = platformConnection.credentials.accessToken;
+
+        // Send message via Facebook API
+        const result = await this.facebookOAuthService.sendTextMessage(
+          pageAccessToken,
           customer.platformUserId,
           content.text,
         );
