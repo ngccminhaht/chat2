@@ -13,7 +13,7 @@ import { ZaloOAuthService } from './zalo-oauth.service';
 import { OAuthStateService } from './oauth-state.service';
 import { ZaloAuthUrlDto, ZaloCallbackDto } from './dto/zalo-oauth.dto';
 
-@Controller('platform-connections/zalo')
+@Controller('connections/zalo')
 export class ZaloOAuthController {
   constructor(
     private readonly zaloOAuthService: ZaloOAuthService,
@@ -22,7 +22,7 @@ export class ZaloOAuthController {
 
   /**
    * Step 1: Generate authorization URL and redirect user
-   * GET /api/platform-connections/zalo/authorize?userId=xxx
+   * GET /api/connections/zalo/authorize?userId=xxx
    */
   @Get('authorize')
   async authorize(
@@ -53,7 +53,7 @@ export class ZaloOAuthController {
 
   /**
    * Step 2: Handle OAuth callback from Zalo
-   * GET /api/platform-connections/zalo/callback?code=xxx&state=xxx
+   * GET /api/connections/zalo/callback?code=xxx&state=xxx
    */
   @Get('callback')
   async callback(
@@ -126,7 +126,7 @@ export class ZaloOAuthController {
 
   /**
    * Alternative: Get authorization URL as JSON (for frontend to handle redirect)
-   * GET /api/platform-connections/zalo/auth-url
+   * GET /api/connections/zalo/auth-url
    */
   @Get('auth-url')
   @UseGuards(JwtAuthGuard)
@@ -154,7 +154,7 @@ export class ZaloOAuthController {
 
   /**
    * Alternative: Complete OAuth with code (for frontend-initiated flow)
-   * POST /api/platform-connections/zalo/complete
+   * POST /api/connections/zalo/complete
    */
   @Get('complete')
   @UseGuards(JwtAuthGuard)

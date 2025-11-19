@@ -13,7 +13,7 @@ import { ShopeeOAuthService } from './shopee-oauth.service';
 import { OAuthStateService } from './oauth-state.service';
 import { ShopeeAuthUrlDto, ShopeeCallbackDto } from './dto/shopee-oauth.dto';
 
-@Controller('platform-connections/shopee')
+@Controller('connections/shopee')
 export class ShopeeOAuthController {
   constructor(
     private readonly shopeeOAuthService: ShopeeOAuthService,
@@ -22,7 +22,7 @@ export class ShopeeOAuthController {
 
   /**
    * Step 1: Generate authorization URL and redirect user
-   * GET /api/platform-connections/shopee/authorize?userId=xxx
+   * GET /api/connections/shopee/authorize?userId=xxx
    */
   @Get('authorize')
   async authorize(
@@ -51,7 +51,7 @@ export class ShopeeOAuthController {
 
   /**
    * Step 2: Handle OAuth callback from Shopee
-   * GET /api/platform-connections/shopee/callback?code=xxx&shop_id=xxx
+   * GET /api/connections/shopee/callback?code=xxx&shop_id=xxx
    */
   @Get('callback')
   async callback(
@@ -99,13 +99,13 @@ export class ShopeeOAuthController {
     });
 
     return res.redirect(
-      `${frontendUrl}/platform-connections/shopee/complete?temp_id=${tempId}&shop_name=${encodeURIComponent(shopInfo.shop_name)}`,
+      `${frontendUrl}/connections/shopee/complete?temp_id=${tempId}&shop_name=${encodeURIComponent(shopInfo.shop_name)}`,
     );
   }
 
   /**
    * Alternative: Get authorization URL as JSON (for frontend to handle redirect)
-   * GET /api/platform-connections/shopee/auth-url
+   * GET /api/connections/shopee/auth-url
    */
   @Get('auth-url')
   @UseGuards(JwtAuthGuard)
@@ -130,7 +130,7 @@ export class ShopeeOAuthController {
 
   /**
    * Complete OAuth with temporary connection data
-   * GET /api/platform-connections/shopee/complete?temp_id=xxx
+   * GET /api/connections/shopee/complete?temp_id=xxx
    */
   @Get('complete')
   @UseGuards(JwtAuthGuard)

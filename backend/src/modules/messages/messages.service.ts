@@ -6,7 +6,7 @@ import { Conversation, ConversationDocument } from '@/common/database/schemas/co
 import { PlatformConnection, PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
-import { ZaloOAuthService } from '@/modules/platform-connections/zalo-oauth.service';
+import { ZaloOAuthService } from '@/modules/connections/zalo-oauth.service';
 
 @Injectable()
 export class MessagesService {

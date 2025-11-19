@@ -19,6 +19,7 @@ import ConnectPlatformButton from "@/features/platform-connections/components/Co
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ConnectionStatus } from "@/lib/constants";
 
 function ConnectionsPageContent() {
   const searchParams = useSearchParams();
@@ -71,7 +72,7 @@ function ConnectionsPageContent() {
 
   const handleToggleStatus = async (
     connectionId: string,
-    newStatus: "active" | "inactive"
+    newStatus: ConnectionStatus
   ) => {
     try {
       await updateStatusMutation.mutateAsync({
@@ -79,7 +80,7 @@ function ConnectionsPageContent() {
         status: newStatus,
       });
       setSuccessMessage(
-        `Platform ${newStatus === "active" ? "activated" : "deactivated"} successfully!`
+        `Platform ${newStatus === ConnectionStatus.ACTIVE ? "activated" : "deactivated"} successfully!`
       );
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {

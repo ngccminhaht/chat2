@@ -1,13 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
 import { PlatformConnection } from '../types/platform-connection.types';
+import { ConnectionStatus } from '@/lib/constants';
 
 export const usePlatformConnections = () => {
   return useQuery({
-    queryKey: ['platform-connections'],
+    queryKey: ['connections'],
     queryFn: async () => {
       const response = await apiClient.get<PlatformConnection[]>(
-        '/platform-connections'
+        '/connections'
       );
       return response.data;
     },
@@ -19,11 +20,11 @@ export const useDeletePlatformConnection = () => {
 
   return useMutation({
     mutationFn: async (connectionId: string) => {
-      await apiClient.delete(`/platform-connections/${connectionId}`);
+      await apiClient.delete(`/connections/${connectionId}`);
     },
     onSuccess: () => {
       // Refetch connections list after successful deletion
-      queryClient.invalidateQueries({ queryKey: ['platform-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
     },
   });
 };
@@ -37,15 +38,15 @@ export const useUpdatePlatformConnectionStatus = () => {
       status,
     }: {
       connectionId: string;
-      status: 'active' | 'inactive' | 'expired';
+      status: ConnectionStatus;
     }) => {
-      await apiClient.patch(`/platform-connections/${connectionId}/status`, {
+      await apiClient.patch(`/connections/${connectionId}/status`, {
         status,
       });
     },
     onSuccess: () => {
       // Refetch connections list after successful status update
-      queryClient.invalidateQueries({ queryKey: ['platform-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
     },
   });
 };

@@ -5,7 +5,7 @@ import { MessagesService } from './messages.service';
 import { Message, MessageSchema } from '@/common/database/schemas/message.schema';
 import { Conversation, ConversationSchema } from '@/common/database/schemas/conversation.schema';
 import { PlatformConnection, PlatformConnectionSchema } from '@/common/database/schemas/platform-connection.schema';
-import { PlatformConnectionsModule } from '@/modules/platform-connections/platform-connections.module';
+import { ConnectionsModule } from '@/modules/connections/connections.module';
 
 @Module({
   imports: [
@@ -14,7 +14,7 @@ import { PlatformConnectionsModule } from '@/modules/platform-connections/platfo
       { name: Conversation.name, schema: ConversationSchema },
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
-    PlatformConnectionsModule,
+    ConnectionsModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService],

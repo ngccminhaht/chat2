@@ -14,7 +14,7 @@ import { FacebookOAuthService } from './facebook-oauth.service';
 import { OAuthStateService } from './oauth-state.service';
 import { FacebookAuthUrlDto, FacebookCallbackDto } from './dto/facebook-oauth.dto';
 
-@Controller('platform-connections/facebook')
+@Controller('connections/facebook')
 export class FacebookOAuthController {
   private readonly logger = new Logger(FacebookOAuthController.name);
 
@@ -25,7 +25,7 @@ export class FacebookOAuthController {
 
   /**
    * Step 1: Generate authorization URL and redirect user
-   * GET /api/platform-connections/facebook/authorize?userId=xxx
+   * GET /api/connections/facebook/authorize?userId=xxx
    */
   @Get('authorize')
   async authorize(
@@ -56,7 +56,7 @@ export class FacebookOAuthController {
 
   /**
    * Step 2: Handle OAuth callback from Facebook
-   * GET /api/platform-connections/facebook/callback?code=xxx&state=xxx
+   * GET /api/connections/facebook/callback?code=xxx&state=xxx
    */
   @Get('callback')
   async callback(
@@ -147,7 +147,7 @@ export class FacebookOAuthController {
 
   /**
    * Alternative: Get authorization URL as JSON (for frontend to handle redirect)
-   * GET /api/platform-connections/facebook/auth-url
+   * GET /api/connections/facebook/auth-url
    */
   @Get('auth-url')
   @UseGuards(JwtAuthGuard)
@@ -177,7 +177,7 @@ export class FacebookOAuthController {
 
   /**
    * Alternative: Complete OAuth with code (for frontend-initiated flow)
-   * GET /api/platform-connections/facebook/complete?code=xxx&state=xxx
+   * GET /api/connections/facebook/complete?code=xxx&state=xxx
    */
   @Get('complete')
   @UseGuards(JwtAuthGuard)
@@ -256,7 +256,7 @@ export class FacebookOAuthController {
 
   /**
    * Get sync status for user's Facebook pages
-   * GET /api/platform-connections/facebook/sync-status
+   * GET /api/connections/facebook/sync-status
    */
   @Get('sync-status')
   @UseGuards(JwtAuthGuard)
@@ -272,7 +272,7 @@ export class FacebookOAuthController {
 
   /**
    * Get authorization URL for syncing Facebook pages
-   * GET /api/platform-connections/facebook/sync-auth-url
+   * GET /api/connections/facebook/sync-auth-url
    * Returns OAuth URL with sync mode flag
    */
   @Get('sync-auth-url')
@@ -301,7 +301,7 @@ export class FacebookOAuthController {
 
   /**
    * Get pending pages for selection
-   * GET /api/platform-connections/facebook/pending-pages?token=xxx
+   * GET /api/connections/facebook/pending-pages?token=xxx
    */
   @Get('pending-pages')
   @UseGuards(JwtAuthGuard)
@@ -338,7 +338,7 @@ export class FacebookOAuthController {
 
   /**
    * Save selected pages
-   * POST /api/platform-connections/facebook/save-pages
+   * POST /api/connections/facebook/save-pages
    * Body: { token: string, selectedPageIds: string[] }
    */
   @Get('save-pages')
