@@ -13,6 +13,7 @@ interface ConversationState {
   setMessages: (conversationId: string, messages: Message[]) => void;
   addMessage: (conversationId: string, message: Message) => void;
   updateMessageStatus: (conversationId: string, messageId: string, status: string) => void;
+  markMessagesAsRead: (conversationId: string, messageIds: string[]) => void;
   setTypingUsers: (conversationId: string, userIds: string[]) => void;
 }
 
@@ -55,6 +56,16 @@ export const useConversationStore = create<ConversationState>((set) => ({
         ...state.messages,
         [conversationId]: (state.messages[conversationId] || []).map((msg) =>
           msg._id === messageId ? { ...msg, status: status as Message['status'] } : msg
+        ),
+      },
+    })),
+
+  markMessagesAsRead: (conversationId, messageIds) =>
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [conversationId]: (state.messages[conversationId] || []).map((msg) =>
+          messageIds.includes(msg._id) ? { ...msg, status: 'read' } : msg
         ),
       },
     })),

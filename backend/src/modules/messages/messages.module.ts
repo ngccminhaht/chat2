@@ -6,6 +6,7 @@ import { Message, MessageSchema } from '@/common/database/schemas/message.schema
 import { Conversation, ConversationSchema } from '@/common/database/schemas/conversation.schema';
 import { PlatformConnection, PlatformConnectionSchema } from '@/common/database/schemas/platform-connection.schema';
 import { ConnectionsModule } from '@/modules/connections/connections.module';
+import { WebsocketModule } from '@/modules/websocket/websocket.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ConnectionsModule } from '@/modules/connections/connections.module';
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
     ConnectionsModule,
+    WebsocketModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService],

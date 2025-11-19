@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Box, Paper, Typography, Chip, Stack, Avatar } from '@mui/material';
 import { useMessages } from '@/features/conversations/hooks/useMessages';
 import { useConversation } from '@/features/conversations/hooks/useConversation';
+import { useMarkAsRead } from '@/features/conversations/hooks/useMarkAsRead';
 import { useConversationStore } from '@/features/conversations/stores/conversationStore';
 import { useWebSocket } from '@/lib/websocket/WebSocketContext';
 import { useWebSocketEvent } from '@/lib/websocket/useWebSocketEvent';
@@ -22,6 +23,7 @@ export default function ConversationDetailPage() {
   const { socket, isConnected } = useWebSocket();
   const { data, isLoading } = useMessages({ conversationId });
   const { data: conversationData } = useConversation({ conversationId });
+  const { mutate: markAsRead } = useMarkAsRead();
 
   // Get messages from Zustand store (updated by WebSocket)
   const messagesFromStore = useConversationStore((state) => state.messages[conversationId]);
@@ -53,6 +55,20 @@ export default function ConversationDetailPage() {
     }
   }, [conversationData]);
 
+  // Mark messages as read when viewing conversation
+  useEffect(() => {
+    if (conversationId && storeMessages.length > 0) {
+      // Check if there are any unread inbound messages
+      const hasUnreadMessages = storeMessages.some(
+        (msg) => msg.direction === 'inbound' && msg.status !== 'read'
+      );
+
+      if (hasUnreadMessages) {
+        markAsRead({ conversationId });
+      }
+    }
+  }, [conversationId, storeMessages, markAsRead]);
+
   // WebSocket event handlers (using named functions for proper cleanup)
   const handleNewMessage = useCallback((message: any) => {
     if (message.conversationId === conversationId) {
@@ -76,10 +92,20 @@ export default function ConversationDetailPage() {
     }
   }, [conversationId]);
 
+  const handleMessagesRead = useCallback((data: any) => {
+    if (data.conversationId === conversationId) {
+      useConversationStore.getState().markMessagesAsRead(
+        conversationId,
+        data.messageIds
+      );
+    }
+  }, [conversationId]);
+
   // Register WebSocket event listeners (auto cleanup on unmount)
   useWebSocketEvent('message:new', handleNewMessage);
   useWebSocketEvent('message:status', handleMessageStatus);
   useWebSocketEvent('conversation:updated', handleConversationUpdated);
+  useWebSocketEvent('message:read', handleMessagesRead);
 
   // Join/leave conversation room when connected
   useEffect(() => {

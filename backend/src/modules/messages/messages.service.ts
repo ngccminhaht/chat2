@@ -8,6 +8,7 @@ import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ZaloOAuthService } from '@/modules/connections/zalo-oauth.service';
 import { FacebookOAuthService } from '@/modules/connections/facebook-oauth.service';
+import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 
 @Injectable()
 export class MessagesService {
@@ -22,6 +23,7 @@ export class MessagesService {
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private zaloOAuthService: ZaloOAuthService,
     private facebookOAuthService: FacebookOAuthService,
+    private websocketGateway: WebsocketGateway,
   ) {}
 
   async findByConversation(
@@ -219,5 +221,55 @@ export class MessagesService {
     return this.messageModel
       .findByIdAndUpdate(messageId, { platformMessageId }, { new: true })
       .exec();
+  }
+
+  async markAsRead(conversationId: string, userId: string) {
+    // Verify conversation exists
+    const conversation = await this.conversationModel
+      .findById(conversationId)
+      .exec();
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    // Find all inbound messages that are not read yet
+    const messagesToUpdate = await this.messageModel
+      .find({
+        conversationId: new Types.ObjectId(conversationId),
+        direction: 'inbound',
+        status: { $ne: 'read' }, // Not equal to 'read'
+      })
+      .exec();
+
+    if (messagesToUpdate.length === 0) {
+      return { updated: 0, messages: [] };
+    }
+
+    // Update all messages to 'read' status
+    const messageIds = messagesToUpdate.map((m) => m._id);
+    await this.messageModel.updateMany(
+      { _id: { $in: messageIds } },
+      { status: 'read' },
+    ).exec();
+
+    // Get updated messages
+    const updatedMessages = await this.messageModel
+      .find({ _id: { $in: messageIds } })
+      .lean()
+      .exec();
+
+    this.logger.log(`Marked ${updatedMessages.length} messages as read in conversation ${conversationId}`);
+
+    // Emit WebSocket event for real-time update
+    this.websocketGateway.emitMessagesRead(
+      conversationId,
+      updatedMessages.map((m) => m._id.toString()),
+    );
+
+    return {
+      updated: updatedMessages.length,
+      messages: updatedMessages,
+    };
   }
 }

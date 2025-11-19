@@ -128,4 +128,11 @@ export class WebsocketGateway
     // Broadcast to all connected clients
     this.server.emit('conversation:updated', conversation);
   }
+
+  emitMessagesRead(conversationId: string, messageIds: string[]) {
+    this.server.to(`conversation:${conversationId}`).emit('message:read', {
+      conversationId,
+      messageIds,
+    });
+  }
 }

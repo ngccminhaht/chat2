@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, Patch } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { MarkReadDto } from './dto/mark-read.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 @Controller('messages')
@@ -21,5 +22,11 @@ export class MessagesController {
   send(@Request() req, @Body() dto: SendMessageDto) {
     const userId = req.user.userId;
     return this.messagesService.send(userId, dto);
+  }
+
+  @Patch('mark-read')
+  markAsRead(@Request() req, @Body() dto: MarkReadDto) {
+    const userId = req.user.userId;
+    return this.messagesService.markAsRead(dto.conversationId, userId);
   }
 }
