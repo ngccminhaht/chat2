@@ -10,6 +10,7 @@ import { validateSync } from 'class-validator';
   providers: [EnvService],
   imports: [
     ConfigModule.forRoot({
+      isGlobal: true,
       validate(config: Record<string, unknown>) {
         const validatedConfig = plainToInstance(EnvSchema, config, {
           enableImplicitConversion: true,
