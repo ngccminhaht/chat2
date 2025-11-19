@@ -16,6 +16,7 @@ export function useSendMessage() {
       const { data } = await apiClient.post('/messages/send', params);
       return data;
     },
+    retry: false, // Prevent automatic retries
     onSuccess: (data) => {
       // Invalidate messages query to refetch
       queryClient.invalidateQueries({ queryKey: ['messages', data.conversationId] });
