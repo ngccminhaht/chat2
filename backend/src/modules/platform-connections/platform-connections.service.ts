@@ -69,6 +69,29 @@ export class PlatformConnectionsService {
       .exec();
   }
 
+  async updateStatus(
+    id: string,
+    status: 'active' | 'inactive' | 'expired',
+  ): Promise<PlatformConnectionDocument | null> {
+    this.logger.log(`Updating platform connection ${id} status to ${status}`);
+
+    const connection = await this.platformConnectionModel
+      .findByIdAndUpdate(
+        id,
+        { status },
+        { new: true }, // Return updated document
+      )
+      .exec();
+
+    if (!connection) {
+      this.logger.warn(`Platform connection ${id} not found`);
+      return null;
+    }
+
+    this.logger.log(`✅ Updated connection status: ${connection.platformAccountName} → ${status}`);
+    return connection;
+  }
+
   async delete(id: string): Promise<void> {
     this.logger.log(`Starting deletion of platform connection: ${id}`);
 

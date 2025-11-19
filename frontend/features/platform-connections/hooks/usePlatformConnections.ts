@@ -27,3 +27,25 @@ export const useDeletePlatformConnection = () => {
     },
   });
 };
+
+export const useUpdatePlatformConnectionStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      connectionId,
+      status,
+    }: {
+      connectionId: string;
+      status: 'active' | 'inactive' | 'expired';
+    }) => {
+      await apiClient.patch(`/platform-connections/${connectionId}/status`, {
+        status,
+      });
+    },
+    onSuccess: () => {
+      // Refetch connections list after successful status update
+      queryClient.invalidateQueries({ queryKey: ['platform-connections'] });
+    },
+  });
+};

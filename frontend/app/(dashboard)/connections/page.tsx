@@ -12,6 +12,7 @@ import {
 import {
   usePlatformConnections,
   useDeletePlatformConnection,
+  useUpdatePlatformConnectionStatus,
 } from "@/features/platform-connections/hooks/usePlatformConnections";
 import PlatformConnectionCard from "@/features/platform-connections/components/PlatformConnectionCard";
 import ConnectPlatformButton from "@/features/platform-connections/components/ConnectPlatformButton";
@@ -24,6 +25,7 @@ function ConnectionsPageContent() {
   const queryClient = useQueryClient();
   const { data: connections, isLoading, error } = usePlatformConnections();
   const deleteMutation = useDeletePlatformConnection();
+  const updateStatusMutation = useUpdatePlatformConnectionStatus();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Show all platforms - allow multiple accounts per platform
@@ -64,6 +66,24 @@ function ConnectionsPageContent() {
       } catch (error) {
         console.error("Failed to disconnect platform:", error);
       }
+    }
+  };
+
+  const handleToggleStatus = async (
+    connectionId: string,
+    newStatus: "active" | "inactive"
+  ) => {
+    try {
+      await updateStatusMutation.mutateAsync({
+        connectionId,
+        status: newStatus,
+      });
+      setSuccessMessage(
+        `Platform ${newStatus === "active" ? "activated" : "deactivated"} successfully!`
+      );
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      console.error("Failed to update platform status:", error);
     }
   };
 
@@ -138,6 +158,7 @@ function ConnectionsPageContent() {
                 <PlatformConnectionCard
                   connection={connection}
                   onDisconnect={handleDisconnect}
+                  onToggleStatus={handleToggleStatus}
                 />
               </Grid>
             ))}

@@ -8,12 +8,15 @@ import {
   Box,
   Chip,
   Avatar,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { PlatformConnection } from '../types/platform-connection.types';
 
 interface PlatformConnectionCardProps {
   connection: PlatformConnection;
   onDisconnect?: (id: string) => void;
+  onToggleStatus?: (id: string, newStatus: 'active' | 'inactive') => void;
 }
 
 const platformNames: Record<string, string> = {
@@ -26,6 +29,7 @@ const platformNames: Record<string, string> = {
 export default function PlatformConnectionCard({
   connection,
   onDisconnect,
+  onToggleStatus,
 }: PlatformConnectionCardProps) {
   const statusColor =
     connection.status === 'active'
@@ -33,6 +37,15 @@ export default function PlatformConnectionCard({
       : connection.status === 'expired'
         ? 'warning'
         : 'error';
+
+  const isActive = connection.status === 'active';
+
+  const handleToggle = () => {
+    if (onToggleStatus) {
+      const newStatus = isActive ? 'inactive' : 'active';
+      onToggleStatus(connection.id, newStatus);
+    }
+  };
 
   return (
     <Card>
@@ -51,7 +64,22 @@ export default function PlatformConnectionCard({
               {platformNames[connection.platform]}
             </Typography>
           </Box>
-          <Chip label={connection.status} color={statusColor} size="small" />
+          <Box display="flex" alignItems="center" gap={1}>
+            <Chip label={connection.status} color={statusColor} size="small" />
+            {onToggleStatus && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isActive}
+                    onChange={handleToggle}
+                    color="primary"
+                    size="small"
+                  />
+                }
+                label=""
+              />
+            )}
+          </Box>
         </Box>
 
         {connection.metadata.description && (
