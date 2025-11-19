@@ -37,6 +37,9 @@ export class FacebookOAuthService {
    * Scopes:
    * - pages_messaging: Send/receive messages on behalf of page
    * - pages_read_engagement: Read page engagement data
+   * - pages_read_user_content: Read user-generated content on pages
+   * - pages_manage_metadata: Manage page metadata (required for page selection)
+   * - pages_show_list: Show page list in OAuth dialog (allows user to select pages)
    * Reference: https://developers.facebook.com/docs/permissions/reference/pages_messaging/
    */
   getAuthorizationUrl(state?: string): {
@@ -49,8 +52,9 @@ export class FacebookOAuthService {
       client_id: this.appId,
       redirect_uri: this.redirectUri,
       response_type: 'code',
-      scope: 'pages_messaging,pages_read_engagement,pages_read_user_content',
+      scope: 'pages_manage_metadata,pages_messaging,pages_read_engagement,pages_read_user_content',
       state: finalState,
+      auth_type: 'rerequest', // Force re-authorization to show page selector
     });
 
     return {
