@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Box, Paper, Typography, Chip, Stack } from '@mui/material';
+import { Box, Paper, Typography, Chip, Stack, Avatar } from '@mui/material';
 import { useMessages } from '@/features/conversations/hooks/useMessages';
 import { useConversationStore } from '@/features/conversations/stores/conversationStore';
 import { useWebSocket } from '@/lib/websocket/WebSocketContext';
@@ -24,6 +24,14 @@ export default function ConversationDetailPage() {
   // Get messages from Zustand store (updated by WebSocket)
   const messagesFromStore = useConversationStore((state) => state.messages[conversationId]);
   const storeMessages = messagesFromStore || EMPTY_MESSAGES;
+
+  // Get conversation from Zustand store
+  const conversation = useConversationStore((state) =>
+    state.conversations.find((c) => c._id === conversationId)
+  );
+
+  // Get customer participant
+  const customer = conversation?.participants.find((p) => p.role === 'customer');
 
   // Sync initial query data to Zustand store
   useEffect(() => {
@@ -84,8 +92,24 @@ export default function ConversationDetailPage() {
           <Paper sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
             {/* Fixed Header */}
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-              <Typography variant="h6">Conversation</Typography>
-              <Chip label={conversationId} size="small" variant="outlined" />
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Avatar
+                  src={customer?.avatar}
+                  alt={customer?.name || 'User'}
+                >
+                  {customer?.name?.charAt(0) || 'U'}
+                </Avatar>
+                <Box>
+                  <Typography variant="h6">
+                    {customer?.name || 'Unknown User'}
+                  </Typography>
+                  <Chip
+                    label={conversation?.platform || 'Unknown'}
+                    size="small"
+                    variant="outlined"
+                  />
+                </Box>
+              </Stack>
             </Box>
 
             {/* Scrollable Message List */}
