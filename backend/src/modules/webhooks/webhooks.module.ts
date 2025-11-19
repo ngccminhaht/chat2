@@ -17,6 +17,7 @@ import {
   PlatformConnection,
   PlatformConnectionSchema,
 } from '@/common/database/schemas/platform-connection.schema';
+import { ConnectionsModule } from '@/modules/connections/connections.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import {
       { name: Message.name, schema: MessageSchema },
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
+    ConnectionsModule,
   ],
   controllers: [WebhookController],
   providers: [WebhookPublisherService, ZaloWebhookService, ShopeeWebhookService, FacebookWebhookService],

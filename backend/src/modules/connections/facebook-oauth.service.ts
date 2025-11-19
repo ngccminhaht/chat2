@@ -366,6 +366,50 @@ export class FacebookOAuthService {
   }
 
   /**
+   * Get sender profile information (name, avatar)
+   * Uses Page Access Token to fetch public profile
+   */
+  async getSenderProfile(
+    pageAccessToken: string,
+    senderId: string,
+  ): Promise<{ id: string; name: string; profile_pic?: string }> {
+    try {
+      this.logger.log(`Fetching profile for Facebook user ${senderId}`);
+
+      const response = await axios.get(
+        `https://graph.facebook.com/${this.graphApiVersion}/${senderId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${pageAccessToken}`,
+          },
+          params: {
+            fields: 'id,name,profile_pic',
+          },
+        }
+      );
+
+      if (response.data.error) {
+        this.logger.error('Failed to get sender profile:', response.data.error);
+        // Return fallback data instead of throwing
+        return {
+          id: senderId,
+          name: `Facebook User ${senderId}`,
+        };
+      }
+
+      this.logger.log(`✅ Retrieved profile: ${response.data.name}`);
+      return response.data;
+    } catch (error) {
+      this.logger.error('Failed to fetch sender profile:', error.message);
+      // Return fallback data
+      return {
+        id: senderId,
+        name: `Facebook User ${senderId}`,
+      };
+    }
+  }
+
+  /**
    * Send text message to Facebook user
    */
   async sendTextMessage(

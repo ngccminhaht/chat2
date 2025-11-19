@@ -22,6 +22,7 @@ import {
 } from "./dto/facebook-webhook.dto";
 import { KafkaProducerService } from "@/common/kafka/kafka-producer.service";
 import { KAFKA_TOPICS } from "@/common/kafka/kafka.config";
+import { FacebookOAuthService } from "@/modules/connections/facebook-oauth.service";
 
 @Injectable()
 export class FacebookWebhookService {
@@ -34,7 +35,8 @@ export class FacebookWebhookService {
     private messageModel: Model<MessageDocument>,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
-    private kafkaProducer: KafkaProducerService
+    private kafkaProducer: KafkaProducerService,
+    private facebookOAuthService: FacebookOAuthService,
   ) {}
 
   /**
@@ -102,7 +104,8 @@ export class FacebookWebhookService {
           await this.processMessagingEvent(
             event,
             pageId,
-            platformConnectionId
+            platformConnectionId,
+            connection
           );
         }
       }
@@ -129,7 +132,8 @@ export class FacebookWebhookService {
   private async processMessagingEvent(
     event: FacebookMessagingEvent,
     pageId: string,
-    platformConnectionId: string
+    platformConnectionId: string,
+    connection: PlatformConnectionDocument
   ): Promise<void> {
     const senderId = event.sender.id;
     const timestamp = new Date(event.timestamp);
@@ -144,14 +148,15 @@ export class FacebookWebhookService {
           event,
           pageId,
           platformConnectionId,
-          timestamp
+          timestamp,
+          connection
         );
       } else if (event.delivery) {
         await this.handleDelivery(event, timestamp);
       } else if (event.read) {
         await this.handleRead(event, timestamp);
       } else if (event.postback) {
-        await this.handlePostback(event, pageId, platformConnectionId, timestamp);
+        await this.handlePostback(event, pageId, platformConnectionId, timestamp, connection);
       } else {
         this.logger.debug(`Unknown event type for sender ${senderId}`);
       }
@@ -167,7 +172,8 @@ export class FacebookWebhookService {
     event: FacebookMessagingEvent,
     pageId: string,
     platformConnectionId: string,
-    timestamp: Date
+    timestamp: Date,
+    connection: PlatformConnectionDocument
   ): Promise<void> {
     const senderId = event.sender.id;
     const message = event.message;
@@ -201,10 +207,15 @@ export class FacebookWebhookService {
       }
     }
 
-    if (!conversation) {
-      // Create new conversation
-      const displayName = `Facebook User ${senderId}`;
+    // Fetch user profile info
+    const pageAccessToken = connection.credentials.accessToken;
+    const userProfile = await this.facebookOAuthService.getSenderProfile(
+      pageAccessToken,
+      senderId
+    );
 
+    if (!conversation) {
+      // Create new conversation with real user info
       conversation = await this.conversationModel.create({
         platform: "facebook",
         platformConversationId: conversationKey,
@@ -213,7 +224,8 @@ export class FacebookWebhookService {
         participants: [
           {
             platformUserId: senderId,
-            name: displayName,
+            name: userProfile.name,
+            avatar: userProfile.profile_pic,
             role: "customer",
           },
         ],
@@ -225,8 +237,17 @@ export class FacebookWebhookService {
       });
 
       this.logger.log(
-        `✅ Created new conversation: ${conversation._id} for Facebook user ${senderId} and page ${pageId}`
+        `✅ Created new conversation: ${conversation._id} for Facebook user ${userProfile.name} (${senderId})`
       );
+    } else {
+      // Update existing conversation participant info if it's a placeholder
+      const participant = conversation.participants[0];
+      if (participant && participant.name.startsWith('Facebook User ')) {
+        conversation.participants[0].name = userProfile.name;
+        conversation.participants[0].avatar = userProfile.profile_pic;
+        await conversation.save();
+        this.logger.log(`✅ Updated participant info for conversation ${conversation._id}`);
+      }
     }
 
     // Determine message type
@@ -275,9 +296,8 @@ export class FacebookWebhookService {
       },
       sender: {
         platformUserId: senderId,
-        name:
-          conversation.participants[0]?.name ||
-          `Facebook User ${senderId}`,
+        name: userProfile.name,
+        avatar: userProfile.profile_pic,
       },
       status: "sent",
       metadata: {
@@ -381,7 +401,8 @@ export class FacebookWebhookService {
     event: FacebookMessagingEvent,
     pageId: string,
     platformConnectionId: string,
-    timestamp: Date
+    timestamp: Date,
+    connection: PlatformConnectionDocument
   ): Promise<void> {
     const senderId = event.sender.id;
     const postback = event.postback;
