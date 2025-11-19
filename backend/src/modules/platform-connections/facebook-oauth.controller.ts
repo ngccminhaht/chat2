@@ -9,6 +9,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { randomBytes } from 'crypto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { FacebookOAuthService } from './facebook-oauth.service';
 import { OAuthStateService } from './oauth-state.service';
@@ -102,47 +103,29 @@ export class FacebookOAuthController {
       // Redirect to error page - user has no pages
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
       return res.redirect(
-        `${frontendUrl}/platform-connections?status=error&platform=facebook&message=${encodeURIComponent('No Facebook pages found')}`,
+        `${frontendUrl}/connections?status=error&platform=facebook&message=${encodeURIComponent('No Facebook pages found')}`,
       );
     }
 
-    // Save each page as a separate platform connection
     const userId = storedStateData.userId;
     const isSyncMode = storedStateData.syncMode || false;
-    let firstPageName = '';
 
-    for (const page of pages) {
-      try {
-        const connection = await this.facebookOAuthService.savePlatformConnection(
-          userId,
-          page,
-        );
+    // Generate a selection token for page selection flow
+    const selectionToken = randomBytes(32).toString('hex');
 
-        if (!firstPageName) {
-          firstPageName = page.name || 'Facebook Page';
-        }
+    // Store pages temporarily in Redis for user to select (expires in 10 minutes)
+    await this.oauthStateService.storeState(`pages_${selectionToken}`, {
+      state: selectionToken,
+      userId,
+      pages,
+      isSyncMode,
+      createdAt: Date.now(),
+    });
 
-        // Sync conversations in background (don't wait for completion)
-        this.facebookOAuthService
-          .syncConversations(connection._id.toString())
-          .catch((error) => {
-            console.error('Failed to sync conversations:', error);
-          });
-      } catch (error) {
-        console.error(`Failed to save page ${page.id}:`, error);
-        // Continue with next page even if one fails
-      }
-    }
-
-    // Redirect to frontend with success message
+    // Redirect to frontend page selection UI
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-    const action = isSyncMode ? 'synced' : 'connected';
-    const message = isSyncMode
-      ? `Synced ${pages.length} page${pages.length > 1 ? 's' : ''}`
-      : `${pages.length} page${pages.length > 1 ? 's' : ''}`;
-
     return res.redirect(
-      `${frontendUrl}/platform-connections?status=success&platform=facebook&action=${action}&account=${encodeURIComponent(message)}`,
+      `${frontendUrl}/connections/select-pages?token=${selectionToken}&platform=facebook`,
     );
   }
 
@@ -297,6 +280,115 @@ export class FacebookOAuthController {
     return {
       authUrl,
       state,
+    };
+  }
+
+  /**
+   * Get pending pages for selection
+   * GET /api/platform-connections/facebook/pending-pages?token=xxx
+   */
+  @Get('pending-pages')
+  @UseGuards(JwtAuthGuard)
+  async getPendingPages(
+    @Query('token') token: string,
+    @Request() req: any,
+  ) {
+    if (!token) {
+      throw new BadRequestException('Selection token is required');
+    }
+
+    const userId = req.user.userId;
+
+    // Retrieve pending pages from Redis (without deleting)
+    const pendingData = await this.oauthStateService.getState(
+      `pages_${token}`,
+    );
+
+    if (!pendingData) {
+      throw new BadRequestException('Selection token expired or invalid');
+    }
+
+    // Verify user owns this selection
+    if (pendingData.userId !== userId) {
+      throw new BadRequestException('Unauthorized');
+    }
+
+    return {
+      success: true,
+      pages: pendingData.pages,
+      isSyncMode: pendingData.isSyncMode || false,
+    };
+  }
+
+  /**
+   * Save selected pages
+   * POST /api/platform-connections/facebook/save-pages
+   * Body: { token: string, selectedPageIds: string[] }
+   */
+  @Get('save-pages')
+  @UseGuards(JwtAuthGuard)
+  async saveSelectedPages(
+    @Query('token') token: string,
+    @Query('pageIds') pageIds: string,
+    @Request() req: any,
+  ) {
+    if (!token || !pageIds) {
+      throw new BadRequestException('Token and page IDs are required');
+    }
+
+    const userId = req.user.userId;
+    const selectedPageIds = pageIds.split(',');
+
+    // Retrieve pending pages from Redis
+    const pendingData = await this.oauthStateService.getAndDeleteState(
+      `pages_${token}`,
+    );
+
+    if (!pendingData) {
+      throw new BadRequestException('Selection token expired or invalid');
+    }
+
+    // Verify user owns this selection
+    if (pendingData.userId !== userId) {
+      throw new BadRequestException('Unauthorized');
+    }
+
+    const allPages = pendingData.pages;
+    const connections = [];
+
+    // Save only selected pages
+    for (const pageId of selectedPageIds) {
+      const page = allPages.find((p: any) => p.id === pageId);
+      if (page) {
+        try {
+          const connection = await this.facebookOAuthService.savePlatformConnection(
+            userId,
+            page,
+          );
+
+          connections.push({
+            id: connection._id,
+            platform: connection.platform,
+            accountName: connection.platformAccountName,
+            status: connection.status,
+          });
+
+          // Sync conversations in background
+          this.facebookOAuthService
+            .syncConversations(connection._id.toString())
+            .catch((error) => {
+              console.error('Failed to sync conversations:', error);
+            });
+        } catch (error) {
+          console.error(`Failed to save page ${page.id}:`, error);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: `Connected ${connections.length} Facebook page${connections.length > 1 ? 's' : ''}`,
+      connections,
     };
   }
 }

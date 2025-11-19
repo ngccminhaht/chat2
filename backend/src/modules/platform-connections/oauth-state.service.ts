@@ -80,6 +80,24 @@ export class OAuthStateService implements OnModuleDestroy {
   }
 
   /**
+   * Retrieve OAuth state data from Redis without deleting
+   */
+  async getState(state: string): Promise<OAuthStateData | null> {
+    const key = this.PREFIX + state;
+    console.log('🔍 Retrieving OAuth state (no delete):', { key, state });
+
+    const data = await this.redis.get(key);
+
+    if (!data) {
+      console.error('❌ OAuth state not found in Redis');
+      return null;
+    }
+
+    console.log('✅ OAuth state retrieved successfully');
+    return JSON.parse(data);
+  }
+
+  /**
    * Retrieve and delete OAuth state data from Redis
    */
   async getAndDeleteState(state: string): Promise<OAuthStateData | null> {
