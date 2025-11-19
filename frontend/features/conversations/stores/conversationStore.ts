@@ -10,6 +10,7 @@ interface ConversationState {
   setActiveConversation: (id: string | null) => void;
   setConversations: (conversations: Conversation[]) => void;
   updateConversation: (conversation: Conversation) => void;
+  addConversation: (conversation: Conversation) => void;
   setMessages: (conversationId: string, messages: Message[]) => void;
   addMessage: (conversationId: string, message: Message) => void;
   updateMessageStatus: (conversationId: string, messageId: string, status: string) => void;
@@ -33,6 +34,24 @@ export const useConversationStore = create<ConversationState>((set) => ({
         c._id === conversation._id ? conversation : c
       ),
     })),
+
+  addConversation: (conversation) =>
+    set((state) => {
+      // Check if conversation already exists
+      const exists = state.conversations.some((c) => c._id === conversation._id);
+      if (exists) {
+        // Update existing conversation instead
+        return {
+          conversations: state.conversations.map((c) =>
+            c._id === conversation._id ? conversation : c
+          ),
+        };
+      }
+      // Add new conversation to the beginning of the list
+      return {
+        conversations: [conversation, ...state.conversations],
+      };
+    }),
 
   setMessages: (conversationId, messages) =>
     set((state) => ({

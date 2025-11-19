@@ -112,25 +112,31 @@ export class WebsocketGateway
   }
 
   // Emit methods for backend services to call
-  emitNewMessage(conversationId: string, message: any) {
-    this.server.to(`conversation:${conversationId}`).emit('message:new', message);
+  // All events are sent to specific user rooms based on userId
+  emitToUser(userId: string, event: string, data: any) {
+    const userRoom = `user:${userId}`;
+    this.server.to(userRoom).emit(event, data);
+    this.logger.log(`📤 Emitted ${event} to user ${userId}`);
   }
 
-  emitMessageStatus(conversationId: string, messageId: string, status: string) {
-    this.server.to(`conversation:${conversationId}`).emit('message:status', {
+  emitNewMessage(userId: string, message: any) {
+    this.emitToUser(userId, 'message:new', message);
+  }
+
+  emitMessageStatus(userId: string, conversationId: string, messageId: string, status: string) {
+    this.emitToUser(userId, 'message:status', {
       conversationId,
       messageId,
       status,
     });
   }
 
-  emitConversationUpdated(conversation: any) {
-    // Broadcast to all connected clients
-    this.server.emit('conversation:updated', conversation);
+  emitConversationUpdated(userId: string, conversation: any) {
+    this.emitToUser(userId, 'conversation:updated', conversation);
   }
 
-  emitMessagesRead(conversationId: string, messageIds: string[]) {
-    this.server.to(`conversation:${conversationId}`).emit('message:read', {
+  emitMessagesRead(userId: string, conversationId: string, messageIds: string[]) {
+    this.emitToUser(userId, 'message:read', {
       conversationId,
       messageIds,
     });

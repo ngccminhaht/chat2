@@ -16,6 +16,7 @@ import ConversationItem from './ConversationItem';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
 import { useConversations } from '../hooks/useConversations';
+import { useConversationStore } from '../stores/conversationStore';
 import { useWebSocketEvent } from '@/lib/websocket/useWebSocketEvent';
 
 interface ConversationListProps {
@@ -41,8 +42,15 @@ export default function ConversationList({ activeConversationId }: ConversationL
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
   }, [queryClient]);
 
+  // Listen for conversation updates from new messages
+  const handleConversationUpdated = useCallback((conversation: any) => {
+    // Add or update conversation in store
+    useConversationStore.getState().addConversation(conversation);
+  }, []);
+
   useWebSocketEvent('connection:deleted', handleConnectionDeleted);
   useWebSocketEvent('connection:created', handleConnectionCreated);
+  useWebSocketEvent('conversation:updated', handleConversationUpdated);
 
   const handleStatusChange = (_event: React.SyntheticEvent, newValue: string) => {
     setStatus(newValue as 'open' | 'closed' | 'archived');
