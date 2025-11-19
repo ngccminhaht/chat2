@@ -34,13 +34,25 @@ export class FacebookOAuthService {
 
   /**
    * Generate Facebook OAuth authorization URL (Dialog endpoint)
-   * Scopes:
-   * - pages_messaging: Send/receive messages on behalf of page
+   * Scopes (matching pancake.vn implementation):
+   * - public_profile: Access user's public profile
+   * - email: Access user's email
+   * - pages_manage_metadata: Manage page metadata
    * - pages_read_engagement: Read page engagement data
-   * - pages_read_user_content: Read user-generated content on pages
-   * - pages_manage_metadata: Manage page metadata (required for page selection)
    * - pages_show_list: Show page list in OAuth dialog (allows user to select pages)
-   * Reference: https://developers.facebook.com/docs/permissions/reference/pages_messaging/
+   * - pages_read_user_content: Read user-generated content on pages
+   * - pages_manage_posts: Manage page posts
+   * - pages_manage_engagement: Manage page engagement
+   * - pages_messaging: Send/receive messages on behalf of page
+   * - ads_read: Read ads data
+   * - ads_management: Manage ads
+   * - page_events: Manage page events
+   * - pages_manage_ads: Manage page ads
+   * - catalog_management: Manage product catalogs
+   * - leads_retrieval: Retrieve leads
+   * - business_management: Manage business
+   * - pages_utility_messaging: Send utility messages
+   * Reference: https://developers.facebook.com/docs/permissions/reference/
    */
   getAuthorizationUrl(state?: string): {
     url: string;
@@ -52,7 +64,7 @@ export class FacebookOAuthService {
       client_id: this.appId,
       redirect_uri: this.redirectUri,
       response_type: 'code',
-      scope: 'pages_manage_metadata,pages_messaging,pages_read_engagement,pages_read_user_content',
+      scope: 'public_profile,email,pages_manage_metadata,pages_read_engagement,pages_show_list,pages_read_user_content,pages_manage_posts,pages_manage_engagement,pages_messaging,ads_read,ads_management,page_events,pages_manage_ads,catalog_management,leads_retrieval,business_management,pages_utility_messaging',
       state: finalState,
       auth_type: 'rerequest', // Force re-authorization to show page selector
     });
