@@ -2,24 +2,17 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe, Logger } from "@nestjs/common";
 import { AppModule } from "./app.module";
 import cookieParser from "cookie-parser";
-import { validateEnv } from "./common/env";
+import { EnvService } from "./common/env";
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
-  // CRITICAL: Validate environment variables before starting
-  try {
-    const env = await validateEnv();
-    logger.log(`Environment: ${env.NODE_ENV}`);
-  } catch (error) {
-    logger.error('Environment validation failed. Application cannot start.');
-    process.exit(1);
-  }
-
+  // Environment validation happens automatically in EnvService constructor
   const app = await NestFactory.create(AppModule);
 
-  // Get EnvService (will be initialized via onModuleInit)
-  const envService = app.get('EnvService');
+  // Get EnvService (already initialized with validated config)
+  const envService = app.get(EnvService);
+  logger.log(`Environment: ${envService.nodeEnv}`);
 
   // Enable cookie parser
   app.use(cookieParser());

@@ -5,15 +5,16 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { validateEnv, EnvironmentVariables } from './env.schema';
+import { validateEnvSync, EnvironmentVariables } from './env.schema';
 
 @Injectable()
 export class EnvService {
   private readonly logger = new Logger(EnvService.name);
-  private config!: EnvironmentVariables;
+  private readonly config: EnvironmentVariables;
 
-  async onModuleInit() {
-    this.config = await validateEnv();
+  constructor() {
+    // Validate synchronously during construction so config is available immediately
+    this.config = validateEnvSync();
     this.logger.log('EnvService initialized with validated config');
   }
 

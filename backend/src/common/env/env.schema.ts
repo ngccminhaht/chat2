@@ -12,6 +12,7 @@ import {
   MinLength,
   Min,
   validate,
+  validateSync,
   ValidateIf,
 } from 'class-validator';
 import { Transform, plainToClass } from 'class-transformer';
@@ -65,7 +66,7 @@ export class EnvironmentVariables {
   // Database
   // ============================================================================
 
-  @IsUrl({ require_tld: false })
+  @IsString()
   MONGODB_URI!: string;
 
   // ============================================================================
@@ -146,7 +147,7 @@ export class EnvironmentVariables {
   FACEBOOK_APP_SECRET?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   FACEBOOK_REDIRECT_URI?: string;
 
   @IsOptional()
@@ -166,7 +167,7 @@ export class EnvironmentVariables {
   ZALO_APP_SECRET?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   ZALO_REDIRECT_URI?: string;
 
   @IsString()
@@ -186,7 +187,7 @@ export class EnvironmentVariables {
   SHOPEE_PARTNER_KEY?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   SHOPEE_REDIRECT_URI?: string;
 
   // ============================================================================
@@ -202,7 +203,7 @@ export class EnvironmentVariables {
   TIKTOK_APP_SECRET?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   TIKTOK_REDIRECT_URI?: string;
 
   // ============================================================================
@@ -219,7 +220,47 @@ export class EnvironmentVariables {
 }
 
 /**
- * Validate environment variables using class-validator
+ * Validate environment variables synchronously
+ * Used by EnvService during construction
+ */
+export function validateEnvSync(): EnvironmentVariables {
+  const validatedConfig = plainToClass(EnvironmentVariables, process.env, {
+    enableImplicitConversion: false,
+  });
+
+  const errors = validateSync(validatedConfig, {
+    skipMissingProperties: false,
+  });
+
+  if (errors.length > 0) {
+    console.error('\n' + '='.repeat(80));
+    console.error('❌ ENVIRONMENT VALIDATION FAILED');
+    console.error('='.repeat(80));
+
+    errors.forEach((error) => {
+      console.error(`\n${error.property}:`);
+      if (error.constraints) {
+        Object.values(error.constraints).forEach((message) => {
+          console.error(`  ❌ ${message}`);
+        });
+      }
+    });
+
+    console.error('\n' + '='.repeat(80));
+    console.error('Please check your .env file and fix the errors above.');
+    console.error('Generate secrets with: openssl rand -base64 32');
+    console.error('='.repeat(80) + '\n');
+
+    throw new Error('Environment validation failed');
+  }
+
+  console.log('✅ Environment validation passed');
+  return validatedConfig;
+}
+
+/**
+ * Validate environment variables using class-validator (async version)
+ * @deprecated Use validateEnvSync() instead for synchronous validation
  */
 export async function validateEnv(): Promise<EnvironmentVariables> {
   const validatedConfig = plainToClass(EnvironmentVariables, process.env, {
