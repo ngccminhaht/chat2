@@ -7,6 +7,11 @@ interface SyncStatusResponse {
   lastSyncAt: string | null;
 }
 
+interface SyncAuthUrlResponse {
+  authUrl: string;
+  state: string;
+}
+
 export const useSyncFacebookPages = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,8 +22,15 @@ export const useSyncFacebookPages = () => {
       setIsLoading(true);
       setError(null);
 
-      // Redirect to sync endpoint (will redirect to Facebook OAuth)
-      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/platform-connections/facebook/sync-pages`;
+      // Call backend to generate OAuth URL with sync mode flag
+      const response = await apiClient.get<SyncAuthUrlResponse>(
+        '/platform-connections/facebook/sync-auth-url'
+      );
+
+      const { authUrl } = response.data;
+
+      // Redirect to Facebook OAuth page
+      window.location.href = authUrl;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to sync Facebook pages');
       setIsLoading(false);

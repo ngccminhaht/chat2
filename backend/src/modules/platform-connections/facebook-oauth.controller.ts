@@ -272,21 +272,21 @@ export class FacebookOAuthController {
   }
 
   /**
-   * Initiate Facebook pages sync (redirects to OAuth)
-   * GET /api/platform-connections/facebook/sync-pages
-   * This will redirect user to Facebook OAuth to re-authorize and sync all pages
+   * Get authorization URL for syncing Facebook pages
+   * GET /api/platform-connections/facebook/sync-auth-url
+   * Returns OAuth URL with sync mode flag
    */
-  @Get('sync-pages')
+  @Get('sync-auth-url')
   @UseGuards(JwtAuthGuard)
-  async syncPages(@Request() req: any, @Res() res: Response) {
+  async getSyncAuthUrl(@Request() req: any) {
     const userId = req.user.userId;
 
-    this.logger.log(`User ${userId} initiating Facebook pages sync`);
+    this.logger.log(`Generating sync auth URL for user ${userId}`);
 
     // Generate OAuth URL for re-authentication
     const { authUrl, state } = await this.facebookOAuthService.syncPagesForUser(userId);
 
-    // Store state in Redis for callback verification
+    // Store state in Redis with sync mode flag
     await this.oauthStateService.storeState(state, {
       state,
       userId,
@@ -294,7 +294,9 @@ export class FacebookOAuthController {
       syncMode: true, // Flag to indicate this is a sync operation
     });
 
-    // Redirect to Facebook OAuth
-    return res.redirect(authUrl);
+    return {
+      authUrl,
+      state,
+    };
   }
 }
