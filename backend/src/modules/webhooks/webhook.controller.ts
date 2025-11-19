@@ -19,6 +19,7 @@ import { ShopeeWebhookDto } from './dto/shopee-webhook.dto';
 import { FacebookWebhookService } from './facebook-webhook.service';
 import { FacebookWebhookDto } from './dto/facebook-webhook.dto';
 import { WebhookPublisherService } from './webhook-publisher.service';
+import { EnvService } from '@/common/env';
 
 /**
  * Unified webhook controller for all platforms
@@ -33,9 +34,10 @@ export class WebhookController {
 
   constructor(
     private readonly webhookPublisher: WebhookPublisherService,
-    private readonly zaloWebhookService: ZaloWebhookService, // For signature verification only
-    private readonly shopeeWebhookService: ShopeeWebhookService, // For signature verification only
-    private readonly facebookWebhookService: FacebookWebhookService, // For signature verification only
+    private readonly zaloWebhookService: ZaloWebhookService,
+    private readonly shopeeWebhookService: ShopeeWebhookService,
+    private readonly facebookWebhookService: FacebookWebhookService,
+    private readonly envService: EnvService,
   ) {}
 
   /**
@@ -50,36 +52,15 @@ export class WebhookController {
   async handleZaloWebhook(
     @Body() payload: ZaloWebhookDto,
     @Headers('x-zalo-signature') signature: string,
-    @Headers() headers: Record<string, string>,
   ): Promise<{ success: boolean }> {
-    this.logger.log('='.repeat(80));
-    this.logger.log('📥 ZALO WEBHOOK RECEIVED');
-    this.logger.log('='.repeat(80));
-    this.logger.log('Headers:', JSON.stringify({
-      'x-zalo-signature': signature,
-      'content-type': headers['content-type'],
-      'user-agent': headers['user-agent'],
-    }, null, 2));
-    this.logger.log('-'.repeat(80));
-    this.logger.log('Full Payload:', JSON.stringify(payload, null, 2));
-    this.logger.log('-'.repeat(80));
-    this.logger.log('Event Summary:', {
-      event: payload.event_name,
-      oaId: payload.recipient?.id, // OA ID is recipient.id
-      senderId: payload.sender?.id,
-      timestamp: payload.timestamp,
-      hasMessage: !!payload.message,
-      hasSender: !!payload.sender,
-      hasRecipient: !!payload.recipient,
-    });
-    this.logger.log('='.repeat(80));
+    this.logger.log(`📥 Zalo webhook: ${payload.event_name} | OA: ${payload.recipient?.id} | Sender: ${payload.sender?.id}`);
 
     // Verify signature (if provided)
     if (signature) {
-      const appSecret = process.env.ZALO_APP_SECRET;
+      const appSecret = this.envService.zaloAppSecret;
       if (!appSecret) {
         this.logger.error('ZALO_APP_SECRET not configured');
-        return { success: true }; // Return 200 to avoid retries
+        return { success: true };
       }
 
       const isValid = this.zaloWebhookService.verifySignature(
@@ -89,8 +70,7 @@ export class WebhookController {
       );
 
       if (!isValid) {
-        this.logger.warn('Invalid Zalo webhook signature - processing anyway');
-        // Still process but log warning - signature may be optional
+        this.logger.warn('Invalid Zalo webhook signature');
       }
     }
 
@@ -122,7 +102,7 @@ export class WebhookController {
     this.logger.log('📋 Facebook webhook verification (GET) received');
     this.logger.log('Query params:', { mode, challenge, verifyToken });
 
-    const expectedToken = process.env.FACEBOOK_VERIFY_TOKEN;
+    const expectedToken = this.envService.facebookVerifyToken;
     if (!expectedToken) {
       this.logger.error('FACEBOOK_VERIFY_TOKEN not configured');
       throw new BadRequestException('Server configuration error');
@@ -160,40 +140,19 @@ export class WebhookController {
     @Body() payload: FacebookWebhookDto,
     @Headers('x-hub-signature-256') signature: string,
   ): Promise<{ success: boolean }> {
-    this.logger.log('='.repeat(80));
-    this.logger.log('📥 FACEBOOK WEBHOOK RECEIVED');
-    this.logger.log('='.repeat(80));
-    this.logger.log('Full Payload:', JSON.stringify(payload, null, 2));
-    this.logger.log('-'.repeat(80));
-
-    if (payload.entry) {
-      for (const entry of payload.entry) {
-        this.logger.log('Event Summary:', {
-          pageId: entry.id,
-          timestamp: entry.time,
-          hasMessaging: !!entry.messaging,
-          messagingCount: entry.messaging?.length || 0,
-          hasChanges: !!entry.changes,
-          changesCount: entry.changes?.length || 0,
-        });
-      }
-    }
-    this.logger.log('='.repeat(80));
+    const pageId = payload.entry?.[0]?.id;
+    const eventCount = (payload.entry?.[0]?.messaging?.length || 0) + (payload.entry?.[0]?.changes?.length || 0);
+    this.logger.log(`📥 Facebook webhook: Page ${pageId} | ${eventCount} event(s)`);
 
     // Verify signature (if provided)
     if (signature) {
-      const appSecret = process.env.FACEBOOK_APP_SECRET;
+      const appSecret = this.envService.facebookAppSecret;
       if (!appSecret) {
         this.logger.error('FACEBOOK_APP_SECRET not configured');
-        return { success: true }; // Return 200 to avoid retries
+        return { success: true };
       }
 
-      // Get raw body for signature verification
       const rawBody = req.rawBody?.toString('utf8') || JSON.stringify(payload);
-
-      this.logger.log(`Verifying signature...`);
-      this.logger.log(`  Signature: ${signature.substring(0, 30)}...`);
-
       const isValid = this.facebookWebhookService.verifySignature(
         rawBody,
         signature,
@@ -201,11 +160,8 @@ export class WebhookController {
       );
 
       if (!isValid) {
-        this.logger.warn('Invalid Facebook webhook signature - processing anyway');
-        // Still process but log warning
+        this.logger.warn('Invalid Facebook webhook signature');
       }
-    } else {
-      this.logger.warn('⚠️ No signature header - processing anyway (development mode)');
     }
 
     // Publish to Kafka and return immediately
@@ -266,34 +222,17 @@ export class WebhookController {
     @Body() payload: ShopeeWebhookDto,
     @Headers('authorization') authorization: string,
   ): Promise<{ code: number; message: string }> {
-    this.logger.log('='.repeat(80));
-    this.logger.log('📥 SHOPEE WEBHOOK RECEIVED');
-    this.logger.log('='.repeat(80));
-    this.logger.log('Full Payload:', JSON.stringify(payload, null, 2));
-    this.logger.log('-'.repeat(80));
-    this.logger.log('Event Summary:', {
-      code: payload.code,
-      message: payload.message,
-      shopId: payload.shop_id,
-      timestamp: payload.timestamp,
-      conversationId: payload.data?.conversation_id,
-      messageId: payload.data?.message_id,
-      messageType: payload.data?.message_type,
-      fromId: payload.data?.from_id,
-      fromName: payload.data?.from_name,
-      verifyInfo: payload.data?.verify_info,
-    });
-    this.logger.log('='.repeat(80));
+    this.logger.log(`📥 Shopee webhook: Shop ${payload.shop_id} | Type: ${payload.data?.message_type || 'verify'}`);
 
     // Check if this is a verification message from Shopee
     if (payload.data?.verify_info) {
-      this.logger.log('✅ Shopee verification message detected - responding with success');
+      this.logger.log('✅ Shopee verification message');
       return { code: 0, message: 'success' };
     }
 
     // Verify signature (Shopee uses Authorization header with HMAC-SHA256)
     if (authorization) {
-      const partnerKey = process.env.SHOPEE_PARTNER_KEY;
+      const partnerKey = this.envService.shopeePartnerKey;
       if (!partnerKey) {
         this.logger.error('❌ SHOPEE_PARTNER_KEY not configured');
         return { code: 1, message: 'Server configuration error' };
@@ -304,12 +243,7 @@ export class WebhookController {
       const host = req.get('host');
       const fullUrl = `${protocol}://${host}${req.originalUrl}`;
 
-      // Get raw body for signature verification
       const rawBody = req.rawBody?.toString('utf8') || JSON.stringify(payload);
-
-      this.logger.log(`Verifying signature...`);
-      this.logger.log(`  URL: ${fullUrl}`);
-      this.logger.log(`  Authorization: ${authorization?.substring(0, 30)}...`);
 
       const isValid = this.shopeeWebhookService.verifySignature(
         fullUrl,
@@ -319,13 +253,9 @@ export class WebhookController {
       );
 
       if (!isValid) {
-        this.logger.error('❌ Invalid Shopee webhook signature');
+        this.logger.error('Invalid Shopee webhook signature');
         return { code: 1, message: 'Invalid signature' };
       }
-
-      this.logger.log('✅ Webhook signature verified');
-    } else {
-      this.logger.warn('⚠️ No authorization header - processing anyway (development mode)');
     }
 
     // Publish to Kafka and return immediately

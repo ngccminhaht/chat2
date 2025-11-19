@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EnvModule, EnvService } from './common/env';
 import { KafkaModule } from './common/kafka/kafka.module';
@@ -15,13 +14,7 @@ import { MediaModule } from './modules/media/media.module';
 
 @Module({
   imports: [
-    // Config module - load .env (keep for compatibility with existing code)
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-    }),
-
-    // Environment service (Global) - Type-safe env access
+    // Environment service (Global) - Includes ConfigModule with validation
     EnvModule,
 
     // MongoDB connection - use EnvService
