@@ -17,7 +17,7 @@ export const useConnectZalo = () => {
 
       // Call backend to generate OAuth URL and store state in Redis
       const response = await apiClient.get<ZaloAuthUrlResponse>(
-        '/platform-connections/zalo/auth-url'
+        '/connections/zalo/auth-url'
       );
 
       const { authUrl } = response.data;

@@ -57,7 +57,7 @@ function SelectPagesContent() {
     try {
       setIsLoading(true);
       const response = await apiClient.get<PendingPagesResponse>(
-        `/platform-connections/facebook/pending-pages?token=${token}`
+        `/connections/facebook/pending-pages?token=${token}`
       );
 
       setPages(response.data.pages);
@@ -97,7 +97,7 @@ function SelectPagesContent() {
       setError(null);
 
       await apiClient.get(
-        `/platform-connections/facebook/save-pages?token=${token}&pageIds=${selectedPageIds.join(",")}`
+        `/connections/facebook/save-pages?token=${token}&pageIds=${selectedPageIds.join(",")}`
       );
 
       // Redirect to connections page with success message

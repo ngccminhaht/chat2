@@ -13,9 +13,9 @@ import {
   usePlatformConnections,
   useDeletePlatformConnection,
   useUpdatePlatformConnectionStatus,
-} from "@/features/platform-connections/hooks/usePlatformConnections";
-import PlatformConnectionCard from "@/features/platform-connections/components/PlatformConnectionCard";
-import ConnectPlatformButton from "@/features/platform-connections/components/ConnectPlatformButton";
+} from "@/features/connections/hooks/usePlatformConnections";
+import PlatformConnectionCard from "@/features/connections/components/PlatformConnectionCard";
+import ConnectPlatformButton from "@/features/connections/components/ConnectPlatformButton";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -48,7 +48,7 @@ function ConnectionsPageContent() {
       );
 
       // Refetch connections to show the new one
-      queryClient.invalidateQueries({ queryKey: ["platform-connections"] });
+      queryClient.invalidateQueries({ queryKey: ["connections"] });
 
       // Clear URL params after showing message
       window.history.replaceState({}, "", "/connections");

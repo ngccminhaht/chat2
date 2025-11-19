@@ -29,7 +29,7 @@ export function usePlatformConnection(options?: UsePlatformConnectionOptions) {
       setError(null);
 
       const response = await apiClient.get<PlatformAuthUrlResponse>(
-        `/platform-connections/${platform}/auth-url`
+        `/connections/${platform}/auth-url`
       );
 
       const { authUrl } = response.data;
@@ -55,7 +55,7 @@ export function usePlatformConnection(options?: UsePlatformConnectionOptions) {
       setLoadingPlatform(platform);
       setError(null);
 
-      await apiClient.delete(`/platform-connections/${connectionId}`);
+      await apiClient.delete(`/connections/${connectionId}`);
 
       options?.onSuccess?.(platform);
       setIsLoading(false);
@@ -81,7 +81,7 @@ export function usePlatformConnection(options?: UsePlatformConnectionOptions) {
       setLoadingPlatform(platform);
       setError(null);
 
-      await apiClient.patch(`/platform-connections/${connectionId}`, {
+      await apiClient.patch(`/connections/${connectionId}/status`, {
         status: newStatus,
       });
 

@@ -27,13 +27,13 @@ function ShopeeCompleteContent() {
     // Complete the OAuth flow by calling backend
     const completeConnection = async () => {
       try {
-        await apiClient.get(`/platform-connections/shopee/complete`, {
+        await apiClient.get(`/connections/shopee/complete`, {
           params: { temp_id: tempId },
         });
 
         // Success - redirect to platform connections page
         setTimeout(() => {
-          router.push('/platform-connections?status=success&platform=shopee');
+          router.push('/connections?status=success&platform=shopee');
         }, 1500);
       } catch (err: any) {
         console.error('Failed to complete Shopee connection:', err);
@@ -64,7 +64,7 @@ function ShopeeCompleteContent() {
             </Alert>
             <Typography variant="body2" color="text.secondary">
               Please return to{' '}
-              <a href="/platform-connections">Platform Connections</a> and try
+              <a href="/connections">Platform Connections</a> and try
               again.
             </Typography>
           </>

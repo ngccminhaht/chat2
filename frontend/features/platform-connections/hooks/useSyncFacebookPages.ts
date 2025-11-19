@@ -24,7 +24,7 @@ export const useSyncFacebookPages = () => {
 
       // Call backend to generate OAuth URL with sync mode flag
       const response = await apiClient.get<SyncAuthUrlResponse>(
-        '/platform-connections/facebook/sync-auth-url'
+        '/connections/facebook/sync-auth-url'
       );
 
       const { authUrl } = response.data;
@@ -40,7 +40,7 @@ export const useSyncFacebookPages = () => {
   const getSyncStatus = async () => {
     try {
       const response = await apiClient.get<SyncStatusResponse>(
-        '/platform-connections/facebook/sync-status'
+        '/connections/facebook/sync-status'
       );
       setSyncStatus(response.data);
       return response.data;

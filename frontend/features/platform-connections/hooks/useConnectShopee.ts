@@ -17,7 +17,7 @@ export const useConnectShopee = () => {
 
       // Call backend to generate OAuth URL and store state in Redis
       const response = await apiClient.get<ShopeeAuthUrlResponse>(
-        '/platform-connections/shopee/auth-url'
+        '/connections/shopee/auth-url'
       );
 
       const { authUrl } = response.data;
