@@ -8,13 +8,11 @@ import {
   CircularProgress,
   Tabs,
   Tab,
-  Button,
 } from "@mui/material";
 import {
   usePlatformConnections,
   useDeletePlatformConnection,
 } from "@/features/platform-connections/hooks/usePlatformConnections";
-import { useSyncFacebookPages } from "@/features/platform-connections/hooks/useSyncFacebookPages";
 import PlatformConnectionCard from "@/features/platform-connections/components/PlatformConnectionCard";
 import ConnectPlatformButton from "@/features/platform-connections/components/ConnectPlatformButton";
 import { useSearchParams } from "next/navigation";
@@ -26,7 +24,6 @@ function ConnectionsPageContent() {
   const queryClient = useQueryClient();
   const { data: connections, isLoading, error } = usePlatformConnections();
   const deleteMutation = useDeletePlatformConnection();
-  const { syncPages, isLoading: isSyncing } = useSyncFacebookPages();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Show all platforms - allow multiple accounts per platform
@@ -117,24 +114,11 @@ function ConnectionsPageContent() {
             </Tabs>
           </Grid>
           <Grid size="auto">
-            <Box display="flex" gap={1}>
-              {/* Show sync button for Facebook if there are existing connections */}
-              {selectedTab === "facebook" && platformCounts["facebook"] > 0 && (
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  onClick={syncPages}
-                  disabled={isSyncing}
-                >
-                  {isSyncing ? "Syncing..." : "Sync Pages"}
-                </Button>
-              )}
-              <ConnectPlatformButton
-                platform={
-                  selectedTab as "facebook" | "zalo" | "tiktok" | "shopee"
-                }
-              />
-            </Box>
+            <ConnectPlatformButton
+              platform={
+                selectedTab as "facebook" | "zalo" | "tiktok" | "shopee"
+              }
+            />
           </Grid>
         </Grid>
       </Box>
