@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Box,
   Paper,
@@ -15,6 +16,7 @@ import ConversationItem from './ConversationItem';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
 import { useConversations } from '../hooks/useConversations';
+import { useWebSocketEvent } from '@/lib/websocket/useWebSocketEvent';
 
 interface ConversationListProps {
   activeConversationId?: string;
@@ -23,8 +25,17 @@ interface ConversationListProps {
 export default function ConversationList({ activeConversationId }: ConversationListProps) {
   const [status, setStatus] = useState<'open' | 'closed' | 'archived'>('open');
   const [search, setSearch] = useState('');
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useConversations({ status, page: 1, limit: 50 });
+
+  // Listen for connection deletion events and refetch conversations
+  const handleConnectionDeleted = useCallback(() => {
+    // Invalidate and refetch conversations when a connection is deleted
+    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+  }, [queryClient]);
+
+  useWebSocketEvent('connection:deleted', handleConnectionDeleted);
 
   const handleStatusChange = (_event: React.SyntheticEvent, newValue: string) => {
     setStatus(newValue as 'open' | 'closed' | 'archived');
