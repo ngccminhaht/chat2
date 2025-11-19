@@ -35,6 +35,14 @@ export class EnvSchema {
   @IsString()
   JWT_REFRESH_SECRET: string = 'your-refresh-secret-key';
 
+  @IsString()
+  @IsOptional()
+  JWT_EXPIRES_IN?: string;
+
+  @IsString()
+  @IsOptional()
+  JWT_REFRESH_EXPIRES_IN?: string;
+
   // Kafka
   @IsString()
   KAFKA_BROKER: string = 'localhost:9092';
@@ -51,6 +59,10 @@ export class EnvSchema {
   @IsString()
   @IsOptional()
   ZALO_REDIRECT_URI?: string;
+
+  @IsString()
+  @IsOptional()
+  ZALO_VERIFICATION_TOKEN?: string;
 
   // Facebook
   @IsString()
@@ -81,6 +93,14 @@ export class EnvSchema {
   @IsString()
   @IsOptional()
   SHOPEE_REDIRECT_URI?: string;
+
+  @IsString()
+  @IsOptional()
+  SHOPEE_REGION?: string;
+
+  @IsString()
+  @IsOptional()
+  SHOPEE_ENV?: string;
 
   // TikTok
   @IsString()

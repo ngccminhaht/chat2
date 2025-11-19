@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import { EnvService } from '@/common/env';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, LoginDto } from './dto';
 import * as bcrypt from 'bcrypt';
@@ -10,7 +10,7 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
-    private configService: ConfigService,
+    private envService: EnvService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -38,8 +38,8 @@ export class AuthService {
     return {
       accessToken: this.jwtService.sign(payload),
       refreshToken: this.jwtService.sign(payload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret',
-        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
+        secret: this.envService.get('JWT_REFRESH_SECRET'),
+        expiresIn: this.envService.get('JWT_REFRESH_EXPIRES_IN') || '7d',
       }),
       user: {
         id: user._id,
@@ -71,7 +71,7 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     try {
       const payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret',
+        secret: this.envService.get('JWT_REFRESH_SECRET'),
       });
 
       const user = await this.usersService.findById(payload.sub);

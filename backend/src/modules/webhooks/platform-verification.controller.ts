@@ -4,12 +4,12 @@
  */
 
 import { Controller, Get, Res } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { EnvService } from '@/common/env';
 import { Response } from 'express';
 
 @Controller()
 export class PlatformVerificationController {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly envService: EnvService) {}
 
   /**
    * Zalo platform verification endpoint
@@ -19,7 +19,7 @@ export class PlatformVerificationController {
   @Get('/webhook/zalo_verifier:token.html')
   zaloVerification(@Res() res: Response): void {
     const verificationToken =
-      this.configService.get<string>('ZALO_VERIFICATION_TOKEN') ||
+      this.envService.get('ZALO_VERIFICATION_TOKEN') ||
       'Hl-69CBzBm8yWwbLvh8cLG2VfNFiwN4jCZ0s';
 
     res.send(`

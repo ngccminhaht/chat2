@@ -4,7 +4,7 @@
  */
 
 import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { EnvService } from '../env';
 import axios, { AxiosInstance } from 'axios';
 import { Model } from 'mongoose';
 import {
@@ -35,7 +35,7 @@ export abstract class BaseOAuthService {
 
   constructor(
     protected readonly platform: Platform,
-    protected readonly configService: ConfigService,
+    protected readonly envService: EnvService,
     protected readonly platformConnectionModel: Model<any>,
   ) {
     this.logger = new Logger(`${platform}OAuthService`);
@@ -68,15 +68,9 @@ export abstract class BaseOAuthService {
   protected loadOAuthConfig(): OAuthConfig {
     const platformUpper = this.platform.toUpperCase();
 
-    const clientId = this.configService.get<string>(
-      `${platformUpper}_APP_ID`,
-    );
-    const clientSecret = this.configService.get<string>(
-      `${platformUpper}_APP_SECRET`,
-    );
-    const redirectUri = this.configService.get<string>(
-      `${platformUpper}_REDIRECT_URI`,
-    );
+    const clientId = this.envService.get(`${platformUpper}_APP_ID` as any);
+    const clientSecret = this.envService.get(`${platformUpper}_APP_SECRET` as any);
+    const redirectUri = this.envService.get(`${platformUpper}_REDIRECT_URI` as any);
 
     if (!clientId || !clientSecret || !redirectUri) {
       throw new Error(

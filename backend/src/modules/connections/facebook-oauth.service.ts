@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { EnvService } from '@/common/env';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { randomBytes } from 'crypto';
@@ -23,13 +23,13 @@ export class FacebookOAuthService {
   private readonly graphApiVersion: string = 'v19.0';
 
   constructor(
-    private configService: ConfigService,
+    private envService: EnvService,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
   ) {
-    this.appId = this.configService.get<string>('FACEBOOK_APP_ID');
-    this.appSecret = this.configService.get<string>('FACEBOOK_APP_SECRET');
-    this.redirectUri = this.configService.get<string>('FACEBOOK_REDIRECT_URI');
+    this.appId = this.envService.get('FACEBOOK_APP_ID');
+    this.appSecret = this.envService.get('FACEBOOK_APP_SECRET');
+    this.redirectUri = this.envService.get('FACEBOOK_REDIRECT_URI');
   }
 
   /**

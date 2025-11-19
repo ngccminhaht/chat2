@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname } from "next/navigation";
 import {
   Box,
   Drawer,
@@ -11,17 +11,17 @@ import {
   ListItemText,
   Toolbar,
   Divider,
-} from '@mui/material';
-import ChatIcon from '@mui/icons-material/Chat';
-import SettingsIcon from '@mui/icons-material/Settings';
-import LinkIcon from '@mui/icons-material/Link';
+} from "@mui/material";
+import ChatIcon from "@mui/icons-material/Chat";
+import SettingsIcon from "@mui/icons-material/Settings";
+import LinkIcon from "@mui/icons-material/Link";
 
 const drawerWidth = 240;
 
 const menuItems = [
-  { text: 'Conversations', icon: <ChatIcon />, path: '/conversations' },
-  { text: 'Platform Connections', icon: <LinkIcon />, path: '/connections' },
-  { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+  { text: "Conversations", icon: <ChatIcon />, path: "/conversations" },
+  { text: "Connections", icon: <LinkIcon />, path: "/connections" },
+  { text: "Settings", icon: <SettingsIcon />, path: "/settings" },
 ];
 
 interface SidebarProps {
@@ -59,7 +59,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   );
 
   return (
-    <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
+    <Box
+      component="nav"
+      sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+    >
       {/* Mobile drawer */}
       <Drawer
         variant="temporary"
@@ -69,10 +72,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           keepMounted: true, // Better open performance on mobile
         }}
         sx={{
-          display: { xs: 'block', sm: 'none' },
-          '& .MuiDrawer-paper': {
+          display: { xs: "block", sm: "none" },
+          "& .MuiDrawer-paper": {
             width: drawerWidth,
-            boxSizing: 'border-box',
+            boxSizing: "border-box",
           },
         }}
       >
@@ -83,10 +86,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       <Drawer
         variant="permanent"
         sx={{
-          display: { xs: 'none', sm: 'block' },
-          '& .MuiDrawer-paper': {
+          display: { xs: "none", sm: "block" },
+          "& .MuiDrawer-paper": {
             width: drawerWidth,
-            boxSizing: 'border-box',
+            boxSizing: "border-box",
           },
         }}
         open

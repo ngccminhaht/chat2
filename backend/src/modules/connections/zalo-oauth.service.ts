@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { EnvService } from '@/common/env';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { createHash, randomBytes } from 'crypto';
@@ -22,15 +22,15 @@ export class ZaloOAuthService {
   private readonly redirectUri: string;
 
   constructor(
-    private configService: ConfigService,
+    private envService: EnvService,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     @InjectModel(Conversation.name)
     private conversationModel: Model<ConversationDocument>,
   ) {
-    this.appId = this.configService.get<string>('ZALO_APP_ID');
-    this.appSecret = this.configService.get<string>('ZALO_APP_SECRET');
-    this.redirectUri = this.configService.get<string>('ZALO_REDIRECT_URI');
+    this.appId = this.envService.get('ZALO_APP_ID');
+    this.appSecret = this.envService.get('ZALO_APP_SECRET');
+    this.redirectUri = this.envService.get('ZALO_REDIRECT_URI');
   }
 
   /**

@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { EnvService } from '@/common/env';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { createHmac, randomBytes } from 'crypto';
@@ -27,28 +27,28 @@ export class ShopeeOAuthService {
   private readonly apiHost: string;
 
   constructor(
-    private configService: ConfigService,
+    private envService: EnvService,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     @InjectModel(Conversation.name)
     private conversationModel: Model<ConversationDocument>,
   ) {
-    this.partnerId = this.configService.get<string>('SHOPEE_PARTNER_ID');
-    const rawPartnerKey = this.configService.get<string>('SHOPEE_PARTNER_KEY');
+    this.partnerId = this.envService.get('SHOPEE_PARTNER_ID');
+    const rawPartnerKey = this.envService.get('SHOPEE_PARTNER_KEY');
 
     // Remove 'shpk' prefix if present (newer Shopee partner keys)
     this.partnerKey = rawPartnerKey?.startsWith('shpk')
       ? rawPartnerKey.substring(4)
       : rawPartnerKey;
 
-    this.redirectUri = this.configService.get<string>('SHOPEE_REDIRECT_URI');
+    this.redirectUri = this.envService.get('SHOPEE_REDIRECT_URI');
 
     // Shopee API host varies by region (sg, my, th, tw, id, vn, ph)
     // Default to Vietnam region
-    const region = this.configService.get<string>('SHOPEE_REGION') || 'vn';
+    const region = this.envService.get('SHOPEE_REGION') || 'vn';
 
     // Choose API host based on environment and region
-    const isTestEnv = this.configService.get<string>('SHOPEE_ENV') === 'test';
+    const isTestEnv = this.envService.get('SHOPEE_ENV') === 'test';
 
     if (isTestEnv) {
       // Test environment - use region-specific sandbox
