@@ -15,8 +15,8 @@ import {
 } from '@/common/database/schemas/message.schema';
 
 @Injectable()
-export class PlatformConnectionsService {
-  private readonly logger = new Logger(PlatformConnectionsService.name);
+export class ConnectionsService {
+  private readonly logger = new Logger(ConnectionsService.name);
 
   constructor(
     @InjectModel(PlatformConnection.name)

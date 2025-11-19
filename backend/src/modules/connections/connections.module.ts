@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { PlatformConnectionsController } from './platform-connections.controller';
-import { PlatformConnectionsService } from './platform-connections.service';
+import { ConnectionsController } from './connections.controller';
+import { ConnectionsService } from './connections.service';
 import { ZaloOAuthController } from './zalo-oauth.controller';
 import { ZaloOAuthService } from './zalo-oauth.service';
 import { ShopeeOAuthController } from './shopee-oauth.controller';
@@ -31,24 +31,24 @@ import {
     ]),
   ],
   controllers: [
-    PlatformConnectionsController,
+    ConnectionsController,
     ZaloOAuthController,
     ShopeeOAuthController,
     FacebookOAuthController,
   ],
   providers: [
-    PlatformConnectionsService,
+    ConnectionsService,
     ZaloOAuthService,
     ShopeeOAuthService,
     FacebookOAuthService,
     OAuthStateService,
   ],
   exports: [
-    PlatformConnectionsService,
+    ConnectionsService,
     ZaloOAuthService,
     ShopeeOAuthService,
     FacebookOAuthService,
     OAuthStateService,
   ],
 })
-export class PlatformConnectionsModule {}
+export class ConnectionsModule {}

@@ -1,68 +1,36 @@
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
+import { ValidationPipe, Logger } from "@nestjs/common";
 import { AppModule } from "./app.module";
-import { Response } from "express";
 import cookieParser from "cookie-parser";
+import { validateEnv } from "./common/env";
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+
+  // CRITICAL: Validate environment variables before starting
+  try {
+    const env = await validateEnv();
+    logger.log(`Environment: ${env.NODE_ENV}`);
+  } catch (error) {
+    logger.error('Environment validation failed. Application cannot start.');
+    process.exit(1);
+  }
+
   const app = await NestFactory.create(AppModule);
+
+  // Get EnvService (will be initialized via onModuleInit)
+  const envService = app.get('EnvService');
 
   // Enable cookie parser
   app.use(cookieParser());
 
-  // Enable CORS
+  // Enable CORS with environment-based origins
   app.enableCors({
-    origin: [
-      "https://miagent.sapp.merket.io",
-      "http://localhost:3001",
-      "http://localhost:8315",
-    ],
+    origin: envService.corsOrigins,
     credentials: true,
   });
 
-  app
-    .getHttpAdapter()
-    .getInstance()
-    .get(
-      "/zalo_verifierHl-69CBzBm8yWwbLvh8cLG2VfNFiwN4jCZ0s.html",
-      (_, res: Response) => {
-        res.send(`
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta property="zalo-platform-site-verification" content="Hl-69CBzBm8yWwbLvh8cLG2VfNFiwN4jCZ0s" />
-</head>
-
-<body>
-There Is No Limit To What You Can Accomplish Using Zalo!
-</body>
-
-</html>`);
-      }
-    );
-
-  app
-    .getHttpAdapter()
-    .getInstance()
-    .get(
-      "/webhook/zalo_verifierHl-69CBzBm8yWwbLvh8cLG2VfNFiwN4jCZ0s.html",
-      (_, res: Response) => {
-        res.send(`
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta property="zalo-platform-site-verification" content="Hl-69CBzBm8yWwbLvh8cLG2VfNFiwN4jCZ0s" />
-</head>
-
-<body>
-There Is No Limit To What You Can Accomplish Using Zalo!
-</body>
-
-</html>`);
-      }
-    );
+  logger.log(`CORS enabled for origins: ${envService.corsOrigins.join(', ')}`);
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -76,10 +44,10 @@ There Is No Limit To What You Can Accomplish Using Zalo!
   // Global prefix
   app.setGlobalPrefix("api");
 
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  await app.listen(envService.port);
 
-  console.log(`🚀 Application is running on: http://localhost:${port}/api`);
+  logger.log(`🚀 Application is running on: http://localhost:${envService.port}/api`);
+  logger.log(`📡 WebSocket server is running on: http://localhost:${envService.port}`);
 }
 
 bootstrap();

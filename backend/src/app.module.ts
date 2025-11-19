@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { EnvModule, EnvService } from './common/env';
 import { KafkaModule } from './common/kafka/kafka.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -9,19 +10,27 @@ import { ConversationsModule } from './modules/conversations/conversations.modul
 import { MessagesModule } from './modules/messages/messages.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
-import { PlatformConnectionsModule } from './modules/platform-connections/platform-connections.module';
+import { ConnectionsModule } from './modules/connections/connections.module';
 import { MediaModule } from './modules/media/media.module';
 
 @Module({
   imports: [
-    // Config module - load .env
+    // Config module - load .env (keep for compatibility with existing code)
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
 
-    // MongoDB connection
-    MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/omnichat'),
+    // Environment service (Global) - Type-safe env access
+    EnvModule,
+
+    // MongoDB connection - use EnvService
+    MongooseModule.forRootAsync({
+      inject: [EnvService],
+      useFactory: (envService: EnvService) => ({
+        uri: envService.mongoUri,
+      }),
+    }),
 
     // Kafka infrastructure (Global)
     KafkaModule,
@@ -34,7 +43,7 @@ import { MediaModule } from './modules/media/media.module';
     MessagesModule,
     WebhooksModule,
     WebsocketModule,
-    PlatformConnectionsModule,
+    ConnectionsModule,
     MediaModule,
   ],
 })

@@ -10,37 +10,37 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { PlatformConnectionsService } from './platform-connections.service';
+import { ConnectionsService } from './connections.service';
 
-@Controller('platform-connections')
+@Controller('connections')
 @UseGuards(JwtAuthGuard)
-export class PlatformConnectionsController {
+export class ConnectionsController {
   constructor(
-    private readonly platformConnectionsService: PlatformConnectionsService,
+    private readonly connectionsService: ConnectionsService,
   ) {}
 
   /**
    * Get all platform connections for current user
-   * GET /api/platform-connections
+   * GET /api/connections
    */
   @Get()
   findAll(@Request() req) {
     const userId = req.user.userId;
-    return this.platformConnectionsService.findAllByUser(userId);
+    return this.connectionsService.findAllByUser(userId);
   }
 
   /**
    * Get a specific platform connection
-   * GET /api/platform-connections/:id
+   * GET /api/connections/:id
    */
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.platformConnectionsService.findOne(id);
+    return this.connectionsService.findOne(id);
   }
 
   /**
    * Update platform connection status
-   * PATCH /api/platform-connections/:id/status
+   * PATCH /api/connections/:id/status
    */
   @Patch(':id/status')
   async updateStatus(
@@ -51,7 +51,7 @@ export class PlatformConnectionsController {
       throw new BadRequestException('Status is required');
     }
 
-    const connection = await this.platformConnectionsService.updateStatus(
+    const connection = await this.connectionsService.updateStatus(
       id,
       body.status,
     );
@@ -65,11 +65,11 @@ export class PlatformConnectionsController {
 
   /**
    * Delete a platform connection
-   * DELETE /api/platform-connections/:id
+   * DELETE /api/connections/:id
    */
   @Delete(':id')
   async delete(@Param('id') id: string) {
-    await this.platformConnectionsService.delete(id);
+    await this.connectionsService.delete(id);
     return { success: true };
   }
 }

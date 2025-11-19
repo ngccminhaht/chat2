@@ -11,52 +11,47 @@ import {
   FormControlLabel,
 } from "@mui/material";
 import { PlatformConnection } from "../types/platform-connection.types";
+import { PLATFORM_DISPLAY_NAMES, ConnectionStatus } from "@/lib/constants";
 
 interface PlatformConnectionCardProps {
   connection: PlatformConnection;
   onDisconnect?: (id: string) => void;
-  onToggleStatus?: (id: string, newStatus: "active" | "inactive") => void;
+  onToggleStatus?: (id: string, newStatus: ConnectionStatus) => void;
 }
-
-const platformNames: Record<string, string> = {
-  facebook: "Facebook",
-  zalo: "Zalo OA",
-  tiktok: "TikTok Shop",
-  shopee: "Shopee",
-};
 
 export default function PlatformConnectionCard({
   connection,
   onDisconnect,
   onToggleStatus,
 }: PlatformConnectionCardProps) {
-  const isActive = connection.status === "active";
+  const isActive = connection.status === ConnectionStatus.ACTIVE;
 
   const handleToggle = () => {
     if (onToggleStatus) {
-      const newStatus = isActive ? "inactive" : "active";
+      const newStatus = isActive ? ConnectionStatus.INACTIVE : ConnectionStatus.ACTIVE;
       onToggleStatus(connection.id, newStatus);
     }
   };
+
+  const platformName = PLATFORM_DISPLAY_NAMES[connection.platform as keyof typeof PLATFORM_DISPLAY_NAMES] || connection.platform;
 
   return (
     <Card>
       <CardContent>
         <Box display="flex" alignItems="center" gap={2} mb={2}>
           <Avatar src={connection.metadata.avatar}>
-            {platformNames[connection.platform]?.charAt(0)}
+            {platformName.charAt(0)}
           </Avatar>
           <Box flex={1}>
             <Typography variant="h6">
               {connection.platformAccountName}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {platformNames[connection.platform]}
+              {platformName}
             </Typography>
           </Box>
           {onToggleStatus && (
             <FormControlLabel
-              sx={{ marginRight: "-7px" }}
               control={
                 <Switch
                   checked={isActive}
