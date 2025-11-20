@@ -46,7 +46,9 @@ export default function ConversationList({ activeConversationId }: ConversationL
   const handleConversationUpdated = useCallback((conversation: any) => {
     // Add or update conversation in store
     useConversationStore.getState().addConversation(conversation);
-  }, []);
+    // Invalidate query to refresh UI
+    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+  }, [queryClient]);
 
   useWebSocketEvent('connection:deleted', handleConnectionDeleted);
   useWebSocketEvent('connection:created', handleConnectionCreated);
