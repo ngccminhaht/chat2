@@ -106,9 +106,6 @@ export interface WebSocketNotificationEvent {
   /** User ID to send notification to */
   userId?: string;
 
-  /** Organization ID (for multi-user orgs) */
-  organizationId?: string;
-
   /** Conversation ID (for room-based notifications) */
   conversationId?: string;
 

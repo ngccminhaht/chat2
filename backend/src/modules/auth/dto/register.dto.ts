@@ -13,8 +13,4 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   name: string;
-
-  @IsString()
-  @IsOptional()
-  organizationName?: string;
 }

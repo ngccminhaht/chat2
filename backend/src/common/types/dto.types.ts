@@ -31,22 +31,6 @@ export interface PaginatedResponse<T> {
 }
 
 // ============================================================================
-// Organization DTOs
-// ============================================================================
-
-export interface CreateOrganizationDto {
-  name: string;
-  description?: string;
-  settings?: Record<string, unknown>;
-}
-
-export interface UpdateOrganizationDto {
-  name?: string;
-  description?: string;
-  settings?: Record<string, unknown>;
-}
-
-// ============================================================================
 // Conversation DTOs
 // ============================================================================
 
@@ -55,11 +39,9 @@ export interface GetConversationsDto extends PaginationDto {
   platform?: Platform;
   assignedTo?: string;
   search?: string;
-  organizationId: string; // REQUIRED for multi-tenancy
 }
 
 export interface CreateConversationDto {
-  organizationId: string;
   platform: Platform;
   platformConversationId: string;
   platformAccountId: string;
@@ -86,12 +68,10 @@ export interface UpdateConversationDto {
 
 export interface GetMessagesDto extends PaginationDto {
   conversationId: string;
-  organizationId: string; // REQUIRED for multi-tenancy
 }
 
 export interface CreateMessageDto {
   conversationId: string;
-  organizationId: string;
   platform: Platform;
   direction: 'inbound' | 'outbound';
   type: MessageType;
@@ -111,7 +91,6 @@ export interface CreateMessageDto {
 
 export interface SendMessageDto {
   conversationId: string;
-  organizationId: string;
   type: MessageType;
   content: {
     text?: string;
@@ -133,7 +112,6 @@ export interface UpdateMessageStatusDto {
 // ============================================================================
 
 export interface CreatePlatformConnectionDto {
-  organizationId: string;
   platform: Platform;
   platformAccountId: string;
   platformAccountName: string;

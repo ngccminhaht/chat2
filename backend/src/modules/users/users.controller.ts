@@ -10,11 +10,6 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
-  @Get('organization/:orgId')
-  async getUsersByOrganization(@Param('orgId') orgId: string) {
-    return this.usersService.findByOrganization(orgId);
-  }
-
   @Put(':id')
   async updateUser(@Param('id') id: string, @Body() updateData: any) {
     return this.usersService.update(id, updateData);

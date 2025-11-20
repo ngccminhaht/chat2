@@ -69,10 +69,6 @@ yarn type-check
 4. Update status to `'sent'`, publish to `websocket.notifications`
 5. Frontend receives status update via WebSocket
 
-### Multi-Tenancy
-
-All data is scoped by `organizationId`. Users belong to organizations. Every conversation and message includes `organizationId` for query filtering and access control.
-
 ### State Management (Frontend)
 
 - **Zustand stores**: Client state (UI, active conversation, typing indicators)
@@ -96,7 +92,7 @@ All data is scoped by `organizationId`. Users belong to organizations. Every con
 
 Path alias `@/*` maps to `src/*`. All modules in `src/modules/`:
 - **auth**: JWT strategy, login/register/refresh endpoints
-- **users**, **organizations**: CRUD with role-based access
+- **users**: User CRUD with role-based access
 - **conversations**, **messages**: Core chat entities
 - **webhooks**: Platform-specific webhook receivers (Facebook, Zalo)
 - **websocket**: Socket.IO gateway with room-based architecture
@@ -281,9 +277,9 @@ types/                          # Shared TypeScript types
 
 ### WebSocket Integration
 
-**Backend** (to be implemented):
+**Backend**:
 - Socket.IO gateway with Redis adapter for horizontal scaling
-- Room strategy: `user:{userId}`, `org:{orgId}`, `conversation:{conversationId}`
+- Room strategy: `user:{userId}` (all events sent to user-specific rooms)
 - Kafka consumer bridges `websocket.notifications` topic to Socket.IO emits
 
 **Frontend**:
@@ -318,10 +314,12 @@ Partitioning by `conversationId` ensures message ordering within conversations.
 ### Adding WebSocket Events
 
 1. Define event in `backend/src/modules/websocket/websocket.gateway.ts`
-2. Add handler with `@SubscribeMessage('event:name')`
-3. Emit to rooms using `this.server.to(room).emit('event:name', data)`
+2. Add emit method: `emitEventName(userId: string, data: any)` using `emitToUser` helper
+3. Call emit method from services/consumers with userId parameter
 4. Update frontend `lib/websocket/client.ts` with listener
 5. Update Zustand store to handle event data
+
+**Important**: All WebSocket events must be sent to user-specific rooms using `emitToUser(userId, event, data)` pattern.
 
 ### Environment Setup
 

@@ -4,7 +4,6 @@ import { EnvModule, EnvService } from './common/env';
 import { KafkaModule } from './common/kafka/kafka.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
-import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
@@ -31,7 +30,6 @@ import { MediaModule } from './modules/media/media.module';
     // Feature modules
     AuthModule,
     UsersModule,
-    OrganizationsModule,
     ConversationsModule,
     MessagesModule,
     WebhooksModule,

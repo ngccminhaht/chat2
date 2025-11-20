@@ -23,10 +23,6 @@ export class UsersService {
     return this.userModel.findById(id).exec();
   }
 
-  async findByOrganization(organizationId: string): Promise<UserDocument[]> {
-    return this.userModel.find({ organizationId }).exec();
-  }
-
   async update(id: string, updateData: Partial<User>): Promise<UserDocument | null> {
     return this.userModel
       .findByIdAndUpdate(id, updateData, { new: true })

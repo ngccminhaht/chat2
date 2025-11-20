@@ -154,7 +154,6 @@ export abstract class BaseWebhookProcessor<TPayload = unknown>
       );
 
       conversation = await this.conversationModel.create({
-        organizationId: connection.organizationId,
         platform: this.platform,
         platformConversationId,
         platformAccountId: connection.platformAccountId,
@@ -204,7 +203,6 @@ export abstract class BaseWebhookProcessor<TPayload = unknown>
     // Create new message
     const message = await this.messageModel.create({
       conversationId: conversation._id,
-      organizationId: conversation.organizationId,
       platform: this.platform,
       platformMessageId: normalizedMessage.platformMessageId,
       direction: normalizedMessage.direction,

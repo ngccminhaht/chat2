@@ -93,7 +93,7 @@ export abstract class BaseOAuthService {
    */
   async handleCallback(
     callbackDto: OAuthCallbackDto,
-    organizationId: string,
+    userId: string,
   ): Promise<{ connectionId: string; accountName: string }> {
     const { code, error, error_description } = callbackDto;
 
@@ -124,8 +124,8 @@ export abstract class BaseOAuthService {
         : undefined;
 
       // Step 4: Upsert platform connection
-      const connectionData: Partial<CreatePlatformConnectionDto> = {
-        organizationId,
+      const connectionData: Partial<CreatePlatformConnectionDto> & { userId: string } = {
+        userId,
         platform: this.platform,
         platformAccountId: accountInfo.id,
         platformAccountName: accountInfo.name,
@@ -162,11 +162,11 @@ export abstract class BaseOAuthService {
    * Common: Upsert platform connection
    */
   protected async upsertPlatformConnection(
-    data: Partial<CreatePlatformConnectionDto>,
+    data: Partial<CreatePlatformConnectionDto> & { userId: string },
   ) {
     const existing = await this.platformConnectionModel
       .findOne({
-        organizationId: data.organizationId,
+        userId: data.userId,
         platform: data.platform,
         platformAccountId: data.platformAccountId,
       })
