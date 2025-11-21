@@ -23,6 +23,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: omnichat-kafka
+    user: root
     ports:
       - "8311:9092"
       - "8312:9093"
