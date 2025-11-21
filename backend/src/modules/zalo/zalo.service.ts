@@ -281,10 +281,8 @@ export class ZaloService {
       content: payload.message, // Store entire message object
       sender: {
         platformUserId: senderId,
-        name:
-          conversation.participants[0]?.name ||
-          `Zalo User ${senderId.substring(0, Math.min(8, senderId.length))}`,
-        avatar: conversation.participants[0]?.avatar,
+        name: conversation.customerName,
+        avatar: conversation.customerAvatar,
       },
       status: "sent",
       metadata: {

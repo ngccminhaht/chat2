@@ -85,13 +85,7 @@ export class MessagesService {
       throw new NotFoundException('Conversation not found');
     }
 
-    // Find customer info from participants (recipient of message)
-    const customer = conversation.participants.find((p) => p.role === 'customer');
-    if (!customer) {
-      throw new BadRequestException('No customer found in conversation');
-    }
-
-    // Get platform connection for access token (optional for now)
+    // Get platform connection for access token
     const platformConnection = await this.platformConnectionModel
       .findById(conversation.platformConnectionId)
       .exec();
@@ -100,12 +94,11 @@ export class MessagesService {
       throw new NotFoundException('Platform connection not found');
     }
 
-    // Get sender info - prefer agent from conversation participants
-    const agent = conversation.participants.find((p) => p.role === 'agent');
+    // Sender info for outbound message (agent/system)
     const senderInfo = {
-      platformUserId: agent?.platformUserId || platformConnection.platformAccountId || 'system',
-      name: agent?.name || platformConnection.platformAccountName || 'Agent',
-      avatar: agent?.avatar || platformConnection.metadata?.avatar,
+      platformUserId: platformConnection.platformAccountId || 'system',
+      name: platformConnection.platformAccountName || 'Agent',
+      avatar: platformConnection.metadata?.avatar,
     };
 
     // Create message with pending status
@@ -134,7 +127,7 @@ export class MessagesService {
         }
 
         this.logger.log('=== Sending Facebook message ===');
-        this.logger.log(`  Recipient platformUserId: ${customer.platformUserId}`);
+        this.logger.log(`  Recipient platformUserId: ${conversation.customerPlatformUserId}`);
         this.logger.log(`  Platform connection: ${platformConnection._id}`);
         this.logger.log(`  Message content: ${content.text?.substring(0, 50)}...`);
 
@@ -144,7 +137,7 @@ export class MessagesService {
         // Send message via Facebook API
         const result = await this.facebookService.sendTextMessage(
           pageAccessToken,
-          customer.platformUserId,
+          conversation.customerPlatformUserId,
           content.text,
         );
 
