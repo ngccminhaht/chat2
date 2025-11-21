@@ -144,13 +144,8 @@ export class ShopeeService {
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         platformAccountId: shopId,
-        participants: [
-          {
-            platformUserId: customerId,
-            name: displayName,
-            role: 'customer',
-          },
-        ],
+        customerPlatformUserId: customerId,
+        customerName: displayName,
         status: 'open',
         unreadCount: 0,
         metadata: {
@@ -180,7 +175,7 @@ export class ShopeeService {
       },
       sender: {
         platformUserId: customerId,
-        name: data.from_name || conversation.participants[0]?.name,
+        name: data.from_name || conversation.customerName,
       },
       status: 'sent',
       metadata: {

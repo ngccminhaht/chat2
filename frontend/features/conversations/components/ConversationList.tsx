@@ -60,9 +60,8 @@ export default function ConversationList({ activeConversationId }: ConversationL
 
   const filteredConversations = data?.data.filter((conversation) => {
     if (!search) return true;
-    const customer = conversation.participants.find((p) => p.role === 'customer');
     return (
-      customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      conversation.customerName?.toLowerCase().includes(search.toLowerCase()) ||
       conversation.lastMessage?.text?.toLowerCase().includes(search.toLowerCase())
     );
   });

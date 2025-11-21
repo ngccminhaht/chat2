@@ -1,10 +1,3 @@
-export interface Participant {
-  platformUserId: string;
-  name: string;
-  avatar?: string;
-  role: 'customer' | 'agent' | 'bot';
-}
-
 export interface LastMessage {
   text: string;
   timestamp: Date;
@@ -18,7 +11,9 @@ export interface Conversation {
   platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
   platformConversationId: string;
   platformConnectionId: string;
-  participants: Participant[];
+  customerPlatformUserId: string;
+  customerName: string;
+  customerAvatar?: string;
   status: 'open' | 'closed' | 'archived';
   assignedTo?: {
     _id: string;

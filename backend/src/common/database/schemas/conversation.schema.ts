@@ -20,23 +20,15 @@ export class Conversation {
   @Prop()
   platformAccountId?: string; // OA ID for Zalo, Page ID for Facebook, etc.
 
-  @Prop({
-    type: [
-      {
-        platformUserId: String,
-        name: String,
-        avatar: String,
-        role: { type: String, enum: ['customer', 'agent', 'bot'] },
-      },
-    ],
-    default: [],
-  })
-  participants: Array<{
-    platformUserId: string;
-    name: string;
-    avatar?: string;
-    role: string;
-  }>;
+  // Customer information (denormalized for quick access)
+  @Prop({ required: true })
+  customerPlatformUserId: string;
+
+  @Prop({ required: true })
+  customerName: string;
+
+  @Prop()
+  customerAvatar?: string;
 
   @Prop({
     required: true,

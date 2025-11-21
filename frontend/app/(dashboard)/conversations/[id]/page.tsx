@@ -34,9 +34,6 @@ export default function ConversationDetailPage() {
   // Use conversation from API if store doesn't have it
   const conversation = conversationFromStore || conversationData;
 
-  // Get customer participant
-  const customer = conversation?.participants.find((p) => p.role === 'customer');
-
   // Sync initial query data to Zustand store
   useEffect(() => {
     if (data?.data && conversationId) {
@@ -82,14 +79,14 @@ export default function ConversationDetailPage() {
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
               <Stack direction="row" spacing={2} alignItems="center">
                 <Avatar
-                  src={customer?.avatar}
-                  alt={customer?.name || 'User'}
+                  src={conversation?.customerAvatar}
+                  alt={conversation?.customerName || 'User'}
                 >
-                  {customer?.name?.charAt(0) || 'U'}
+                  {conversation?.customerName?.charAt(0) || 'U'}
                 </Avatar>
                 <Box>
                   <Typography variant="h6">
-                    {customer?.name || 'Unknown User'}
+                    {conversation?.customerName || 'Unknown User'}
                   </Typography>
                   <Chip
                     label={conversation?.platform || 'Unknown'}

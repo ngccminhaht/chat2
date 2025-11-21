@@ -246,14 +246,9 @@ export class ZaloService {
         platformConversationId: conversationKey, // Use composite key
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         platformAccountId: oaId, // Store OA ID for easy querying
-        participants: [
-          {
-            platformUserId: senderId, // Global sender ID
-            name: userInfo.display_name,
-            avatar: userInfo.avatar,
-            role: "customer",
-          },
-        ],
+        customerPlatformUserId: senderId, // Global sender ID
+        customerName: userInfo.display_name,
+        customerAvatar: userInfo.avatar,
         status: "open",
         unreadCount: 0,
         metadata: {

@@ -242,14 +242,9 @@ export class FacebookService {
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         platformAccountId: pageId, // Store Page ID for easy querying
-        participants: [
-          {
-            platformUserId: senderId,
-            name: userProfile.name,
-            avatar: userProfile.profile_pic,
-            role: "customer",
-          },
-        ],
+        customerPlatformUserId: senderId,
+        customerName: userProfile.name,
+        customerAvatar: userProfile.profile_pic,
         status: "open",
         unreadCount: 0,
         metadata: {
@@ -261,13 +256,12 @@ export class FacebookService {
         `✅ Created new conversation: ${conversation._id} for Facebook user ${userProfile.name} (${senderId})`
       );
     } else {
-      // Update existing conversation participant info if it's a placeholder
-      const participant = conversation.participants[0];
-      if (participant && participant.name.startsWith('Facebook User ')) {
-        conversation.participants[0].name = userProfile.name;
-        conversation.participants[0].avatar = userProfile.profile_pic;
+      // Update existing conversation customer info if it's a placeholder
+      if (conversation.customerName.startsWith('Facebook User ')) {
+        conversation.customerName = userProfile.name;
+        conversation.customerAvatar = userProfile.profile_pic;
         await conversation.save();
-        this.logger.log(`✅ Updated participant info for conversation ${conversation._id}`);
+        this.logger.log(`✅ Updated customer info for conversation ${conversation._id}`);
       }
     }
 
@@ -445,13 +439,8 @@ export class FacebookService {
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         platformAccountId: pageId,
-        participants: [
-          {
-            platformUserId: senderId,
-            name: `Facebook User ${senderId}`,
-            role: "customer",
-          },
-        ],
+        customerPlatformUserId: senderId,
+        customerName: `Facebook User ${senderId}`,
         status: "open",
         unreadCount: 0,
         metadata: { pageId },
@@ -473,7 +462,7 @@ export class FacebookService {
       },
       sender: {
         platformUserId: senderId,
-        name: conversation.participants[0]?.name || `Facebook User ${senderId}`,
+        name: conversation.customerName,
       },
       status: "sent",
       metadata: {
@@ -561,13 +550,8 @@ export class FacebookService {
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         platformAccountId: pageId,
-        participants: [
-          {
-            platformUserId: commenterId,
-            name: changeValue.sender_name || `Facebook User ${commenterId}`,
-            role: 'customer',
-          },
-        ],
+        customerPlatformUserId: commenterId,
+        customerName: changeValue.sender_name || `Facebook User ${commenterId}`,
         status: 'open',
         unreadCount: 0,
         metadata: {
@@ -596,10 +580,7 @@ export class FacebookService {
       },
       sender: {
         platformUserId: commenterId,
-        name:
-          conversation.participants[0]?.name ||
-          changeValue.sender_name ||
-          `Facebook User ${commenterId}`,
+        name: conversation.customerName,
       },
       status: 'sent',
       metadata: {

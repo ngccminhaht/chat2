@@ -20,7 +20,6 @@ interface ConversationItemProps {
 export default function ConversationItem({ conversation, isActive }: ConversationItemProps) {
   const router = useRouter();
 
-  const customer = conversation.participants.find((p) => p.role === 'customer');
   const platformLabel = conversation.platform.toUpperCase();
 
   return (
@@ -31,15 +30,15 @@ export default function ConversationItem({ conversation, isActive }: Conversatio
       >
         <ListItemAvatar>
           <Badge badgeContent={conversation.unreadCount} color="error">
-            <Avatar src={customer?.avatar} alt={customer?.name}>
-              {customer?.name?.charAt(0) || '?'}
+            <Avatar src={conversation.customerAvatar} alt={conversation.customerName}>
+              {conversation.customerName?.charAt(0) || '?'}
             </Avatar>
           </Badge>
         </ListItemAvatar>
         <ListItemText
           primary={
             <>
-              {customer?.name || 'Unknown'}
+              {conversation.customerName || 'Unknown'}
               <Chip
                 label={platformLabel}
                 size="small"
