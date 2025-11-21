@@ -304,9 +304,12 @@ export class ShopeeService {
     const timestamp = Math.floor(Date.now() / 1000);
     const sign = this.generateSignature(path, timestamp);
 
+    // Include state in redirect_uri so Shopee preserves it in callback
+    const redirectWithState = `${this.redirectUri}?state=${finalState}`;
+
     const params = new URLSearchParams({
       partner_id: this.partnerId,
-      redirect: this.redirectUri,
+      redirect: redirectWithState,
       sign,
       timestamp: timestamp.toString(),
     });
