@@ -1,23 +1,25 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class ZaloAuthUrlDto {
-  @IsString()
   @IsOptional()
+  @IsString()
   state?: string;
 }
 
 export class ZaloCallbackDto {
   @IsString()
-  @IsNotEmpty()
   code: string;
 
   @IsString()
-  @IsNotEmpty()
-  code_verifier: string;
+  state: string;
 
-  @IsString()
   @IsOptional()
-  state?: string;
+  @IsString()
+  oa_id?: string;
+
+  @IsOptional()
+  @IsString()
+  code_verifier?: string;
 }
 
 export interface ZaloTokenResponse {
@@ -29,6 +31,8 @@ export interface ZaloTokenResponse {
 export interface ZaloOAInfo {
   oa_id: string;
   name: string;
-  description: string;
-  avatar: string;
+  description?: string;
+  avatar?: string;
+  cover?: string;
+  num_follower?: number;
 }

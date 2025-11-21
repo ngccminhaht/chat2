@@ -4,7 +4,7 @@ import { MicroserviceOptions, Transport } from "@nestjs/microservices";
 import { AppModule } from "./app.module";
 import cookieParser from "cookie-parser";
 import { EnvService } from "./common/env";
-import { getKafkaConfig } from "./common/kafka/kafka.config";
+import { getKafkaConfig } from "./infra/kafka/kafka.config";
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');

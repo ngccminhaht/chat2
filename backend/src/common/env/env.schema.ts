@@ -22,11 +22,24 @@ export class EnvSchema {
   MONGODB_URI: string = 'mongodb://localhost:27017/miagent';
 
   @IsString()
+  @IsOptional()
+  REDIS_URL?: string;
+
+  @IsString()
   REDIS_HOST: string = 'localhost';
 
   @IsNumber()
   @Transform(({ value }) => parseInt(value, 10))
   REDIS_PORT: number = 6379;
+
+  @IsString()
+  @IsOptional()
+  REDIS_PASSWORD?: string;
+
+  @IsNumber()
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsOptional()
+  REDIS_DB?: number;
 
   // JWT
   @IsString()

@@ -2,12 +2,6 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConnectionsController } from './connections.controller';
 import { ConnectionsService } from './connections.service';
-import { ZaloOAuthController } from './zalo-oauth.controller';
-import { ZaloOAuthService } from './zalo-oauth.service';
-import { ShopeeOAuthController } from './shopee-oauth.controller';
-import { ShopeeOAuthService } from './shopee-oauth.service';
-import { FacebookOAuthController } from './facebook-oauth.controller';
-import { FacebookOAuthService } from './facebook-oauth.service';
 import { OAuthStateService } from './oauth-state.service';
 import {
   PlatformConnection,
@@ -32,25 +26,8 @@ import { WebsocketModule } from '@/modules/websocket/websocket.module';
     ]),
     WebsocketModule,
   ],
-  controllers: [
-    ConnectionsController,
-    ZaloOAuthController,
-    ShopeeOAuthController,
-    FacebookOAuthController,
-  ],
-  providers: [
-    ConnectionsService,
-    ZaloOAuthService,
-    ShopeeOAuthService,
-    FacebookOAuthService,
-    OAuthStateService,
-  ],
-  exports: [
-    ConnectionsService,
-    ZaloOAuthService,
-    ShopeeOAuthService,
-    FacebookOAuthService,
-    OAuthStateService,
-  ],
+  controllers: [ConnectionsController],
+  providers: [ConnectionsService, OAuthStateService],
+  exports: [ConnectionsService, OAuthStateService],
 })
 export class ConnectionsModule {}

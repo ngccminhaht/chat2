@@ -7,6 +7,7 @@ import { Conversation, ConversationSchema } from '@/common/database/schemas/conv
 import { PlatformConnection, PlatformConnectionSchema } from '@/common/database/schemas/platform-connection.schema';
 import { ConnectionsModule } from '@/modules/connections/connections.module';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
+import { FacebookModule } from '@/modules/facebook/facebook.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { WebsocketModule } from '@/modules/websocket/websocket.module';
     ]),
     ConnectionsModule,
     WebsocketModule,
+    FacebookModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService],

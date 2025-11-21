@@ -6,8 +6,7 @@ import { Conversation, ConversationDocument } from '@/common/database/schemas/co
 import { PlatformConnection, PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
-import { ZaloOAuthService } from '@/modules/connections/zalo-oauth.service';
-import { FacebookOAuthService } from '@/modules/connections/facebook-oauth.service';
+import { FacebookService } from '@/modules/facebook/facebook.service';
 import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 
 @Injectable()
@@ -21,8 +20,7 @@ export class MessagesService {
     private conversationModel: Model<ConversationDocument>,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
-    private zaloOAuthService: ZaloOAuthService,
-    private facebookOAuthService: FacebookOAuthService,
+    private facebookService: FacebookService,
     private websocketGateway: WebsocketGateway,
   ) {}
 
@@ -121,38 +119,8 @@ export class MessagesService {
     try {
       // Send message to platform
       if (conversation.platform === 'zalo') {
-        if (type !== 'text') {
-          throw new BadRequestException('Only text messages are supported for Zalo');
-        }
-
-        this.logger.log('=== Sending Zalo message ===');
-        this.logger.log(`  Recipient platformUserId: ${customer.platformUserId}`);
-        this.logger.log(`  Platform connection: ${platformConnection._id}`);
-        this.logger.log(`  Message content: ${content.text?.substring(0, 50)}...`);
-
-        // Use wrapper method that automatically refreshes token if needed
-        const result = await this.zaloOAuthService.sendTextMessageWithRefresh(
-          platformConnection,
-          customer.platformUserId,
-          content.text,
-        );
-
-        // Update message with actual platform message ID and status
-        message.platformMessageId = result.message_id;
-        message.status = 'sent';
-        await message.save();
-
-        // Update conversation's last message
-        await this.conversationModel.findByIdAndUpdate(conversationId, {
-          lastMessage: {
-            text: content.text,
-            timestamp: new Date(),
-            senderId: platformConnection.platformAccountId,
-            messageId: message._id,
-          },
-        });
-
-        this.logger.log(`✅ Message sent successfully: ${result.message_id}`);
+        // TODO: Implement Zalo send message functionality in ZaloService
+        throw new BadRequestException('Zalo send message not yet implemented');
       } else if (conversation.platform === 'facebook') {
         if (type !== 'text') {
           throw new BadRequestException('Only text messages are supported for Facebook');
@@ -167,7 +135,7 @@ export class MessagesService {
         const pageAccessToken = platformConnection.credentials.accessToken;
 
         // Send message via Facebook API
-        const result = await this.facebookOAuthService.sendTextMessage(
+        const result = await this.facebookService.sendTextMessage(
           pageAccessToken,
           customer.platformUserId,
           content.text,

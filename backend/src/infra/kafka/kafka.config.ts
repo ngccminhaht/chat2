@@ -29,7 +29,7 @@ export const KAFKA_CONSUMER_GROUPS = {
   WEBSOCKET_BRIDGE: 'websocket-bridge-group',
 } as const;
 
-import { EnvService } from '../env';
+import { EnvService } from '@/common/env';
 
 /**
  * Kafka Connection Configuration

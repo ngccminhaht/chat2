@@ -1,7 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
-import { createHmac } from "crypto";
+import { createHmac, randomBytes } from "crypto";
+import axios from 'axios';
+import { EnvService } from '@/common/env';
 import {
   Conversation,
   ConversationDocument,
@@ -20,13 +22,22 @@ import {
   FacebookChange,
   FacebookChangeValue,
 } from "./dto/facebook-webhook.dto";
-import { KafkaProducerService } from "@/common/kafka/kafka-producer.service";
-import { KAFKA_TOPICS } from "@/common/kafka/kafka.config";
-import { FacebookOAuthService } from "@/modules/connections/facebook-oauth.service";
+import {
+  FacebookTokenResponse,
+  FacebookPageInfo,
+  FacebookUserInfo,
+} from './dto/oauth.dto';
+import { WebsocketGateway } from "@/modules/websocket/websocket.gateway";
 
 @Injectable()
-export class FacebookWebhookService {
-  private readonly logger = new Logger(FacebookWebhookService.name);
+export class FacebookService {
+  private readonly logger = new Logger(FacebookService.name);
+
+  // OAuth configuration
+  private readonly appId: string;
+  private readonly appSecret: string;
+  private readonly redirectUri: string;
+  private readonly graphApiVersion: string = 'v19.0';
 
   constructor(
     @InjectModel(Conversation.name)
@@ -35,9 +46,13 @@ export class FacebookWebhookService {
     private messageModel: Model<MessageDocument>,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
-    private kafkaProducer: KafkaProducerService,
-    private facebookOAuthService: FacebookOAuthService,
-  ) {}
+    private websocketGateway: WebsocketGateway,
+    private envService: EnvService,
+  ) {
+    this.appId = this.envService.get('FACEBOOK_APP_ID');
+    this.appSecret = this.envService.get('FACEBOOK_APP_SECRET');
+    this.redirectUri = this.envService.get('FACEBOOK_REDIRECT_URI');
+  }
 
   /**
    * Verify Facebook webhook signature
@@ -209,7 +224,7 @@ export class FacebookWebhookService {
 
     // Fetch user profile info
     const pageAccessToken = connection.credentials.accessToken;
-    const userProfile = await this.facebookOAuthService.getSenderProfile(
+    const userProfile = await this.getSenderProfile(
       pageAccessToken,
       senderId
     );
@@ -612,7 +627,7 @@ export class FacebookWebhookService {
   }
 
   /**
-   * Publish WebSocket notification to frontend
+   * Emit WebSocket notification to frontend
    */
   private async publishWebSocketNotification(
     conversation: ConversationDocument,
@@ -626,47 +641,432 @@ export class FacebookWebhookService {
 
       if (!platformConnection?.userId) {
         this.logger.warn(
-          `Cannot publish WebSocket notification: no userId for conversation ${conversation._id}`
+          `Cannot emit WebSocket notification: no userId for conversation ${conversation._id}`
         );
         return;
       }
 
       const userId = platformConnection.userId.toString();
 
-      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-        key: conversation._id.toString(),
-        value: {
-          type: "new_message",
-          userId, // Add userId for user-specific room routing
-          conversationId: conversation._id.toString(),
-          payload: {
-            message: {
-              _id: message._id,
-              conversationId: message.conversationId,
-              platform: message.platform,
-              type: message.type,
-              content: message.content,
-              sender: message.sender,
-              status: message.status,
-              createdAt: (message as any).createdAt,
-            },
-            conversation: {
-              _id: conversation._id,
-              platform: conversation.platform,
-              platformConversationId: conversation.platformConversationId,
-              unreadCount: conversation.unreadCount,
-              lastMessage: conversation.lastMessage,
-            },
-          },
-          timestamp: Date.now(),
-        },
+      // Emit new message event
+      this.websocketGateway.emitNewMessage(userId, {
+        _id: message._id,
+        conversationId: message.conversationId,
+        platform: message.platform,
+        type: message.type,
+        content: message.content,
+        sender: message.sender,
+        status: message.status,
+        createdAt: (message as any).createdAt,
+      });
+
+      // Emit conversation updated event
+      this.websocketGateway.emitConversationUpdated(userId, {
+        _id: conversation._id,
+        platform: conversation.platform,
+        platformConversationId: conversation.platformConversationId,
+        unreadCount: conversation.unreadCount,
+        lastMessage: conversation.lastMessage,
       });
 
       this.logger.log(
-        `📤 Published WebSocket notification for user ${userId} (conversation ${conversation._id})`
+        `📤 Emitted WebSocket events for user ${userId} (conversation ${conversation._id})`
       );
     } catch (error) {
-      this.logger.error("Failed to publish WebSocket notification:", error);
+      this.logger.error("Failed to emit WebSocket notification:", error);
+    }
+  }
+
+  // ==================== OAuth Methods ====================
+
+  /**
+   * Generate Facebook OAuth authorization URL (Dialog endpoint)
+   */
+  getAuthorizationUrl(state?: string): {
+    url: string;
+    state: string;
+  } {
+    const finalState = state || randomBytes(16).toString('hex');
+
+    const params = new URLSearchParams({
+      client_id: this.appId,
+      redirect_uri: this.redirectUri,
+      response_type: 'code',
+      scope: 'public_profile,email,pages_manage_metadata,pages_read_engagement,pages_show_list,pages_read_user_content,pages_manage_posts,pages_manage_engagement,pages_messaging,ads_read,ads_management,page_events,pages_manage_ads,catalog_management,leads_retrieval,business_management,pages_utility_messaging',
+      state: finalState,
+      auth_type: 'rerequest',
+    });
+
+    return {
+      url: `https://www.facebook.com/${this.graphApiVersion}/dialog/oauth?${params.toString()}`,
+      state: finalState,
+    };
+  }
+
+  /**
+   * Exchange authorization code for user access token
+   */
+  async exchangeCodeForToken(code: string): Promise<FacebookTokenResponse> {
+    try {
+      this.logger.log('=== Exchanging Facebook code for token - REQUEST ===');
+
+      const params = new URLSearchParams({
+        client_id: this.appId,
+        client_secret: this.appSecret,
+        redirect_uri: this.redirectUri,
+        code,
+      });
+
+      const response = await axios.post(
+        `https://graph.facebook.com/${this.graphApiVersion}/oauth/access_token`,
+        params.toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+
+      this.logger.log('=== Exchanging Facebook code for token - RESPONSE ===');
+      this.logger.log('Status:', response.status);
+
+      if (response.data.error) {
+        this.logger.error('❌ Facebook OAuth ERROR in response:');
+        this.logger.error(`  Error type: ${response.data.error.type}`);
+        this.logger.error(`  Error message: ${response.data.error.message}`);
+        throw new BadRequestException(
+          `Facebook OAuth error: ${response.data.error.message}`,
+        );
+      }
+
+      if (!response.data.access_token) {
+        this.logger.error('❌ Response missing access_token!');
+        throw new BadRequestException('Facebook OAuth response missing access_token');
+      }
+
+      this.logger.log('✅ Token exchange SUCCESS');
+
+      return {
+        access_token: response.data.access_token,
+        token_type: response.data.token_type,
+        expires_in: response.data.expires_in,
+      };
+    } catch (error) {
+      this.logger.error('Failed to exchange code for token:', error.response?.data || error.message);
+      throw new BadRequestException('Failed to exchange authorization code');
+    }
+  }
+
+  /**
+   * Get list of pages for the authenticated user
+   */
+  async getPages(accessToken: string): Promise<FacebookPageInfo[]> {
+    try {
+      this.logger.log('Fetching Facebook pages list...');
+
+      const response = await axios.get(
+        `https://graph.facebook.com/${this.graphApiVersion}/me/accounts`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: {
+            fields: 'id,name,access_token,picture.width(100).height(100)',
+          },
+        }
+      );
+
+      if (response.data.error) {
+        throw new BadRequestException(
+          `Failed to get pages: ${response.data.error.message}`,
+        );
+      }
+
+      if (!response.data.data || response.data.data.length === 0) {
+        this.logger.warn('User has no Facebook pages');
+        return [];
+      }
+
+      this.logger.log(`✅ Retrieved ${response.data.data.length} Facebook pages`);
+      return response.data.data;
+    } catch (error) {
+      this.logger.error('Failed to get Facebook pages', error);
+      throw new BadRequestException('Failed to fetch Facebook pages');
+    }
+  }
+
+  /**
+   * Get user profile information
+   */
+  async getUserProfile(accessToken: string): Promise<FacebookUserInfo> {
+    try {
+      this.logger.log('Fetching Facebook user profile...');
+
+      const response = await axios.get(
+        `https://graph.facebook.com/${this.graphApiVersion}/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: {
+            fields: 'id,name,email,picture.width(100).height(100)',
+          },
+        }
+      );
+
+      if (response.data.error) {
+        throw new BadRequestException(
+          `Failed to get user profile: ${response.data.error.message}`,
+        );
+      }
+
+      this.logger.log(`✅ Retrieved user profile: ${response.data.name}`);
+      return response.data;
+    } catch (error) {
+      this.logger.error('Failed to get user profile', error);
+      throw new BadRequestException('Failed to fetch Facebook user profile');
+    }
+  }
+
+  /**
+   * Save platform connection for a Facebook page
+   */
+  async savePlatformConnection(
+    userId: string,
+    pageInfo: FacebookPageInfo,
+  ): Promise<PlatformConnectionDocument> {
+    if (!pageInfo.access_token) {
+      this.logger.error('❌ Page does not have access_token');
+      throw new BadRequestException('Page access token not available');
+    }
+
+    if (!pageInfo.id || !pageInfo.name) {
+      this.logger.error('❌ Page missing required fields');
+      throw new BadRequestException('Page missing required fields');
+    }
+
+    this.logger.log('=== Saving Facebook page platform connection ===');
+    this.logger.log(`User ID: ${userId}`);
+    this.logger.log(`Page ID: ${pageInfo.id}`);
+    this.logger.log(`Page Name: ${pageInfo.name}`);
+
+    let existing = await this.platformConnectionModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        platform: 'facebook',
+        platformAccountId: pageInfo.id,
+      })
+      .exec();
+
+    if (existing) {
+      this.logger.log(`Found existing connection: ${existing._id}`);
+
+      existing.platformAccountName = pageInfo.name;
+      existing.credentials = {
+        accessToken: pageInfo.access_token,
+      };
+      existing.status = 'active';
+      existing.metadata = {
+        ...existing.metadata,
+        pageId: pageInfo.id,
+        pageName: pageInfo.name,
+        picture: pageInfo.picture,
+        category: pageInfo.category,
+      };
+      existing.lastSyncAt = new Date();
+
+      const savedConnection = await existing.save();
+
+      this.websocketGateway.server.emit('connection:created', {
+        connectionId: savedConnection._id.toString(),
+        platform: 'facebook',
+        accountName: pageInfo.name,
+        isUpdate: true,
+      });
+
+      return savedConnection;
+    }
+
+    const newConnection = await this.platformConnectionModel.create({
+      userId: new Types.ObjectId(userId),
+      platform: 'facebook',
+      platformAccountId: pageInfo.id,
+      platformAccountName: pageInfo.name,
+      credentials: {
+        accessToken: pageInfo.access_token,
+      },
+      status: 'active',
+      metadata: {
+        pageId: pageInfo.id,
+        pageName: pageInfo.name,
+        picture: pageInfo.picture,
+        category: pageInfo.category,
+      },
+      lastSyncAt: new Date(),
+    });
+
+    this.websocketGateway.server.emit('connection:created', {
+      connectionId: newConnection._id.toString(),
+      platform: 'facebook',
+      accountName: pageInfo.name,
+      isUpdate: false,
+    });
+
+    return newConnection;
+  }
+
+  /**
+   * Sync all pages for a user
+   */
+  async syncPagesForUser(userId: string): Promise<{ authUrl: string; state: string }> {
+    this.logger.log(`Initiating page sync for user ${userId}`);
+
+    const { url, state } = this.getAuthorizationUrl();
+
+    return {
+      authUrl: url,
+      state,
+    };
+  }
+
+  /**
+   * Get sync status for user's Facebook pages
+   */
+  async getSyncStatus(userId: string): Promise<{
+    connectedPages: number;
+    lastSyncAt: Date | null;
+  }> {
+    const connections = await this.platformConnectionModel
+      .find({
+        userId: new Types.ObjectId(userId),
+        platform: 'facebook',
+        status: 'active',
+      })
+      .exec();
+
+    const lastSyncAt = connections.length > 0
+      ? connections.reduce((latest, conn) => {
+          return conn.lastSyncAt > latest ? conn.lastSyncAt : latest;
+        }, connections[0].lastSyncAt)
+      : null;
+
+    return {
+      connectedPages: connections.length,
+      lastSyncAt,
+    };
+  }
+
+  /**
+   * Sync conversations from Facebook page
+   */
+  async syncConversations(
+    platformConnectionId: string,
+  ): Promise<number> {
+    try {
+      this.logger.log(
+        `Conversation sync for Facebook connection ${platformConnectionId}`,
+      );
+
+      this.logger.log('Note: Facebook conversations are synced via webhooks');
+
+      return 0;
+    } catch (error) {
+      this.logger.error('Failed to sync conversations:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get sender profile information (name, avatar)
+   */
+  async getSenderProfile(
+    pageAccessToken: string,
+    senderId: string,
+  ): Promise<{ id: string; name: string; profile_pic?: string }> {
+    try {
+      this.logger.log(`Fetching profile for Facebook user ${senderId}`);
+
+      const response = await axios.get(
+        `https://graph.facebook.com/${this.graphApiVersion}/${senderId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${pageAccessToken}`,
+          },
+          params: {
+            fields: 'id,name,profile_pic',
+          },
+        }
+      );
+
+      if (response.data.error) {
+        this.logger.error('Failed to get sender profile:', response.data.error);
+        return {
+          id: senderId,
+          name: `Facebook User ${senderId}`,
+        };
+      }
+
+      this.logger.log(`✅ Retrieved profile: ${response.data.name}`);
+      return response.data;
+    } catch (error) {
+      this.logger.error('Failed to fetch sender profile:', error.message);
+      return {
+        id: senderId,
+        name: `Facebook User ${senderId}`,
+      };
+    }
+  }
+
+  /**
+   * Send text message to Facebook user
+   */
+  async sendTextMessage(
+    pageAccessToken: string,
+    recipientId: string,
+    text: string,
+  ): Promise<{ message_id: string }> {
+    try {
+      this.logger.log(`Sending text message to Facebook user ${recipientId}`);
+
+      const response = await axios.post(
+        `https://graph.facebook.com/${this.graphApiVersion}/me/messages`,
+        {
+          recipient: {
+            id: recipientId,
+          },
+          message: {
+            text,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${pageAccessToken}`,
+          },
+        }
+      );
+
+      if (response.data.error) {
+        this.logger.error('Facebook send message error:', response.data.error);
+        throw new BadRequestException(
+          `Failed to send Facebook message: ${response.data.error.message}`,
+        );
+      }
+
+      this.logger.log(`✅ Message sent successfully: ${response.data.message_id}`);
+
+      return {
+        message_id: response.data.message_id,
+      };
+    } catch (error) {
+      if (error.response) {
+        this.logger.error('Facebook API error response:', {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      } else {
+        this.logger.error('Failed to send message:', error.message);
+      }
+      throw new BadRequestException('Failed to send message to Facebook');
     }
   }
 }

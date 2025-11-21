@@ -10,7 +10,7 @@ Omnichannel chat platform supporting Facebook Messenger, Zalo OA, TikTok Shop, a
 
 ### Infrastructure
 ```bash
-# Start all services (MongoDB, Kafka, Zookeeper, Redis)
+# Start all services (MongoDB, Kafka KRaft, Redis)
 docker-compose up -d
 
 # Stop all services

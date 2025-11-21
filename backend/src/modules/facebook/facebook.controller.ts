@@ -1,31 +1,117 @@
 import {
   Controller,
+  Post,
   Get,
+  Body,
+  Headers,
   Query,
-  Res,
-  UseGuards,
-  Request,
+  HttpCode,
   BadRequestException,
   Logger,
+  Req,
+  Res,
+  UseGuards,
+  Request as NestRequest,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { FacebookOAuthService } from './facebook-oauth.service';
-import { OAuthStateService } from './oauth-state.service';
-import { FacebookAuthUrlDto, FacebookCallbackDto } from './dto/facebook-oauth.dto';
+import { FacebookWebhookDto } from './dto/facebook-webhook.dto';
+import { FacebookAuthUrlDto, FacebookCallbackDto } from './dto/oauth.dto';
+import { FacebookService } from './facebook.service';
+import { WebhookPublisherService } from '@/modules/webhooks/webhook-publisher.service';
+import { OAuthStateService } from '@/modules/connections/oauth-state.service';
+import { EnvService } from '@/common/env';
 
-@Controller('connections/facebook')
-export class FacebookOAuthController {
-  private readonly logger = new Logger(FacebookOAuthController.name);
+interface RawBodyRequest<T> extends Request {
+  rawBody?: Buffer;
+}
+
+/**
+ * Facebook Controller
+ *
+ * Handles HTTP endpoints for Facebook webhooks:
+ * - GET /api/facebook/webhook (webhook verification)
+ * - POST /api/facebook/webhook (webhook receiving & publishing to Kafka)
+ */
+@Controller('facebook')
+export class FacebookController {
+  private readonly logger = new Logger(FacebookController.name);
 
   constructor(
-    private readonly facebookOAuthService: FacebookOAuthService,
+    private readonly facebookService: FacebookService,
+    private readonly webhookPublisher: WebhookPublisherService,
+    private readonly envService: EnvService,
     private readonly oauthStateService: OAuthStateService,
   ) {}
 
   /**
+   * GET /api/facebook/webhook
+   * Facebook webhook verification - must echo challenge parameter
+   */
+  @Get('webhook')
+  @HttpCode(200)
+  async verifyWebhook(
+    @Query('hub.mode') mode: string,
+    @Query('hub.challenge') challenge: string,
+    @Query('hub.verify_token') verifyToken: string,
+  ): Promise<string> {
+    this.logger.log('📋 Facebook webhook verification');
+
+    const expectedToken = this.envService.get('FACEBOOK_VERIFY_TOKEN');
+    if (!expectedToken) {
+      throw new BadRequestException('FACEBOOK_VERIFY_TOKEN not configured');
+    }
+
+    if (mode !== 'subscribe' || verifyToken !== expectedToken) {
+      throw new BadRequestException('Invalid verification');
+    }
+
+    this.logger.log('✅ Verified');
+    return challenge;
+  }
+
+  /**
+   * POST /api/facebook/webhook
+   * Receive messages from Facebook Messenger
+   */
+  @Post('webhook')
+  @HttpCode(200)
+  async handleWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Body() payload: FacebookWebhookDto,
+    @Headers('x-hub-signature-256') signature: string,
+  ): Promise<{ success: boolean }> {
+    const pageId = payload.entry?.[0]?.id;
+    const eventCount =
+      (payload.entry?.[0]?.messaging?.length || 0) + (payload.entry?.[0]?.changes?.length || 0);
+    this.logger.log(`📥 Facebook: Page ${pageId} | ${eventCount} events`);
+
+    // Verify signature
+    if (signature) {
+      const appSecret = this.envService.get('FACEBOOK_APP_SECRET');
+      if (appSecret) {
+        const rawBody = req.rawBody?.toString('utf8') || JSON.stringify(payload);
+        const isValid = this.facebookService.verifySignature(rawBody, signature, appSecret);
+
+        if (!isValid) {
+          this.logger.warn('⚠️  Invalid signature');
+        }
+      }
+    }
+
+    // Publish to Kafka for async processing
+    this.webhookPublisher.publishWebhookEvent('facebook', payload, signature).catch((error) => {
+      this.logger.error('❌ Kafka publish failed:', error);
+    });
+
+    return { success: true };
+  }
+
+  // ==================== OAuth Routes ====================
+
+  /**
    * Step 1: Generate authorization URL and redirect user
-   * GET /api/connections/facebook/authorize?userId=xxx
+   * GET /api/facebook/authorize?userId=xxx
    */
   @Get('authorize')
   async authorize(
@@ -37,26 +123,22 @@ export class FacebookOAuthController {
       throw new BadRequestException('userId query parameter is required');
     }
 
-    console.log('🔐 User authorizing Facebook:', { userId });
+    this.logger.log('🔐 User authorizing Facebook:', { userId });
 
-    const { url, state } = this.facebookOAuthService.getAuthorizationUrl(
-      dto.state,
-    );
+    const { url, state } = this.facebookService.getAuthorizationUrl(dto.state);
 
-    // Store state in Redis for callback verification
     await this.oauthStateService.storeState(state, {
       state,
       userId,
       createdAt: Date.now(),
     });
 
-    // Redirect to Facebook OAuth page
     return res.redirect(url);
   }
 
   /**
    * Step 2: Handle OAuth callback from Facebook
-   * GET /api/connections/facebook/callback?code=xxx&state=xxx
+   * GET /api/facebook/callback?code=xxx&state=xxx
    */
   @Get('callback')
   async callback(
@@ -64,7 +146,7 @@ export class FacebookOAuthController {
     @Query('state') state: string,
     @Res() res: Response,
   ) {
-    console.log('🔙 Facebook callback received:', {
+    this.logger.log('🔙 Facebook callback received:', {
       code: code?.substring(0, 20) + '...',
       state,
     });
@@ -73,35 +155,22 @@ export class FacebookOAuthController {
       throw new BadRequestException('Authorization code and state are required');
     }
 
-    // Retrieve stored state data from Redis
-    const storedStateData = await this.oauthStateService.getAndDeleteState(
-      state,
-    );
+    const storedStateData = await this.oauthStateService.getAndDeleteState(state);
     if (!storedStateData) {
       throw new BadRequestException('OAuth state not found or expired');
     }
 
-    console.log('✅ State verified, exchanging code for token');
+    this.logger.log('✅ State verified, exchanging code for token');
 
-    // Verify state matches
     if (state !== storedStateData.state) {
       throw new BadRequestException('Invalid OAuth state');
     }
 
-    // Exchange code for user access token
-    const tokenResponse = await this.facebookOAuthService.exchangeCodeForToken(
-      code,
-    );
-
-    // Get list of pages the user has access to
-    // Note: If user selected pages in Facebook's dialog, only those pages will be returned
-    const pages = await this.facebookOAuthService.getPages(
-      tokenResponse.access_token,
-    );
+    const tokenResponse = await this.facebookService.exchangeCodeForToken(code);
+    const pages = await this.facebookService.getPages(tokenResponse.access_token);
 
     if (pages.length === 0) {
-      // Redirect to error page - user has no pages
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = this.envService.get('FRONTEND_URL');
       return res.redirect(
         `${frontendUrl}/connections?status=error&platform=facebook&message=${encodeURIComponent('No Facebook pages found')}`,
       );
@@ -110,14 +179,10 @@ export class FacebookOAuthController {
     const userId = storedStateData.userId;
     const isSyncMode = storedStateData.syncMode || false;
 
-    // Automatically save all pages (user already selected them on Facebook's side)
     const connections = [];
     for (const page of pages) {
       try {
-        const connection = await this.facebookOAuthService.savePlatformConnection(
-          userId,
-          page,
-        );
+        const connection = await this.facebookService.savePlatformConnection(userId, page);
 
         connections.push({
           id: connection._id,
@@ -126,19 +191,17 @@ export class FacebookOAuthController {
           status: connection.status,
         });
 
-        // Sync conversations in background
-        this.facebookOAuthService
+        this.facebookService
           .syncConversations(connection._id.toString())
           .catch((error) => {
-            console.error('Failed to sync conversations:', error);
+            this.logger.error('Failed to sync conversations:', error);
           });
       } catch (error) {
-        console.error(`Failed to save page ${page.id}:`, error);
+        this.logger.error(`Failed to save page ${page.id}:`, error);
       }
     }
 
-    // Redirect to connections page with success message
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const frontendUrl = this.envService.get('FRONTEND_URL');
     const actionText = isSyncMode ? 'synced' : 'connected';
     return res.redirect(
       `${frontendUrl}/connections?status=success&platform=facebook&account=${connections.length} page${connections.length > 1 ? 's' : ''}&action=${actionText}`,
@@ -146,23 +209,20 @@ export class FacebookOAuthController {
   }
 
   /**
-   * Alternative: Get authorization URL as JSON (for frontend to handle redirect)
-   * GET /api/connections/facebook/auth-url
+   * Get authorization URL as JSON
+   * GET /api/facebook/auth-url
    */
   @Get('auth-url')
   @UseGuards(JwtAuthGuard)
-  async getAuthUrl(@Query() dto: FacebookAuthUrlDto, @Request() req: any) {
+  async getAuthUrl(@Query() dto: FacebookAuthUrlDto, @NestRequest() req: any) {
     const userId = req.user.userId;
-    const { url, state } = this.facebookOAuthService.getAuthorizationUrl(
-      dto.state,
-    );
+    const { url, state } = this.facebookService.getAuthorizationUrl(dto.state);
 
-    console.log('📝 Generating auth URL and storing state for user:', {
+    this.logger.log('📝 Generating auth URL and storing state for user:', {
       userId,
       state,
     });
 
-    // Store state in Redis so callback can verify it
     await this.oauthStateService.storeState(state, {
       state,
       userId,
@@ -171,62 +231,44 @@ export class FacebookOAuthController {
 
     return {
       authUrl: url,
-      state, // Return state for frontend to use in redirect
+      state,
     };
   }
 
   /**
-   * Alternative: Complete OAuth with code (for frontend-initiated flow)
-   * GET /api/connections/facebook/complete?code=xxx&state=xxx
+   * Complete OAuth with code
+   * GET /api/facebook/complete?code=xxx&state=xxx
    */
   @Get('complete')
   @UseGuards(JwtAuthGuard)
-  async completeOAuth(
-    @Query() dto: FacebookCallbackDto,
-    @Request() req: any,
-  ) {
+  async completeOAuth(@Query() dto: FacebookCallbackDto, @NestRequest() req: any) {
     const userId = req.user.userId;
 
     if (!dto.code || !dto.state) {
       throw new BadRequestException('Authorization code and state are required');
     }
 
-    // Retrieve stored state data from Redis
-    const storedStateData = await this.oauthStateService.getAndDeleteState(
-      dto.state,
-    );
+    const storedStateData = await this.oauthStateService.getAndDeleteState(dto.state);
     if (!storedStateData) {
       throw new BadRequestException('OAuth state not found or expired');
     }
 
-    // Verify state matches
     if (dto.state !== storedStateData.state) {
       throw new BadRequestException('Invalid OAuth state');
     }
 
-    // Exchange code for token
-    const tokenResponse = await this.facebookOAuthService.exchangeCodeForToken(
-      dto.code,
-    );
-
-    // Get list of pages
-    const pages = await this.facebookOAuthService.getPages(
-      tokenResponse.access_token,
-    );
+    const tokenResponse = await this.facebookService.exchangeCodeForToken(dto.code);
+    const pages = await this.facebookService.getPages(tokenResponse.access_token);
 
     if (pages.length === 0) {
       throw new BadRequestException('No Facebook pages found');
     }
 
-    // Save each page as a separate platform connection
     const connections = [];
 
     for (const page of pages) {
       try {
-        const connection = await this.facebookOAuthService.savePlatformConnection(
-          userId,
-          page,
-        );
+        const connection = await this.facebookService.savePlatformConnection(userId, page);
 
         connections.push({
           id: connection._id,
@@ -235,15 +277,13 @@ export class FacebookOAuthController {
           status: connection.status,
         });
 
-        // Sync conversations in background
-        this.facebookOAuthService
+        this.facebookService
           .syncConversations(connection._id.toString())
           .catch((error) => {
-            console.error('Failed to sync conversations:', error);
+            this.logger.error('Failed to sync conversations:', error);
           });
       } catch (error) {
-        console.error(`Failed to save page ${page.id}:`, error);
-        // Continue with next page
+        this.logger.error(`Failed to save page ${page.id}:`, error);
       }
     }
 
@@ -256,13 +296,13 @@ export class FacebookOAuthController {
 
   /**
    * Get sync status for user's Facebook pages
-   * GET /api/connections/facebook/sync-status
+   * GET /api/facebook/sync-status
    */
   @Get('sync-status')
   @UseGuards(JwtAuthGuard)
-  async getSyncStatus(@Request() req: any) {
+  async getSyncStatus(@NestRequest() req: any) {
     const userId = req.user.userId;
-    const status = await this.facebookOAuthService.getSyncStatus(userId);
+    const status = await this.facebookService.getSyncStatus(userId);
 
     return {
       success: true,
@@ -272,25 +312,22 @@ export class FacebookOAuthController {
 
   /**
    * Get authorization URL for syncing Facebook pages
-   * GET /api/connections/facebook/sync-auth-url
-   * Returns OAuth URL with sync mode flag
+   * GET /api/facebook/sync-auth-url
    */
   @Get('sync-auth-url')
   @UseGuards(JwtAuthGuard)
-  async getSyncAuthUrl(@Request() req: any) {
+  async getSyncAuthUrl(@NestRequest() req: any) {
     const userId = req.user.userId;
 
     this.logger.log(`Generating sync auth URL for user ${userId}`);
 
-    // Generate OAuth URL for re-authentication
-    const { authUrl, state } = await this.facebookOAuthService.syncPagesForUser(userId);
+    const { authUrl, state } = await this.facebookService.syncPagesForUser(userId);
 
-    // Store state in Redis with sync mode flag
     await this.oauthStateService.storeState(state, {
       state,
       userId,
       createdAt: Date.now(),
-      syncMode: true, // Flag to indicate this is a sync operation
+      syncMode: true,
     });
 
     return {
@@ -301,30 +338,23 @@ export class FacebookOAuthController {
 
   /**
    * Get pending pages for selection
-   * GET /api/connections/facebook/pending-pages?token=xxx
+   * GET /api/facebook/pending-pages?token=xxx
    */
   @Get('pending-pages')
   @UseGuards(JwtAuthGuard)
-  async getPendingPages(
-    @Query('token') token: string,
-    @Request() req: any,
-  ) {
+  async getPendingPages(@Query('token') token: string, @NestRequest() req: any) {
     if (!token) {
       throw new BadRequestException('Selection token is required');
     }
 
     const userId = req.user.userId;
 
-    // Retrieve pending pages from Redis (without deleting)
-    const pendingData = await this.oauthStateService.getState(
-      `pages_${token}`,
-    );
+    const pendingData = await this.oauthStateService.getState(`pages_${token}`);
 
     if (!pendingData) {
       throw new BadRequestException('Selection token expired or invalid');
     }
 
-    // Verify user owns this selection
     if (pendingData.userId !== userId) {
       throw new BadRequestException('Unauthorized');
     }
@@ -338,15 +368,14 @@ export class FacebookOAuthController {
 
   /**
    * Save selected pages
-   * POST /api/connections/facebook/save-pages
-   * Body: { token: string, selectedPageIds: string[] }
+   * GET /api/facebook/save-pages
    */
   @Get('save-pages')
   @UseGuards(JwtAuthGuard)
   async saveSelectedPages(
     @Query('token') token: string,
     @Query('pageIds') pageIds: string,
-    @Request() req: any,
+    @NestRequest() req: any,
   ) {
     if (!token || !pageIds) {
       throw new BadRequestException('Token and page IDs are required');
@@ -355,16 +384,12 @@ export class FacebookOAuthController {
     const userId = req.user.userId;
     const selectedPageIds = pageIds.split(',');
 
-    // Retrieve pending pages from Redis
-    const pendingData = await this.oauthStateService.getAndDeleteState(
-      `pages_${token}`,
-    );
+    const pendingData = await this.oauthStateService.getAndDeleteState(`pages_${token}`);
 
     if (!pendingData) {
       throw new BadRequestException('Selection token expired or invalid');
     }
 
-    // Verify user owns this selection
     if (pendingData.userId !== userId) {
       throw new BadRequestException('Unauthorized');
     }
@@ -372,15 +397,11 @@ export class FacebookOAuthController {
     const allPages = pendingData.pages;
     const connections = [];
 
-    // Save only selected pages
     for (const pageId of selectedPageIds) {
       const page = allPages.find((p: any) => p.id === pageId);
       if (page) {
         try {
-          const connection = await this.facebookOAuthService.savePlatformConnection(
-            userId,
-            page,
-          );
+          const connection = await this.facebookService.savePlatformConnection(userId, page);
 
           connections.push({
             id: connection._id,
@@ -389,14 +410,13 @@ export class FacebookOAuthController {
             status: connection.status,
           });
 
-          // Sync conversations in background
-          this.facebookOAuthService
+          this.facebookService
             .syncConversations(connection._id.toString())
             .catch((error) => {
-              console.error('Failed to sync conversations:', error);
+              this.logger.error('Failed to sync conversations:', error);
             });
         } catch (error) {
-          console.error(`Failed to save page ${page.id}:`, error);
+          this.logger.error(`Failed to save page ${page.id}:`, error);
         }
       }
     }

@@ -19,42 +19,39 @@ services:
       timeout: 5s
       retries: 5
 
-  # Zookeeper (required for Kafka)
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    container_name: omnichat-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - omnichat-network
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Kafka
+  # Kafka (KRaft mode - no Zookeeper needed)
   kafka:
-    image: confluentinc/cp-kafka:7.3.2
+    image: confluentinc/cp-kafka:7.6.0
     container_name: omnichat-kafka
-    depends_on:
-      zookeeper:
-        condition: service_healthy
     ports:
       - "8311:9092"
       - "8312:9093"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      # KRaft mode configuration
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+
+      # Listener configuration
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:8311
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # Cluster configuration
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+
+      # Topic configuration
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+
+      # Log directories
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+    volumes:
+      - kafka_data:/tmp/kraft-combined-logs
     networks:
       - omnichat-network
     healthcheck:
@@ -86,4 +83,5 @@ networks:
 
 volumes:
   mongodb_data:
+  kafka_data:
   redis_data:

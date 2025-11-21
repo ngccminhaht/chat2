@@ -18,6 +18,8 @@ interface AuthenticatedSocket extends Socket {
 @Injectable()
 @WebSocketGateway({
   cors: {
+    // Note: Decorator config evaluated at module load time, before DI available
+    // Using process.env here is acceptable for initialization-time configuration
     origin: process.env.FRONTEND_URL || 'http://localhost:3001',
     credentials: true,
   },
@@ -41,9 +43,8 @@ export class WebsocketGateway
         return;
       }
 
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_SECRET || 'default-secret',
-      });
+      // JwtService uses the secret configured in JwtModule (via EnvService)
+      const payload = await this.jwtService.verifyAsync(token);
 
       client.userId = payload.sub;
 

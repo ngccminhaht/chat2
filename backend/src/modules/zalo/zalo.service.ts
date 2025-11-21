@@ -1,7 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
-import { createHmac } from "crypto";
+import { createHmac, createHash, randomBytes } from "crypto";
+import axios from 'axios';
+import { EnvService } from '@/common/env';
 import {
   Conversation,
   ConversationDocument,
@@ -14,13 +16,18 @@ import {
   PlatformConnection,
   PlatformConnectionDocument,
 } from "@/common/database/schemas/platform-connection.schema";
-import { ZaloWebhookDto, ZaloUserInfo } from "./dto/zalo-webhook.dto";
-import { KafkaProducerService } from "@/common/kafka/kafka-producer.service";
-import { KAFKA_TOPICS } from "@/common/kafka/kafka.config";
+import { ZaloWebhookDto } from "./dto/zalo-webhook.dto";
+import { ZaloTokenResponse, ZaloOAInfo } from './dto/oauth.dto';
+import { WebsocketGateway } from "@/modules/websocket/websocket.gateway";
 
 @Injectable()
-export class ZaloWebhookService {
-  private readonly logger = new Logger(ZaloWebhookService.name);
+export class ZaloService {
+  private readonly logger = new Logger(ZaloService.name);
+
+  // OAuth configuration
+  private readonly appId: string;
+  private readonly appSecret: string;
+  private readonly redirectUri: string;
 
   constructor(
     @InjectModel(Conversation.name)
@@ -29,8 +36,13 @@ export class ZaloWebhookService {
     private messageModel: Model<MessageDocument>,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
-    private kafkaProducer: KafkaProducerService
-  ) {}
+    private websocketGateway: WebsocketGateway,
+    private envService: EnvService,
+  ) {
+    this.appId = this.envService.get('ZALO_APP_ID');
+    this.appSecret = this.envService.get('ZALO_APP_SECRET');
+    this.redirectUri = this.envService.get('ZALO_REDIRECT_URI');
+  }
 
   /**
    * Verify Zalo webhook signature
@@ -301,7 +313,7 @@ export class ZaloWebhookService {
   }
 
   /**
-   * Publish WebSocket notification to frontend via Kafka
+   * Emit WebSocket notification to frontend
    */
   private async publishWebSocketNotification(
     conversation: ConversationDocument,
@@ -315,44 +327,36 @@ export class ZaloWebhookService {
 
       if (!platformConnection?.userId) {
         this.logger.warn(
-          `Cannot publish WebSocket notification: no userId for conversation ${conversation._id}`
+          `Cannot emit WebSocket notification: no userId for conversation ${conversation._id}`
         );
         return;
       }
 
       const userId = platformConnection.userId.toString();
 
-      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-        key: conversation._id.toString(),
-        value: {
-          type: "new_message",
-          userId, // Add userId for user-specific room routing
-          conversationId: conversation._id.toString(),
-          payload: {
-            message: {
-              _id: message._id,
-              conversationId: message.conversationId,
-              type: message.type,
-              content: message.content,
-              sender: message.sender,
-              status: message.status,
-              createdAt: (message as any).createdAt,
-            },
-            conversation: {
-              _id: conversation._id,
-              unreadCount: conversation.unreadCount,
-              lastMessage: conversation.lastMessage,
-            },
-          },
-          timestamp: Date.now(),
-        },
+      // Emit new message event
+      this.websocketGateway.emitNewMessage(userId, {
+        _id: message._id,
+        conversationId: message.conversationId,
+        type: message.type,
+        content: message.content,
+        sender: message.sender,
+        status: message.status,
+        createdAt: (message as any).createdAt,
+      });
+
+      // Emit conversation updated event
+      this.websocketGateway.emitConversationUpdated(userId, {
+        _id: conversation._id,
+        unreadCount: conversation.unreadCount,
+        lastMessage: conversation.lastMessage,
       });
 
       this.logger.log(
-        `📤 Published WebSocket notification for user ${userId} (conversation ${conversation._id})`
+        `📤 Emitted WebSocket events for user ${userId} (conversation ${conversation._id})`
       );
     } catch (error) {
-      this.logger.error("Failed to publish WebSocket notification:", error);
+      this.logger.error("Failed to emit WebSocket notification:", error);
     }
   }
 
@@ -402,5 +406,213 @@ export class ZaloWebhookService {
     }
 
     this.logger.log(`Message ${payload.message.msg_id} read`);
+  }
+
+  // ==================== OAuth Methods ====================
+
+  generateCodeVerifier(): string {
+    return randomBytes(32).toString('base64url');
+  }
+
+  generateCodeChallenge(verifier: string): string {
+    return createHash('sha256').update(verifier).digest('base64url');
+  }
+
+  getAuthorizationUrl(state?: string): {
+    url: string;
+    codeVerifier: string;
+    state: string;
+  } {
+    const codeVerifier = this.generateCodeVerifier();
+    const codeChallenge = this.generateCodeChallenge(codeVerifier);
+    const finalState = state || randomBytes(16).toString('hex');
+
+    const params = new URLSearchParams({
+      app_id: this.appId,
+      redirect_uri: this.redirectUri,
+      code_challenge: codeChallenge,
+      state: finalState,
+    });
+
+    return {
+      url: `https://oauth.zaloapp.com/v4/oa/permission?${params.toString()}`,
+      codeVerifier,
+      state: finalState,
+    };
+  }
+
+  async exchangeCodeForToken(
+    code: string,
+    codeVerifier: string,
+    oaId?: string,
+  ): Promise<ZaloTokenResponse> {
+    try {
+      const params: Record<string, string> = {
+        app_id: this.appId,
+        code,
+        code_verifier: codeVerifier,
+        grant_type: 'authorization_code',
+      };
+
+      if (oaId) {
+        params.oa_id = oaId;
+      }
+
+      const formData = new URLSearchParams(params);
+
+      const response = await axios.post(
+        'https://oauth.zaloapp.com/v4/oa/access_token',
+        formData.toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            secret_key: this.appSecret,
+          },
+        }
+      );
+
+      if (response.data.error !== 0) {
+        this.logger.error('Zalo OAuth error:', response.data);
+        throw new BadRequestException(
+          `Zalo OAuth error: ${response.data.error_name || response.data.message}`,
+        );
+      }
+
+      return {
+        access_token: response.data.data.access_token,
+        refresh_token: response.data.data.refresh_token,
+        expires_in: response.data.data.expires_in,
+      };
+    } catch (error) {
+      this.logger.error('Failed to exchange code for token:', error.response?.data || error.message);
+      throw new BadRequestException('Failed to exchange authorization code');
+    }
+  }
+
+  async getOAInfo(accessToken: string): Promise<ZaloOAInfo> {
+    try {
+      const response = await axios.get(
+        'https://openapi.zalo.me/v2.0/oa/getoa',
+        {
+          headers: {
+            access_token: accessToken,
+          },
+        }
+      );
+
+      if (response.data.error !== 0) {
+        throw new BadRequestException(
+          `Failed to get OA info: ${response.data.message}`,
+        );
+      }
+
+      return response.data.data;
+    } catch (error) {
+      this.logger.error('Failed to get OA info:', error.response?.data || error.message);
+      throw new BadRequestException('Failed to fetch Zalo OA information');
+    }
+  }
+
+  async savePlatformConnection(
+    userId: string,
+    tokenResponse: ZaloTokenResponse,
+    oaInfo: ZaloOAInfo,
+  ): Promise<any> {
+    const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
+
+    let existing = await this.platformConnectionModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        platform: 'zalo',
+        platformAccountId: oaInfo.oa_id,
+      })
+      .exec();
+
+    if (existing) {
+      existing.platformAccountName = oaInfo.name;
+      existing.credentials = {
+        accessToken: tokenResponse.access_token,
+        refreshToken: tokenResponse.refresh_token,
+        expiresAt,
+      };
+      existing.status = 'active';
+      existing.metadata = {
+        ...existing.metadata,
+        oaId: oaInfo.oa_id,
+        description: oaInfo.description,
+        avatar: oaInfo.avatar,
+      };
+      existing.lastSyncAt = new Date();
+
+      return existing.save();
+    }
+
+    return this.platformConnectionModel.create({
+      userId: new Types.ObjectId(userId),
+      platform: 'zalo',
+      platformAccountId: oaInfo.oa_id,
+      platformAccountName: oaInfo.name,
+      credentials: {
+        accessToken: tokenResponse.access_token,
+        refreshToken: tokenResponse.refresh_token,
+        expiresAt,
+      },
+      status: 'active',
+      metadata: {
+        oaId: oaInfo.oa_id,
+        description: oaInfo.description,
+        avatar: oaInfo.avatar,
+      },
+      lastSyncAt: new Date(),
+    });
+  }
+
+  async refreshAccessToken(refreshToken: string): Promise<ZaloTokenResponse> {
+    try {
+      const params = new URLSearchParams({
+        app_id: this.appId,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      });
+
+      const response = await axios.post(
+        'https://oauth.zaloapp.com/v4/oa/access_token',
+        params.toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            secret_key: this.appSecret,
+          },
+        }
+      );
+
+      if (response.data.error !== 0) {
+        throw new BadRequestException(
+          `Zalo token refresh error: ${response.data.error_name || response.data.message}`,
+        );
+      }
+
+      return {
+        access_token: response.data.data.access_token,
+        refresh_token: response.data.data.refresh_token,
+        expires_in: response.data.data.expires_in,
+      };
+    } catch (error) {
+      this.logger.error('Failed to refresh token:', error.response?.data || error.message);
+      throw new BadRequestException('Failed to refresh Zalo access token');
+    }
+  }
+
+  async syncConversations(platformConnectionId: string): Promise<number> {
+    try {
+      this.logger.log(
+        `Conversation sync for Zalo connection ${platformConnectionId}`,
+      );
+      this.logger.log('Note: Zalo conversations are synced via webhooks');
+      return 0;
+    } catch (error) {
+      this.logger.error('Failed to sync conversations:', error);
+      throw error;
+    }
   }
 }

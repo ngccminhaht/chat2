@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { KafkaProducerService } from "@/common/kafka/kafka-producer.service";
-import { KAFKA_TOPICS } from "@/common/kafka/kafka.config";
-import { WebhookRawEvent } from "@/common/kafka/types/webhook.types";
+import { KafkaProducerService } from "@/infra/kafka/kafka-producer.service";
+import { KAFKA_TOPICS } from "@/infra/kafka/kafka.config";
+import { WebhookRawEvent } from "@/infra/kafka/types/webhook.types";
 import { randomUUID } from "crypto";
 
 /**

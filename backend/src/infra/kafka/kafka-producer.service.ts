@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Kafka, Producer, ProducerRecord, RecordMetadata } from 'kafkajs';
 import { getKafkaConfig } from './kafka.config';
-import { EnvService } from '../env';
+import { EnvService } from '@/common/env';
 
 /**
  * Kafka Producer Service
