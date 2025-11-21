@@ -98,20 +98,65 @@ export interface MessageStatusEvent {
 
 /**
  * WebSocket notification published to websocket.notifications
+ * All notifications are sent to user-specific rooms based on userId
  */
 export interface WebSocketNotificationEvent {
   /** Notification type */
-  type: 'new_message' | 'message_status' | 'conversation_update' | 'typing';
+  type: 'message:new' | 'message:status' | 'conversation:updated' | 'message:read' | 'typing:indicator';
 
-  /** User ID to send notification to */
-  userId?: string;
-
-  /** Conversation ID (for room-based notifications) */
-  conversationId?: string;
+  /** User ID to send notification to (REQUIRED - for partitioning by userId) */
+  userId: string;
 
   /** Event payload */
   payload: any;
 
   /** Event timestamp */
   timestamp: number;
+}
+
+/**
+ * New message notification payload
+ */
+export interface NewMessagePayload {
+  _id: string;
+  conversationId: string;
+  platform: string;
+  type: string;
+  content: any;
+  sender: {
+    platformUserId: string;
+    name?: string;
+    avatar?: string;
+  };
+  status: string;
+  createdAt: Date;
+}
+
+/**
+ * Message status update payload
+ */
+export interface MessageStatusPayload {
+  conversationId: string;
+  messageId: string;
+  status: string;
+}
+
+/**
+ * Conversation updated payload
+ */
+export interface ConversationUpdatedPayload {
+  _id: string;
+  platform?: string;
+  platformConversationId?: string;
+  unreadCount?: number;
+  lastMessage?: any;
+  [key: string]: any;
+}
+
+/**
+ * Messages read payload
+ */
+export interface MessagesReadPayload {
+  conversationId: string;
+  messageIds: string[];
 }

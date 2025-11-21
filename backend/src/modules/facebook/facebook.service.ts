@@ -27,7 +27,13 @@ import {
   FacebookPageInfo,
   FacebookUserInfo,
 } from './dto/oauth.dto';
-import { WebsocketGateway } from "@/modules/websocket/websocket.gateway";
+import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
+import { KAFKA_TOPICS } from '@/infra/kafka/kafka.config';
+import {
+  WebSocketNotificationEvent,
+  NewMessagePayload,
+  ConversationUpdatedPayload,
+} from '@/infra/kafka/types/webhook.types';
 
 @Injectable()
 export class FacebookService {
@@ -46,7 +52,7 @@ export class FacebookService {
     private messageModel: Model<MessageDocument>,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
-    private websocketGateway: WebsocketGateway,
+    private kafkaProducer: KafkaProducerService,
     private envService: EnvService,
   ) {
     this.appId = this.envService.get('FACEBOOK_APP_ID');
@@ -627,7 +633,8 @@ export class FacebookService {
   }
 
   /**
-   * Emit WebSocket notification to frontend
+   * Publish WebSocket notification to Kafka
+   * Kafka consumer will emit to Socket.IO clients
    */
   private async publishWebSocketNotification(
     conversation: ConversationDocument,
@@ -641,39 +648,59 @@ export class FacebookService {
 
       if (!platformConnection?.userId) {
         this.logger.warn(
-          `Cannot emit WebSocket notification: no userId for conversation ${conversation._id}`
+          `Cannot publish notification: no userId for conversation ${conversation._id}`
         );
         return;
       }
 
       const userId = platformConnection.userId.toString();
 
-      // Emit new message event
-      this.websocketGateway.emitNewMessage(userId, {
-        _id: message._id,
-        conversationId: message.conversationId,
-        platform: message.platform,
-        type: message.type,
-        content: message.content,
-        sender: message.sender,
-        status: message.status,
-        createdAt: (message as any).createdAt,
+      // Publish new message event to Kafka
+      const newMessageEvent: WebSocketNotificationEvent = {
+        type: 'message:new',
+        userId,
+        payload: {
+          _id: message._id.toString(),
+          conversationId: message.conversationId.toString(),
+          platform: message.platform,
+          type: message.type,
+          content: message.content,
+          sender: message.sender,
+          status: message.status,
+          createdAt: (message as any).createdAt,
+        } as NewMessagePayload,
+        timestamp: Date.now(),
+      };
+
+      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+        key: userId, // Partition by userId
+        value: newMessageEvent,
       });
 
-      // Emit conversation updated event
-      this.websocketGateway.emitConversationUpdated(userId, {
-        _id: conversation._id,
-        platform: conversation.platform,
-        platformConversationId: conversation.platformConversationId,
-        unreadCount: conversation.unreadCount,
-        lastMessage: conversation.lastMessage,
+      // Publish conversation updated event to Kafka
+      const conversationEvent: WebSocketNotificationEvent = {
+        type: 'conversation:updated',
+        userId,
+        payload: {
+          _id: conversation._id,
+          platform: conversation.platform,
+          platformConversationId: conversation.platformConversationId,
+          unreadCount: conversation.unreadCount,
+          lastMessage: conversation.lastMessage,
+        } as ConversationUpdatedPayload,
+        timestamp: Date.now(),
+      };
+
+      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+        key: userId, // Partition by userId
+        value: conversationEvent,
       });
 
       this.logger.log(
-        `📤 Emitted WebSocket events for user ${userId} (conversation ${conversation._id})`
+        `📤 Published Kafka events for user ${userId} (conversation ${conversation._id})`
       );
     } catch (error) {
-      this.logger.error("Failed to emit WebSocket notification:", error);
+      this.logger.error("Failed to publish Kafka notification:", error);
     }
   }
 
@@ -877,12 +904,7 @@ export class FacebookService {
 
       const savedConnection = await existing.save();
 
-      this.websocketGateway.server.emit('connection:created', {
-        connectionId: savedConnection._id.toString(),
-        platform: 'facebook',
-        accountName: pageInfo.name,
-        isUpdate: true,
-      });
+      this.logger.log(`✅ Updated existing connection: ${savedConnection._id}`);
 
       return savedConnection;
     }
@@ -905,12 +927,7 @@ export class FacebookService {
       lastSyncAt: new Date(),
     });
 
-    this.websocketGateway.server.emit('connection:created', {
-      connectionId: newConnection._id.toString(),
-      platform: 'facebook',
-      accountName: pageInfo.name,
-      isUpdate: false,
-    });
+    this.logger.log(`✅ Created new connection: ${newConnection._id}`);
 
     return newConnection;
   }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { WebsocketGateway } from './websocket.gateway';
+import { WebSocketBridgeConsumer } from './websocket-bridge.consumer';
 import { EnvService } from '@/common/env';
 
 @Module({
@@ -13,7 +14,7 @@ import { EnvService } from '@/common/env';
       }),
     }),
   ],
-  providers: [WebsocketGateway],
+  providers: [WebsocketGateway, WebSocketBridgeConsumer],
   exports: [WebsocketGateway],
 })
 export class WebsocketModule {}

@@ -7,7 +7,14 @@ import { PlatformConnection, PlatformConnectionDocument } from '@/common/databas
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { FacebookService } from '@/modules/facebook/facebook.service';
-import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
+import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
+import { KAFKA_TOPICS } from '@/infra/kafka/kafka.config';
+import {
+  WebSocketNotificationEvent,
+  NewMessagePayload,
+  ConversationUpdatedPayload,
+  MessagesReadPayload,
+} from '@/infra/kafka/types/webhook.types';
 
 @Injectable()
 export class MessagesService {
@@ -21,7 +28,7 @@ export class MessagesService {
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private facebookService: FacebookService,
-    private websocketGateway: WebsocketGateway,
+    private kafkaProducer: KafkaProducerService,
   ) {}
 
   async findByConversation(
@@ -171,10 +178,14 @@ export class MessagesService {
       };
       await message.save();
 
+      // Publish failed message notification to Kafka
+      await this.publishMessageNotification(platformConnection.userId.toString(), conversation, message);
+
       throw error;
     }
 
-    // TODO: Publish to Kafka topic 'websocket.notifications' for real-time update
+    // Publish successful message notification to Kafka
+    await this.publishMessageNotification(platformConnection.userId.toString(), conversation, message);
 
     return message;
   }
@@ -250,21 +261,109 @@ export class MessagesService {
       .lean()
       .exec();
 
-    // Emit WebSocket event for real-time update to the connection owner
-    this.websocketGateway.emitMessagesRead(
-      connectionUserId,
-      conversationId,
-      updatedMessages.map((m) => m._id.toString()),
-    );
+    // Publish messages read event to Kafka
+    const messagesReadEvent: WebSocketNotificationEvent = {
+      type: 'message:read',
+      userId: connectionUserId,
+      payload: {
+        conversationId,
+        messageIds: updatedMessages.map((m) => m._id.toString()),
+      } as MessagesReadPayload,
+      timestamp: Date.now(),
+    };
 
-    // Emit conversation update to refresh unread count in UI
+    await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+      key: connectionUserId,
+      value: messagesReadEvent,
+    });
+
+    // Publish conversation update to Kafka
     if (updatedConversation) {
-      this.websocketGateway.emitConversationUpdated(connectionUserId, updatedConversation);
+      const conversationEvent: WebSocketNotificationEvent = {
+        type: 'conversation:updated',
+        userId: connectionUserId,
+        payload: {
+          _id: updatedConversation._id.toString(),
+          unreadCount: updatedConversation.unreadCount,
+          lastMessage: updatedConversation.lastMessage,
+        } as ConversationUpdatedPayload,
+        timestamp: Date.now(),
+      };
+
+      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+        key: connectionUserId,
+        value: conversationEvent,
+      });
     }
+
+    this.logger.log(`📤 Published Kafka events for user ${connectionUserId}`);
 
     return {
       updated: updatedMessages.length,
       messages: updatedMessages,
     };
+  }
+
+  /**
+   * Publish message and conversation notifications to Kafka
+   */
+  private async publishMessageNotification(
+    userId: string,
+    conversation: ConversationDocument,
+    message: MessageDocument,
+  ): Promise<void> {
+    try {
+      // Publish new message event
+      const newMessageEvent: WebSocketNotificationEvent = {
+        type: 'message:new',
+        userId,
+        payload: {
+          _id: message._id.toString(),
+          conversationId: message.conversationId.toString(),
+          platform: message.platform,
+          type: message.type,
+          content: message.content,
+          sender: message.sender,
+          status: message.status,
+          createdAt: (message as any).createdAt,
+        } as NewMessagePayload,
+        timestamp: Date.now(),
+      };
+
+      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+        key: userId,
+        value: newMessageEvent,
+      });
+
+      // Reload conversation to get updated lastMessage
+      const updatedConversation = await this.conversationModel
+        .findById(conversation._id)
+        .lean()
+        .exec();
+
+      if (updatedConversation) {
+        // Publish conversation updated event
+        const conversationEvent: WebSocketNotificationEvent = {
+          type: 'conversation:updated',
+          userId,
+          payload: {
+            _id: updatedConversation._id.toString(),
+            platform: updatedConversation.platform,
+            unreadCount: updatedConversation.unreadCount,
+            lastMessage: updatedConversation.lastMessage,
+          } as ConversationUpdatedPayload,
+          timestamp: Date.now(),
+        };
+
+        await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+          key: userId,
+          value: conversationEvent,
+        });
+      }
+
+      this.logger.log(`📤 Published message notifications to Kafka for user ${userId}`);
+    } catch (error) {
+      this.logger.error('Failed to publish message notification:', error);
+    }
   }
 }
