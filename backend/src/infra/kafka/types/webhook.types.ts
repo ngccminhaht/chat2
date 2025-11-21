@@ -121,6 +121,7 @@ export interface NewMessagePayload {
   _id: string;
   conversationId: string;
   platform: string;
+  direction: 'inbound' | 'outbound';
   type: string;
   content: any;
   sender: {

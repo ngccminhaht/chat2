@@ -314,6 +314,7 @@ export class MessagesService {
           _id: message._id.toString(),
           conversationId: message.conversationId.toString(),
           platform: message.platform,
+          direction: message.direction,
           type: message.type,
           content: message.content,
           sender: message.sender,
