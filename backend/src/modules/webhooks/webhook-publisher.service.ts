@@ -1,7 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { KafkaProducerService } from "@/infra/kafka/kafka-producer.service";
 import { KAFKA_TOPICS } from "@/infra/kafka/kafka.config";
-import { WebhookRawEvent } from "@/infra/kafka/types/webhook.types";
 import { randomUUID } from "crypto";
 
 /**
@@ -16,7 +15,7 @@ export class WebhookPublisherService {
 
   /**
    * Publish raw webhook event to Kafka
-   * Returns immediately after publishing to topic
+   * Returns immediately after publishing to platform-specific topic
    */
   async publishWebhookEvent(
     platform: "facebook" | "zalo" | "tiktok" | "shopee",
@@ -24,44 +23,52 @@ export class WebhookPublisherService {
     signature?: string
   ): Promise<void> {
     const eventId = randomUUID();
-
-    // Extract platform account ID based on platform
     const platformAccountId = this.extractPlatformAccountId(platform, payload);
 
-    const event: WebhookRawEvent = {
-      eventId,
-      platform,
-      platformAccountId,
-      eventName: this.extractEventName(platform, payload),
-      payload,
-      signature,
-      timestamp: Date.now(),
-    };
-
     try {
-      // Partition by platform + accountId for ordered processing per account
+      // Get platform-specific topic
+      const topic = this.getPlatformTopic(platform);
+
+      // Partition by platform accountId for ordered processing per account
       const partitionKey = `${platform}:${platformAccountId}`;
 
-      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBHOOKS_RAW, {
+      await this.kafkaProducer.publish(topic, {
         key: partitionKey,
-        value: event,
+        value: payload,
         headers: {
           platform,
           eventId,
+          signature: signature || '',
         },
       });
 
       this.logger.log(
-        `✅ Published webhook event to Kafka: ${platform}/${
-          event.eventName
-        } (ID: ${eventId}) + \n payload: ${JSON.stringify(payload, null, 2)}`
+        `✅ Published to ${topic}: ${this.extractEventName(platform, payload)} (ID: ${eventId})`
       );
     } catch (error) {
       this.logger.error(
-        `❌ Failed to publish webhook event to Kafka: ${platform}/${event.eventName}`,
+        `❌ Failed to publish webhook event to Kafka: ${platform}`,
         error
       );
       throw error;
+    }
+  }
+
+  /**
+   * Get platform-specific Kafka topic
+   */
+  private getPlatformTopic(platform: string): string {
+    switch (platform) {
+      case 'facebook':
+        return KAFKA_TOPICS.FACEBOOK_WEBHOOKS;
+      case 'zalo':
+        return KAFKA_TOPICS.ZALO_WEBHOOKS;
+      case 'tiktok':
+        return KAFKA_TOPICS.TIKTOK_WEBHOOKS;
+      case 'shopee':
+        return KAFKA_TOPICS.SHOPEE_WEBHOOKS;
+      default:
+        throw new Error(`Unknown platform: ${platform}`);
     }
   }
 

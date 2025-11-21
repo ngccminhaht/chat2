@@ -4,8 +4,11 @@
  */
 
 export const KAFKA_TOPICS = {
-  // Raw webhook payloads (partitioned by platform + accountId)
-  WEBHOOKS_RAW: 'platform.webhooks.raw',
+  // Platform-specific webhook topics
+  FACEBOOK_WEBHOOKS: 'platform.facebook.webhooks',
+  ZALO_WEBHOOKS: 'platform.zalo.webhooks',
+  TIKTOK_WEBHOOKS: 'platform.tiktok.webhooks',
+  SHOPEE_WEBHOOKS: 'platform.shopee.webhooks',
 
   // Normalized inbound messages (partitioned by conversationId)
   MESSAGES_INCOMING: 'messages.incoming',

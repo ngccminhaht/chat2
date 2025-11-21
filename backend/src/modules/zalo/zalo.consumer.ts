@@ -1,7 +1,6 @@
 import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { KAFKA_TOPICS } from '@/infra/kafka/kafka.config';
-import { WebhookRawEvent } from '@/infra/kafka/types/webhook.types';
 import { ZaloService } from './zalo.service';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
 
@@ -9,7 +8,7 @@ import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
  * Zalo Kafka Consumer
  *
  * Consumes webhook events from Kafka and processes them asynchronously.
- * Topic: platform.webhooks.raw (filter: platform === 'zalo')
+ * Topic: platform.zalo.webhooks
  */
 @Controller()
 export class ZaloConsumer {
@@ -17,14 +16,11 @@ export class ZaloConsumer {
 
   constructor(private readonly zaloService: ZaloService) {}
 
-  @MessagePattern(KAFKA_TOPICS.WEBHOOKS_RAW)
-  async handleWebhook(@Payload() event: WebhookRawEvent): Promise<void> {
-    if (event.platform !== 'zalo') return;
-
+  @MessagePattern(KAFKA_TOPICS.ZALO_WEBHOOKS)
+  async handleWebhook(@Payload() payload: ZaloWebhookDto): Promise<void> {
     this.logger.log(`📨 Kafka: Processing Zalo webhook`);
 
     try {
-      const payload: ZaloWebhookDto = event.payload;
       await this.zaloService.processWebhook(payload);
       this.logger.log(`✅ Processed`);
     } catch (error) {
