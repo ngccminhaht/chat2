@@ -1,14 +1,12 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Paper, Typography, Chip, Stack, Avatar } from '@mui/material';
 import { useMessages } from '@/features/conversations/hooks/useMessages';
 import { useConversation } from '@/features/conversations/hooks/useConversation';
 import { useMarkAsRead } from '@/features/conversations/hooks/useMarkAsRead';
 import { useConversationStore } from '@/features/conversations/stores/conversationStore';
-import { useWebSocket } from '@/lib/websocket/WebSocketContext';
-import { useWebSocketEvent } from '@/lib/websocket/useWebSocketEvent';
 import MessageList from '@/features/conversations/components/MessageList';
 import MessageInput from '@/features/conversations/components/MessageInput';
 import ConversationList from '@/features/conversations/components/ConversationList';
@@ -20,7 +18,6 @@ export default function ConversationDetailPage() {
   const params = useParams();
   const conversationId = params.id as string;
 
-  const { socket, isConnected } = useWebSocket();
   const { data, isLoading } = useMessages({ conversationId });
   const { data: conversationData } = useConversation({ conversationId });
   const { mutate: markAsRead } = useMarkAsRead();
@@ -69,56 +66,9 @@ export default function ConversationDetailPage() {
     }
   }, [conversationId, storeMessages, markAsRead]);
 
-  // WebSocket event handlers (using named functions for proper cleanup)
-  const handleNewMessage = useCallback((message: any) => {
-    if (message.conversationId === conversationId) {
-      useConversationStore.getState().addMessage(conversationId, message);
-    }
-  }, [conversationId]);
-
-  const handleMessageStatus = useCallback((data: any) => {
-    if (data.conversationId === conversationId) {
-      useConversationStore.getState().updateMessageStatus(
-        conversationId,
-        data.messageId,
-        data.status
-      );
-    }
-  }, [conversationId]);
-
-  const handleConversationUpdated = useCallback((conversation: any) => {
-    if (conversation._id === conversationId) {
-      useConversationStore.getState().updateConversation(conversation);
-    }
-  }, [conversationId]);
-
-  const handleMessagesRead = useCallback((data: any) => {
-    if (data.conversationId === conversationId) {
-      useConversationStore.getState().markMessagesAsRead(
-        conversationId,
-        data.messageIds
-      );
-    }
-  }, [conversationId]);
-
-  // Register WebSocket event listeners (auto cleanup on unmount)
-  useWebSocketEvent('message:new', handleNewMessage);
-  useWebSocketEvent('message:status', handleMessageStatus);
-  useWebSocketEvent('conversation:updated', handleConversationUpdated);
-  useWebSocketEvent('message:read', handleMessagesRead);
-
-  // Join/leave conversation room when connected
-  useEffect(() => {
-    if (!conversationId || !socket || !isConnected) return;
-
-    console.log(`[Page] Joining room: ${conversationId}`);
-    socket.emit('join:conversation', { conversationId });
-
-    return () => {
-      console.log(`[Page] Leaving room: ${conversationId}`);
-      socket.emit('leave:conversation', { conversationId });
-    };
-  }, [conversationId, socket, isConnected]);
+  // NOTE: WebSocket event listeners are handled globally by useConversationWebSocketEvents
+  // in the root layout. No need to join/leave conversation rooms - user automatically
+  // receives all events through user:${userId} room.
 
   return (
     <Box sx={{ height: 'calc(100vh - 112px)' }}>
