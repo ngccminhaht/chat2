@@ -29,6 +29,11 @@ export function useConversationWebSocketEvents() {
   useWebSocketEvent<Message>('message:new', (message) => {
     console.log('[WS] New message:', message);
     addMessage(message.conversationId, message);
+
+    // Invalidate messages query cache to refetch latest messages
+    queryClient.invalidateQueries({
+      queryKey: ['messages', { conversationId: message.conversationId }]
+    });
   });
 
   // Handle message status updates
