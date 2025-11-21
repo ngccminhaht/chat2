@@ -17,7 +17,7 @@ export const useConnectFacebook = () => {
 
       // Call backend to generate OAuth URL and store state in Redis
       const response = await apiClient.get<FacebookAuthUrlResponse>(
-        '/connections/facebook/auth-url'
+        '/facebook/auth-url'
       );
 
       const { authUrl } = response.data;
