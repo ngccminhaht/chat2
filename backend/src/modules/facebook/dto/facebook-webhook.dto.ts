@@ -50,6 +50,7 @@ export interface FacebookMessage {
     payload: string;
   };
   sticker?: string;
+  is_echo?: boolean; // True if this message was sent by the page (echo)
 }
 
 export interface FacebookAttachment {

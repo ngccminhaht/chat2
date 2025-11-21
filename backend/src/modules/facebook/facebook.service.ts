@@ -201,6 +201,12 @@ export class FacebookService {
 
     if (!message) return;
 
+    // Ignore echo messages (sent by the page itself)
+    if (message.is_echo || senderId === pageId) {
+      this.logger.debug(`Ignoring echo message from page ${pageId}`);
+      return;
+    }
+
     // Conversation key: senderId_pageId (one user can message multiple pages)
     const conversationKey = `${senderId}_${pageId}`;
 
