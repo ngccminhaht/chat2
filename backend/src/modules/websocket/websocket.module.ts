@@ -14,7 +14,8 @@ import { EnvService } from '@/common/env';
       }),
     }),
   ],
-  providers: [WebsocketGateway, WebSocketBridgeConsumer],
+  controllers: [WebSocketBridgeConsumer],
+  providers: [WebsocketGateway],
   exports: [WebsocketGateway],
 })
 export class WebsocketModule {}
