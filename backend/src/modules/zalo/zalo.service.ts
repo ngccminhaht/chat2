@@ -474,11 +474,20 @@ export class ZaloService {
         code,
         code_verifier: codeVerifier,
         grant_type: 'authorization_code',
+        redirect_uri: this.redirectUri, // IMPORTANT: Must match authorization request
       };
 
       if (oaId) {
         params.oa_id = oaId;
       }
+
+      this.logger.log('🔄 Exchanging code for token with params:', {
+        app_id: this.appId,
+        code: code.substring(0, 20) + '...',
+        code_verifier: codeVerifier.substring(0, 20) + '...',
+        oa_id: oaId,
+        redirect_uri: this.redirectUri,
+      });
 
       const formData = new URLSearchParams(params);
 
@@ -493,8 +502,15 @@ export class ZaloService {
         }
       );
 
+      this.logger.log('📥 Zalo token response:', {
+        error: response.data.error,
+        error_name: response.data.error_name,
+        message: response.data.message,
+        hasData: !!response.data.data,
+      });
+
       if (response.data.error !== 0) {
-        this.logger.error('Zalo OAuth error:', response.data);
+        this.logger.error('❌ Zalo OAuth error:', response.data);
         throw new BadRequestException(
           `Zalo OAuth error: ${response.data.error_name || response.data.message}`,
         );
@@ -506,8 +522,15 @@ export class ZaloService {
         expires_in: response.data.data.expires_in,
       };
     } catch (error) {
-      this.logger.error('Failed to exchange code for token:', error.response?.data || error.message);
-      throw new BadRequestException('Failed to exchange authorization code');
+      this.logger.error('❌ Failed to exchange code for token:', {
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+      });
+
+      // Return more detailed error message
+      const errorDetail = error.response?.data?.message || error.response?.data?.error_name || error.message;
+      throw new BadRequestException(`Failed to exchange authorization code: ${errorDetail}`);
     }
   }
 

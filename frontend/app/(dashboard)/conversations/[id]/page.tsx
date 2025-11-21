@@ -34,10 +34,15 @@ export default function ConversationDetailPage() {
   // Use conversation from API if store doesn't have it
   const conversation = conversationFromStore || conversationData;
 
-  // Sync initial query data to Zustand store
+  // Sync initial query data to Zustand store (only on first load)
   useEffect(() => {
     if (data?.data && conversationId) {
-      useConversationStore.getState().setMessages(conversationId, data.data);
+      const currentMessages = useConversationStore.getState().messages[conversationId];
+      // Only set messages if store is empty (initial load)
+      // Don't overwrite if store already has messages (from WebSocket or previous load)
+      if (!currentMessages || currentMessages.length === 0) {
+        useConversationStore.getState().setMessages(conversationId, data.data);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.data, conversationId]);
