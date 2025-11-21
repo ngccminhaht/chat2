@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
+import { useConversationWebSocketEvents } from '@/lib/websocket/useConversationWebSocketEvents';
 
 export default function DashboardLayout({
   children,
@@ -11,6 +12,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Setup WebSocket event listeners globally for all conversations
+  useConversationWebSocketEvents();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
