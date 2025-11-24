@@ -762,4 +762,74 @@ export class ZaloService {
       throw error;
     }
   }
+
+  // ==================== Messaging Methods ====================
+
+  /**
+   * Send text message to Zalo user via OA API
+   * @param accessToken OA access token
+   * @param recipientUserId Zalo user ID to send message to
+   * @param text Message text
+   * @returns { message_id: string }
+   */
+  async sendTextMessage(
+    accessToken: string,
+    recipientUserId: string,
+    text: string
+  ): Promise<{ message_id: string }> {
+    try {
+      this.logger.log(`📤 Sending Zalo message to user: ${recipientUserId}`);
+
+      const response = await axios.post(
+        "https://openapi.zalo.me/v3.0/oa/message/cs",
+        {
+          recipient: {
+            user_id: recipientUserId,
+          },
+          message: {
+            text,
+          },
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            access_token: accessToken,
+          },
+        }
+      );
+
+      this.logger.log(`📥 Zalo send message response:`, response.data);
+
+      if (response.data.error) {
+        this.logger.error(`❌ Zalo send message error:`, response.data);
+        throw new BadRequestException(
+          `Zalo send message error: ${
+            response.data.message || response.data.error
+          }`
+        );
+      }
+
+      this.logger.log(
+        `✅ Message sent successfully: ${response.data.data?.message_id}`
+      );
+
+      return {
+        message_id: response.data.data?.message_id || `zalo_${Date.now()}`,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `❌ Failed to send Zalo message:`,
+        error.response?.data || error.message
+      );
+      throw new BadRequestException(
+        `Failed to send Zalo message: ${
+          error.response?.data?.message || error.message
+        }`
+      );
+    }
+  }
 }

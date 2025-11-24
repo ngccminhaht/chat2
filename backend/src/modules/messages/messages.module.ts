@@ -8,6 +8,7 @@ import { PlatformConnection, PlatformConnectionSchema } from '@/common/database/
 import { ConnectionsModule } from '@/modules/connections/connections.module';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
 import { FacebookModule } from '@/modules/facebook/facebook.module';
+import { ZaloModule } from '@/modules/zalo/zalo.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { FacebookModule } from '@/modules/facebook/facebook.module';
     ConnectionsModule,
     WebsocketModule,
     FacebookModule,
+    ZaloModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService],
