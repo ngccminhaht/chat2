@@ -126,24 +126,73 @@ export class MessagesService {
     try {
       // Send message to platform
       if (conversation.platform === 'zalo') {
-        if (type !== 'text') {
-          throw new BadRequestException('Only text messages are supported for Zalo');
-        }
-
         this.logger.log('=== Sending Zalo message ===');
+        this.logger.log(`  Type: ${type}`);
         this.logger.log(`  Recipient platformUserId: ${conversation.customerPlatformUserId}`);
         this.logger.log(`  Platform connection: ${platformConnection._id}`);
-        this.logger.log(`  Message content: ${content.text?.substring(0, 50)}...`);
 
         // Get OA access token from platform connection
         const accessToken = platformConnection.credentials.accessToken;
+        let result: { message_id: string };
+        let lastMessageText = '';
 
-        // Send message via Zalo API
-        const result = await this.zaloService.sendTextMessage(
-          accessToken,
-          conversation.customerPlatformUserId,
-          content.text,
-        );
+        // Send message based on type
+        switch (type) {
+          case 'text':
+            this.logger.log(`  Message content: ${content.text?.substring(0, 50)}...`);
+            result = await this.zaloService.sendTextMessage(
+              accessToken,
+              conversation.customerPlatformUserId,
+              content.text,
+            );
+            lastMessageText = content.text;
+            break;
+
+          case 'image':
+            if (!content.url && !content.attachments?.[0]?.url) {
+              throw new BadRequestException('Image URL is required');
+            }
+            const imageUrl = content.url || content.attachments[0].url;
+            this.logger.log(`  Image URL: ${imageUrl}`);
+            result = await this.zaloService.sendImageMessage(
+              accessToken,
+              conversation.customerPlatformUserId,
+              imageUrl,
+            );
+            lastMessageText = '[Hình ảnh]';
+            break;
+
+          case 'file':
+            if (!content.url && !content.attachments?.[0]?.url) {
+              throw new BadRequestException('File URL is required');
+            }
+            const fileUrl = content.url || content.attachments[0].url;
+            this.logger.log(`  File URL: ${fileUrl}`);
+            result = await this.zaloService.sendFileMessage(
+              accessToken,
+              conversation.customerPlatformUserId,
+              fileUrl,
+            );
+            lastMessageText = '[Tệp đính kèm]';
+            break;
+
+          case 'sticker':
+            if (!content.stickerId && !content.attachments?.[0]?.stickerId) {
+              throw new BadRequestException('Sticker ID is required');
+            }
+            const stickerId = content.stickerId || content.attachments[0].stickerId;
+            this.logger.log(`  Sticker ID: ${stickerId}`);
+            result = await this.zaloService.sendStickerMessage(
+              accessToken,
+              conversation.customerPlatformUserId,
+              stickerId,
+            );
+            lastMessageText = '[Sticker]';
+            break;
+
+          default:
+            throw new BadRequestException(`Message type '${type}' is not supported for Zalo`);
+        }
 
         // Update message with actual platform message ID and status
         message.platformMessageId = result.message_id;
@@ -153,7 +202,7 @@ export class MessagesService {
         // Update conversation's last message
         await this.conversationModel.findByIdAndUpdate(conversationId, {
           lastMessage: {
-            text: content.text,
+            text: lastMessageText,
             timestamp: new Date(),
             senderId: platformConnection.platformAccountId,
             messageId: message._id,

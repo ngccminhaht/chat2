@@ -832,4 +832,199 @@ export class ZaloService {
       );
     }
   }
+
+  /**
+   * Send image message to Zalo user via OA API
+   * @param accessToken OA access token
+   * @param recipientUserId Zalo user ID to send message to
+   * @param imageUrl URL of the image to send
+   * @returns { message_id: string }
+   */
+  async sendImageMessage(
+    accessToken: string,
+    recipientUserId: string,
+    imageUrl: string
+  ): Promise<{ message_id: string }> {
+    try {
+      this.logger.log(`📤 Sending Zalo image to user: ${recipientUserId}`);
+
+      const response = await axios.post(
+        "https://openapi.zalo.me/v3.0/oa/message/cs",
+        {
+          recipient: {
+            user_id: recipientUserId,
+          },
+          message: {
+            attachment: {
+              type: "template",
+              payload: {
+                template_type: "media",
+                elements: [
+                  {
+                    media_type: "image",
+                    url: imageUrl,
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            access_token: accessToken,
+          },
+        }
+      );
+
+      this.logger.log(`📥 Zalo send image response:`, response.data);
+
+      if (response.data.error) {
+        this.logger.error(`❌ Zalo send image error:`, response.data);
+        throw new BadRequestException(
+          `Zalo send image error: ${response.data.message || response.data.error}`
+        );
+      }
+
+      return {
+        message_id: response.data.data?.message_id || `zalo_img_${Date.now()}`,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error(`❌ Failed to send Zalo image:`, error.response?.data || error.message);
+      throw new BadRequestException(
+        `Failed to send Zalo image: ${error.response?.data?.message || error.message}`
+      );
+    }
+  }
+
+  /**
+   * Send file message to Zalo user via OA API
+   * @param accessToken OA access token
+   * @param recipientUserId Zalo user ID to send message to
+   * @param fileUrl URL of the file to send
+   * @returns { message_id: string }
+   */
+  async sendFileMessage(
+    accessToken: string,
+    recipientUserId: string,
+    fileUrl: string
+  ): Promise<{ message_id: string }> {
+    try {
+      this.logger.log(`📤 Sending Zalo file to user: ${recipientUserId}`);
+
+      const response = await axios.post(
+        "https://openapi.zalo.me/v3.0/oa/message/cs",
+        {
+          recipient: {
+            user_id: recipientUserId,
+          },
+          message: {
+            attachment: {
+              type: "file",
+              payload: {
+                url: fileUrl,
+              },
+            },
+          },
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            access_token: accessToken,
+          },
+        }
+      );
+
+      this.logger.log(`📥 Zalo send file response:`, response.data);
+
+      if (response.data.error) {
+        this.logger.error(`❌ Zalo send file error:`, response.data);
+        throw new BadRequestException(
+          `Zalo send file error: ${response.data.message || response.data.error}`
+        );
+      }
+
+      return {
+        message_id: response.data.data?.message_id || `zalo_file_${Date.now()}`,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error(`❌ Failed to send Zalo file:`, error.response?.data || error.message);
+      throw new BadRequestException(
+        `Failed to send Zalo file: ${error.response?.data?.message || error.message}`
+      );
+    }
+  }
+
+  /**
+   * Send sticker message to Zalo user via OA API
+   * @param accessToken OA access token
+   * @param recipientUserId Zalo user ID to send message to
+   * @param stickerId Zalo sticker ID
+   * @returns { message_id: string }
+   */
+  async sendStickerMessage(
+    accessToken: string,
+    recipientUserId: string,
+    stickerId: string
+  ): Promise<{ message_id: string }> {
+    try {
+      this.logger.log(`📤 Sending Zalo sticker to user: ${recipientUserId}`);
+
+      const response = await axios.post(
+        "https://openapi.zalo.me/v3.0/oa/message/cs",
+        {
+          recipient: {
+            user_id: recipientUserId,
+          },
+          message: {
+            attachment: {
+              type: "template",
+              payload: {
+                template_type: "media",
+                elements: [
+                  {
+                    media_type: "sticker",
+                    attachment_id: stickerId,
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            access_token: accessToken,
+          },
+        }
+      );
+
+      this.logger.log(`📥 Zalo send sticker response:`, response.data);
+
+      if (response.data.error) {
+        this.logger.error(`❌ Zalo send sticker error:`, response.data);
+        throw new BadRequestException(
+          `Zalo send sticker error: ${response.data.message || response.data.error}`
+        );
+      }
+
+      return {
+        message_id: response.data.data?.message_id || `zalo_sticker_${Date.now()}`,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error(`❌ Failed to send Zalo sticker:`, error.response?.data || error.message);
+      throw new BadRequestException(
+        `Failed to send Zalo sticker: ${error.response?.data?.message || error.message}`
+      );
+    }
+  }
 }
