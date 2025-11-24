@@ -241,16 +241,23 @@ export class ZaloService {
     }
 
     if (!conversation) {
-      // Fetch user info from Zalo API (simplified - you'll need to implement API call)
-      const displayName = `Zalo User ${senderId.substring(
-        0,
-        Math.min(8, senderId.length)
-      )}`;
-      const userInfo = {
-        user_id: senderId, // Global user ID
-        display_name: displayName,
-        avatar: undefined,
+      // Fetch user info from Zalo API
+      let userProfile: { displayName: string; avatar?: string } = {
+        displayName: `Zalo User ${senderId.substring(0, 8)}`,
       };
+
+      // Get access token from platform connection to fetch user profile
+      const platformConnection = await this.platformConnectionModel
+        .findById(platformConnectionId)
+        .exec();
+
+      if (platformConnection?.credentials?.accessToken) {
+        userProfile = await this.getUserProfile(
+          platformConnection.credentials.accessToken,
+          senderId
+        );
+        this.logger.log(`Fetched user profile: ${userProfile.displayName}`);
+      }
 
       conversation = await this.conversationModel.create({
         platform: "zalo",
@@ -258,8 +265,8 @@ export class ZaloService {
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         platformAccountId: oaId, // Store OA ID for easy querying
         customerPlatformUserId: senderId, // Global sender ID
-        customerName: userInfo.display_name,
-        customerAvatar: userInfo.avatar,
+        customerName: userProfile.displayName,
+        customerAvatar: userProfile.avatar,
         status: "open",
         unreadCount: 0,
         metadata: {
@@ -587,6 +594,47 @@ export class ZaloService {
         error.response?.data || error.message
       );
       throw new BadRequestException("Failed to fetch Zalo OA information");
+    }
+  }
+
+  /**
+   * Get Zalo user profile by user ID
+   * Returns user display name and avatar
+   */
+  async getUserProfile(
+    accessToken: string,
+    userId: string
+  ): Promise<{ displayName: string; avatar?: string }> {
+    try {
+      const response = await axios.get(
+        `https://openapi.zalo.me/v2.0/oa/getprofile?data=${encodeURIComponent(
+          JSON.stringify({ user_id: userId })
+        )}`,
+        {
+          headers: {
+            access_token: accessToken,
+          },
+        }
+      );
+
+      if (response.data.error) {
+        this.logger.warn(
+          `Failed to get user profile for ${userId}: ${response.data.message}`
+        );
+        return { displayName: `Zalo User ${userId.substring(0, 8)}` };
+      }
+
+      const data = response.data.data;
+      return {
+        displayName: data.display_name || `Zalo User ${userId.substring(0, 8)}`,
+        avatar: data.avatar || data.avatars?.["120"],
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Error fetching user profile for ${userId}:`,
+        error.message
+      );
+      return { displayName: `Zalo User ${userId.substring(0, 8)}` };
     }
   }
 
