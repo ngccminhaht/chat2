@@ -606,8 +606,10 @@ export class ZaloService {
     userId: string
   ): Promise<{ displayName: string; avatar?: string }> {
     try {
+      this.logger.log(`🔍 Fetching user profile for userId: ${userId}`);
+
       const response = await axios.get(
-        `https://openapi.zalo.me/v2.0/oa/getprofile?data=${encodeURIComponent(
+        `https://openapi.zalo.me/v3.0/oa/user/detail?data=${encodeURIComponent(
           JSON.stringify({ user_id: userId })
         )}`,
         {
@@ -617,22 +619,37 @@ export class ZaloService {
         }
       );
 
+      this.logger.log(
+        `📥 Zalo user profile response:`,
+        JSON.stringify(response.data, null, 2)
+      );
+
+      console.log(response);
       if (response.data.error) {
-        this.logger.warn(
-          `Failed to get user profile for ${userId}: ${response.data.message}`
+        this.logger.error(
+          `❌ Failed to get user profile for ${userId}:`,
+          response.data
         );
         return { displayName: `Zalo User ${userId.substring(0, 8)}` };
       }
 
       const data = response.data.data;
-      return {
-        displayName: data.display_name || `Zalo User ${userId.substring(0, 8)}`,
-        avatar: data.avatar || data.avatars?.["120"],
-      };
+      const displayName =
+        data.display_name ||
+        data.user_alias ||
+        `Zalo User ${userId.substring(0, 8)}`;
+      const avatar =
+        data.avatar || data.avatars?.["120"] || data.avatars?.["240"];
+
+      this.logger.log(
+        `✅ Got user profile: ${displayName}, avatar: ${avatar ? "yes" : "no"}`
+      );
+
+      return { displayName, avatar };
     } catch (error) {
-      this.logger.warn(
-        `Error fetching user profile for ${userId}:`,
-        error.message
+      this.logger.error(
+        `❌ Error fetching user profile for ${userId}:`,
+        error.response?.data || error.message
       );
       return { displayName: `Zalo User ${userId.substring(0, 8)}` };
     }
