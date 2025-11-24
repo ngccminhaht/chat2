@@ -2,8 +2,8 @@ import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { createHmac, createHash, randomBytes } from "crypto";
-import axios from 'axios';
-import { EnvService } from '@/common/env';
+import axios from "axios";
+import { EnvService } from "@/common/env";
 import {
   Conversation,
   ConversationDocument,
@@ -17,14 +17,14 @@ import {
   PlatformConnectionDocument,
 } from "@/common/database/schemas/platform-connection.schema";
 import { ZaloWebhookDto } from "./dto/zalo-webhook.dto";
-import { ZaloTokenResponse, ZaloOAInfo } from './dto/oauth.dto';
-import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
-import { KAFKA_TOPICS } from '@/infra/kafka/kafka.config';
+import { ZaloTokenResponse, ZaloOAInfo } from "./dto/oauth.dto";
+import { KafkaProducerService } from "@/infra/kafka/kafka-producer.service";
+import { KAFKA_TOPICS } from "@/infra/kafka/kafka.config";
 import {
   WebSocketNotificationEvent,
   NewMessagePayload,
   ConversationUpdatedPayload,
-} from '@/infra/kafka/types/webhook.types';
+} from "@/infra/kafka/types/webhook.types";
 
 @Injectable()
 export class ZaloService {
@@ -43,11 +43,11 @@ export class ZaloService {
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private kafkaProducer: KafkaProducerService,
-    private envService: EnvService,
+    private envService: EnvService
   ) {
-    this.appId = this.envService.get('ZALO_APP_ID');
-    this.appSecret = this.envService.get('ZALO_APP_SECRET');
-    this.redirectUri = this.envService.get('ZALO_REDIRECT_URI');
+    this.appId = this.envService.get("ZALO_APP_ID");
+    this.appSecret = this.envService.get("ZALO_APP_SECRET");
+    this.redirectUri = this.envService.get("ZALO_REDIRECT_URI");
   }
 
   /**
@@ -68,7 +68,7 @@ export class ZaloService {
     payload: ZaloWebhookDto,
     platformConnectionId?: string
   ): Promise<void> {
-    const senderId = payload.sender?.id || 'unknown';
+    const senderId = payload.sender?.id || "unknown";
     this.logger.log(
       `Processing Zalo webhook event: ${payload.event_name} from sender ${senderId}`
     );
@@ -78,8 +78,10 @@ export class ZaloService {
       const oaId = payload.recipient?.id;
 
       if (!oaId) {
-        this.logger.error('❌ Cannot find platform connection: missing recipient.id (OA ID)');
-        throw new Error('Missing OA ID in webhook payload');
+        this.logger.error(
+          "❌ Cannot find platform connection: missing recipient.id (OA ID)"
+        );
+        throw new Error("Missing OA ID in webhook payload");
       }
 
       this.logger.log(
@@ -181,23 +183,29 @@ export class ZaloService {
     // Get OA ID (which OA received this message) - recipient.id is the OA ID
     const oaId = payload.recipient?.id;
 
-    if (!senderId || typeof senderId !== 'string') {
-      this.logger.error("Cannot process message: missing or invalid sender.id:", {
-        hasSender: !!payload.sender,
-        senderId: payload.sender?.id,
-        senderIdType: typeof payload.sender?.id,
-        payload: JSON.stringify(payload, null, 2),
-      });
+    if (!senderId || typeof senderId !== "string") {
+      this.logger.error(
+        "Cannot process message: missing or invalid sender.id:",
+        {
+          hasSender: !!payload.sender,
+          senderId: payload.sender?.id,
+          senderIdType: typeof payload.sender?.id,
+          payload: JSON.stringify(payload, null, 2),
+        }
+      );
       return;
     }
 
-    if (!oaId || typeof oaId !== 'string') {
-      this.logger.error("Cannot process message: missing or invalid recipient.id (OA ID):", {
-        hasRecipient: !!payload.recipient,
-        oaId: payload.recipient?.id,
-        oaIdType: typeof payload.recipient?.id,
-        payload: JSON.stringify(payload, null, 2),
-      });
+    if (!oaId || typeof oaId !== "string") {
+      this.logger.error(
+        "Cannot process message: missing or invalid recipient.id (OA ID):",
+        {
+          hasRecipient: !!payload.recipient,
+          oaId: payload.recipient?.id,
+          oaIdType: typeof payload.recipient?.id,
+          payload: JSON.stringify(payload, null, 2),
+        }
+      );
       return;
     }
 
@@ -234,7 +242,10 @@ export class ZaloService {
 
     if (!conversation) {
       // Fetch user info from Zalo API (simplified - you'll need to implement API call)
-      const displayName = `Zalo User ${senderId.substring(0, Math.min(8, senderId.length))}`;
+      const displayName = `Zalo User ${senderId.substring(
+        0,
+        Math.min(8, senderId.length)
+      )}`;
       const userInfo = {
         user_id: senderId, // Global user ID
         display_name: displayName,
@@ -262,7 +273,7 @@ export class ZaloService {
     }
 
     // Determine message type from event_name
-    const messageType = payload.event_name.replace('user_send_', ''); // user_send_text -> text
+    const messageType = payload.event_name.replace("user_send_", ""); // user_send_text -> text
 
     // Create message
     this.logger.log("Creating message in database:", {
@@ -336,7 +347,7 @@ export class ZaloService {
 
       // Publish new message event to Kafka
       const newMessageEvent: WebSocketNotificationEvent = {
-        type: 'message:new',
+        type: "message:new",
         userId,
         payload: {
           _id: message._id.toString(),
@@ -359,7 +370,7 @@ export class ZaloService {
 
       // Publish conversation updated event to Kafka
       const conversationEvent: WebSocketNotificationEvent = {
-        type: 'conversation:updated',
+        type: "conversation:updated",
         userId,
         payload: {
           _id: conversation._id.toString(),
@@ -434,11 +445,11 @@ export class ZaloService {
   // ==================== OAuth Methods ====================
 
   generateCodeVerifier(): string {
-    return randomBytes(32).toString('base64url');
+    return randomBytes(32).toString("base64url");
   }
 
   generateCodeChallenge(verifier: string): string {
-    return createHash('sha256').update(verifier).digest('base64url');
+    return createHash("sha256").update(verifier).digest("base64url");
   }
 
   getAuthorizationUrl(state?: string): {
@@ -448,7 +459,7 @@ export class ZaloService {
   } {
     const codeVerifier = this.generateCodeVerifier();
     const codeChallenge = this.generateCodeChallenge(codeVerifier);
-    const finalState = state || randomBytes(16).toString('hex');
+    const finalState = state || randomBytes(16).toString("hex");
 
     const params = new URLSearchParams({
       app_id: this.appId,
@@ -467,14 +478,14 @@ export class ZaloService {
   async exchangeCodeForToken(
     code: string,
     codeVerifier: string,
-    oaId?: string,
+    oaId?: string
   ): Promise<ZaloTokenResponse> {
     try {
       const params: Record<string, string> = {
         app_id: this.appId,
         code,
         code_verifier: codeVerifier,
-        grant_type: 'authorization_code',
+        grant_type: "authorization_code",
         redirect_uri: this.redirectUri, // IMPORTANT: Must match authorization request
       };
 
@@ -482,10 +493,10 @@ export class ZaloService {
         params.oa_id = oaId;
       }
 
-      this.logger.log('🔄 Exchanging code for token with params:', {
+      this.logger.log("🔄 Exchanging code for token with params:", {
         app_id: this.appId,
-        code: code.substring(0, 20) + '...',
-        code_verifier: codeVerifier.substring(0, 20) + '...',
+        code: code.substring(0, 20) + "...",
+        code_verifier: codeVerifier.substring(0, 20) + "...",
         oa_id: oaId,
         redirect_uri: this.redirectUri,
       });
@@ -493,32 +504,32 @@ export class ZaloService {
       const formData = new URLSearchParams(params);
 
       const response = await axios.post(
-        'https://oauth.zaloapp.com/v4/oa/access_token',
+        "https://oauth.zaloapp.com/v4/oa/access_token",
         formData.toString(),
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            "Content-Type": "application/x-www-form-urlencoded",
             secret_key: this.appSecret,
           },
         }
       );
 
-      this.logger.log('📥 Zalo token response:', {
+      this.logger.log("📥 Zalo token response:", {
         error: response.data.error,
         error_name: response.data.error_name,
         message: response.data.message,
         hasData: !!response.data.data,
       });
 
+      console.log("1111111111111111111: ", response);
       if (response.data.error !== 0) {
-        this.logger.error('❌ Zalo OAuth error:', response.data);
-        const errorMessage = response.data.error_name
-          || response.data.message
-          || response.data.error_description
-          || `error code ${response.data.error}`;
-        throw new BadRequestException(
-          `Zalo OAuth error: ${errorMessage}`,
-        );
+        console.log("❌ Zalo OAuth error:", response);
+        const errorMessage =
+          response.data.error_name ||
+          response.data.message ||
+          response.data.error_description ||
+          `error code ${response.data.error}`;
+        throw new BadRequestException(`Zalo OAuth error: ${errorMessage}`);
       }
 
       return {
@@ -528,11 +539,13 @@ export class ZaloService {
       };
     } catch (error) {
       // Re-throw BadRequestException as-is (don't wrap)
+      this.logger.error("22222222222222222", error);
+
       if (error instanceof BadRequestException) {
         throw error;
       }
 
-      this.logger.error('❌ Failed to exchange code for token:', {
+      this.logger.error("❌ Failed to exchange code for token:", {
         error: error.response?.data || error.message,
         status: error.response?.status,
         statusText: error.response?.statusText,
@@ -540,18 +553,21 @@ export class ZaloService {
       });
 
       // Return more detailed error message
-      const errorDetail = error.response?.data?.message
-        || error.response?.data?.error_name
-        || error.response?.data?.error_description
-        || error.message;
-      throw new BadRequestException(`Failed to exchange authorization code: ${errorDetail}`);
+      const errorDetail =
+        error.response?.data?.message ||
+        error.response?.data?.error_name ||
+        error.response?.data?.error_description ||
+        error.message;
+      throw new BadRequestException(
+        `Failed to exchange authorization code: ${errorDetail}`
+      );
     }
   }
 
   async getOAInfo(accessToken: string): Promise<ZaloOAInfo> {
     try {
       const response = await axios.get(
-        'https://openapi.zalo.me/v2.0/oa/getoa',
+        "https://openapi.zalo.me/v2.0/oa/getoa",
         {
           headers: {
             access_token: accessToken,
@@ -561,28 +577,31 @@ export class ZaloService {
 
       if (response.data.error !== 0) {
         throw new BadRequestException(
-          `Failed to get OA info: ${response.data.message}`,
+          `Failed to get OA info: ${response.data.message}`
         );
       }
 
       return response.data.data;
     } catch (error) {
-      this.logger.error('Failed to get OA info:', error.response?.data || error.message);
-      throw new BadRequestException('Failed to fetch Zalo OA information');
+      this.logger.error(
+        "Failed to get OA info:",
+        error.response?.data || error.message
+      );
+      throw new BadRequestException("Failed to fetch Zalo OA information");
     }
   }
 
   async savePlatformConnection(
     userId: string,
     tokenResponse: ZaloTokenResponse,
-    oaInfo: ZaloOAInfo,
+    oaInfo: ZaloOAInfo
   ): Promise<any> {
     const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
 
     let existing = await this.platformConnectionModel
       .findOne({
         userId: new Types.ObjectId(userId),
-        platform: 'zalo',
+        platform: "zalo",
         platformAccountId: oaInfo.oa_id,
       })
       .exec();
@@ -594,7 +613,7 @@ export class ZaloService {
         refreshToken: tokenResponse.refresh_token,
         expiresAt,
       };
-      existing.status = 'active';
+      existing.status = "active";
       existing.metadata = {
         ...existing.metadata,
         oaId: oaInfo.oa_id,
@@ -608,7 +627,7 @@ export class ZaloService {
 
     return this.platformConnectionModel.create({
       userId: new Types.ObjectId(userId),
-      platform: 'zalo',
+      platform: "zalo",
       platformAccountId: oaInfo.oa_id,
       platformAccountName: oaInfo.name,
       credentials: {
@@ -616,7 +635,7 @@ export class ZaloService {
         refreshToken: tokenResponse.refresh_token,
         expiresAt,
       },
-      status: 'active',
+      status: "active",
       metadata: {
         oaId: oaInfo.oa_id,
         description: oaInfo.description,
@@ -630,16 +649,16 @@ export class ZaloService {
     try {
       const params = new URLSearchParams({
         app_id: this.appId,
-        grant_type: 'refresh_token',
+        grant_type: "refresh_token",
         refresh_token: refreshToken,
       });
 
       const response = await axios.post(
-        'https://oauth.zaloapp.com/v4/oa/access_token',
+        "https://oauth.zaloapp.com/v4/oa/access_token",
         params.toString(),
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            "Content-Type": "application/x-www-form-urlencoded",
             secret_key: this.appSecret,
           },
         }
@@ -647,7 +666,9 @@ export class ZaloService {
 
       if (response.data.error !== 0) {
         throw new BadRequestException(
-          `Zalo token refresh error: ${response.data.error_name || response.data.message}`,
+          `Zalo token refresh error: ${
+            response.data.error_name || response.data.message
+          }`
         );
       }
 
@@ -657,20 +678,23 @@ export class ZaloService {
         expires_in: response.data.data.expires_in,
       };
     } catch (error) {
-      this.logger.error('Failed to refresh token:', error.response?.data || error.message);
-      throw new BadRequestException('Failed to refresh Zalo access token');
+      this.logger.error(
+        "Failed to refresh token:",
+        error.response?.data || error.message
+      );
+      throw new BadRequestException("Failed to refresh Zalo access token");
     }
   }
 
   async syncConversations(platformConnectionId: string): Promise<number> {
     try {
       this.logger.log(
-        `Conversation sync for Zalo connection ${platformConnectionId}`,
+        `Conversation sync for Zalo connection ${platformConnectionId}`
       );
-      this.logger.log('Note: Zalo conversations are synced via webhooks');
+      this.logger.log("Note: Zalo conversations are synced via webhooks");
       return 0;
     } catch (error) {
-      this.logger.error('Failed to sync conversations:', error);
+      this.logger.error("Failed to sync conversations:", error);
       throw error;
     }
   }
