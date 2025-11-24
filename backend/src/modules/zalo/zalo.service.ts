@@ -512,8 +512,12 @@ export class ZaloService {
 
       if (response.data.error !== 0) {
         this.logger.error('❌ Zalo OAuth error:', response.data);
+        const errorMessage = response.data.error_name
+          || response.data.message
+          || response.data.error_description
+          || `error code ${response.data.error}`;
         throw new BadRequestException(
-          `Zalo OAuth error: ${response.data.error_name || response.data.message}`,
+          `Zalo OAuth error: ${errorMessage}`,
         );
       }
 
@@ -523,14 +527,23 @@ export class ZaloService {
         expires_in: response.data.data.expires_in,
       };
     } catch (error) {
+      // Re-throw BadRequestException as-is (don't wrap)
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
       this.logger.error('❌ Failed to exchange code for token:', {
         error: error.response?.data || error.message,
         status: error.response?.status,
         statusText: error.response?.statusText,
+        fullResponse: JSON.stringify(error.response?.data, null, 2),
       });
 
       // Return more detailed error message
-      const errorDetail = error.response?.data?.message || error.response?.data?.error_name || error.message;
+      const errorDetail = error.response?.data?.message
+        || error.response?.data?.error_name
+        || error.response?.data?.error_description
+        || error.message;
       throw new BadRequestException(`Failed to exchange authorization code: ${errorDetail}`);
     }
   }
