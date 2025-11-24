@@ -96,6 +96,11 @@ export class MessagesService {
       throw new NotFoundException('Platform connection not found');
     }
 
+    this.logger.log(`📧 Sending message to conversation: ${conversationId}`);
+    this.logger.log(`  Platform: ${conversation.platform}`);
+    this.logger.log(`  Customer: ${conversation.customerPlatformUserId}`);
+    this.logger.log(`  Platform Connection: ${platformConnection._id} (${platformConnection.platform})`);
+
     // Sender info for outbound message (agent/system)
     const senderInfo = {
       platformUserId: platformConnection.platformAccountId || 'system',
