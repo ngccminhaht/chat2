@@ -83,8 +83,8 @@ services:
     image: minio/minio:latest
     container_name: omnichat-minio
     ports:
-      - "8314:9000"  # API port
-      - "8315:9001"  # Console port
+      - "8316:9000"  # API port
+      - "8317:9001"  # Console port
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123

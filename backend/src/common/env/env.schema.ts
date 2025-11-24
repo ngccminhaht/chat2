@@ -137,7 +137,7 @@ export class EnvSchema {
 
   @IsNumber()
   @Transform(({ value }) => parseInt(value, 10))
-  MINIO_PORT: number = 8314;
+  MINIO_PORT: number = 8316;
 
   @IsString()
   MINIO_ACCESS_KEY: string = 'minioadmin';
