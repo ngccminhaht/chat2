@@ -14,6 +14,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.937.0",
     "@nestjs/common": "10",
     "@nestjs/config": "3",
     "@nestjs/core": "10",
@@ -21,7 +22,7 @@
     "@nestjs/microservices": "10",
     "@nestjs/mongoose": "10",
     "@nestjs/passport": "10",
-    "@nestjs/platform-express": "10",
+    "@nestjs/platform-express": "^11.1.9",
     "@nestjs/platform-socket.io": "10",
     "@nestjs/websockets": "10",
     "axios": "^1.13.2",
@@ -32,11 +33,13 @@
     "ioredis": "5",
     "kafkajs": "2",
     "mongoose": "8",
+    "multer": "^2.0.2",
     "passport": "0.7",
     "passport-jwt": "4",
     "reflect-metadata": "0.2",
     "rxjs": "7",
-    "socket.io": "4"
+    "socket.io": "4",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",
@@ -45,8 +48,10 @@
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.5",
+    "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
     "@types/passport-jwt": "^4.0.1",
+    "@types/uuid": "^11.0.0",
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

@@ -78,6 +78,27 @@ services:
       retries: 5
     command: redis-server --appendonly yes
 
+  # MinIO (S3-compatible object storage)
+  minio:
+    image: minio/minio:latest
+    container_name: omnichat-minio
+    ports:
+      - "8314:9000"  # API port
+      - "8315:9001"  # Console port
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio_data:/data
+    networks:
+      - omnichat-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: server /data --console-address ":9001"
+
 networks:
   omnichat-network:
     driver: bridge
@@ -86,3 +107,4 @@ volumes:
   mongodb_data:
   kafka_data:
   redis_data:
+  minio_data:

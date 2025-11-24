@@ -130,4 +130,25 @@ export class EnvSchema {
   @IsString()
   @IsOptional()
   TIKTOK_REDIRECT_URI?: string;
+
+  // MinIO / S3
+  @IsString()
+  MINIO_ENDPOINT: string = 'localhost';
+
+  @IsNumber()
+  @Transform(({ value }) => parseInt(value, 10))
+  MINIO_PORT: number = 8314;
+
+  @IsString()
+  MINIO_ACCESS_KEY: string = 'minioadmin';
+
+  @IsString()
+  MINIO_SECRET_KEY: string = 'minioadmin123';
+
+  @IsString()
+  MINIO_BUCKET: string = 'omnichat-media';
+
+  @IsString()
+  @IsOptional()
+  MINIO_PUBLIC_URL?: string;
 }

@@ -1,25 +1,92 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Box, TextField, IconButton, CircularProgress } from '@mui/material';
+import { useState, useRef, ChangeEvent } from 'react';
+import {
+  Box,
+  TextField,
+  IconButton,
+  CircularProgress,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+} from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import ImageIcon from '@mui/icons-material/Image';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import CloseIcon from '@mui/icons-material/Close';
 import { useSendMessage } from '../hooks/useSendMessage';
+import { useUploadMedia } from '../hooks/useUploadMedia';
 
 interface MessageInputProps {
   conversationId: string;
 }
 
+interface FilePreview {
+  file: File;
+  previewUrl?: string;
+  type: 'image' | 'file';
+}
+
 export default function MessageInput({ conversationId }: MessageInputProps) {
   const [message, setMessage] = useState('');
-  const { mutate: sendMessage, isPending } = useSendMessage();
+  const [filePreview, setFilePreview] = useState<FilePreview | null>(null);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const { mutate: sendMessage, isPending: isSending } = useSendMessage();
+  const { mutateAsync: uploadMedia, isPending: isUploading } = useUploadMedia();
   const isSendingRef = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSend = () => {
-    if (!message.trim() || isPending || isSendingRef.current) return;
+  const isPending = isSending || isUploading;
+
+  const handleSend = async () => {
+    if (isPending || isSendingRef.current) return;
+
+    // Handle file/image send
+    if (filePreview) {
+      isSendingRef.current = true;
+      try {
+        // Upload file to MinIO
+        const uploadResult = await uploadMedia(filePreview.file);
+
+        // Send message with uploaded file URL
+        sendMessage(
+          {
+            conversationId,
+            type: filePreview.type,
+            content: {
+              url: uploadResult.url,
+              mediaUrl: uploadResult.url,
+              mediaType: uploadResult.contentType,
+              fileName: filePreview.file.name,
+              fileSize: uploadResult.size,
+            },
+          },
+          {
+            onSuccess: () => {
+              isSendingRef.current = false;
+              setFilePreview(null);
+              setMessage('');
+            },
+            onError: () => {
+              isSendingRef.current = false;
+            },
+          }
+        );
+      } catch {
+        isSendingRef.current = false;
+      }
+      return;
+    }
+
+    // Handle text send
+    if (!message.trim()) return;
 
     isSendingRef.current = true;
     const messageToSend = message.trim();
-    setMessage(''); // Clear immediately for better UX
+    setMessage('');
 
     sendMessage(
       {
@@ -33,7 +100,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
         },
         onError: () => {
           isSendingRef.current = false;
-          setMessage(messageToSend); // Restore message on error
+          setMessage(messageToSend);
         },
       }
     );
@@ -46,29 +113,141 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
     }
   };
 
+  const handleAttachClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleImageSelect = () => {
+    handleMenuClose();
+    imageInputRef.current?.click();
+  };
+
+  const handleFileSelect = () => {
+    handleMenuClose();
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      setFilePreview({ file, previewUrl, type: 'image' });
+    }
+    e.target.value = '';
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFilePreview({ file, type: 'file' });
+    }
+    e.target.value = '';
+  };
+
+  const handleClearPreview = () => {
+    if (filePreview?.previewUrl) {
+      URL.revokeObjectURL(filePreview.previewUrl);
+    }
+    setFilePreview(null);
+  };
+
   return (
-    <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+    <Box sx={{ borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+      {/* File Preview */}
+      {filePreview && (
+        <Box sx={{ p: 2, pb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+          {filePreview.type === 'image' && filePreview.previewUrl ? (
+            <Box
+              component="img"
+              src={filePreview.previewUrl}
+              alt="Preview"
+              sx={{ height: 80, maxWidth: 200, objectFit: 'contain', borderRadius: 1 }}
+            />
+          ) : (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                p: 1,
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+              }}
+            >
+              <InsertDriveFileIcon color="primary" />
+              <Box sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {filePreview.file.name}
+              </Box>
+            </Box>
+          )}
+          <IconButton size="small" onClick={handleClearPreview}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      )}
+
+      {/* Input Area */}
+      <Box sx={{ p: 2, display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+        <IconButton onClick={handleAttachClick} disabled={isPending}>
+          <AttachFileIcon />
+        </IconButton>
+
+        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+          <MenuItem onClick={handleImageSelect}>
+            <ListItemIcon>
+              <ImageIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Image</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleFileSelect}>
+            <ListItemIcon>
+              <InsertDriveFileIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>File</ListItemText>
+          </MenuItem>
+        </Menu>
+
         <TextField
           fullWidth
           multiline
           maxRows={4}
-          placeholder="Type a message..."
+          placeholder={filePreview ? 'Press send to upload...' : 'Type a message...'}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={isPending}
+          disabled={isPending || !!filePreview}
           size="small"
         />
+
         <IconButton
           color="primary"
           onClick={handleSend}
-          disabled={!message.trim() || isPending}
+          disabled={(!message.trim() && !filePreview) || isPending}
           size="large"
         >
           {isPending ? <CircularProgress size={24} /> : <SendIcon />}
         </IconButton>
       </Box>
+
+      {/* Hidden file inputs */}
+      <input
+        type="file"
+        ref={imageInputRef}
+        onChange={handleImageChange}
+        accept="image/*"
+        style={{ display: 'none' }}
+      />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar"
+        style={{ display: 'none' }}
+      />
     </Box>
   );
 }
