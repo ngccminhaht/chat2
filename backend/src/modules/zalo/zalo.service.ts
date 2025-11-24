@@ -521,9 +521,10 @@ export class ZaloService {
         hasData: !!response.data.data,
       });
 
-      console.log("1111111111111111111: ", response);
-      if (response.data.error !== 0) {
-        console.log("❌ Zalo OAuth error:", response);
+      // Zalo returns { error: -xxx, ... } on failure, { data: { ... } } on success
+      // Check if error exists and is non-zero (undefined/0 = success)
+      if (response.data.error) {
+        this.logger.error("❌ Zalo OAuth error:", response.data);
         const errorMessage =
           response.data.error_name ||
           response.data.message ||
@@ -533,14 +534,12 @@ export class ZaloService {
       }
 
       return {
-        access_token: response.data.data.access_token,
-        refresh_token: response.data.data.refresh_token,
-        expires_in: response.data.data.expires_in,
+        access_token: response.data.access_token,
+        refresh_token: response.data.refresh_token,
+        expires_in: response.data.expires_in,
       };
     } catch (error) {
       // Re-throw BadRequestException as-is (don't wrap)
-      this.logger.error("22222222222222222", error);
-
       if (error instanceof BadRequestException) {
         throw error;
       }
