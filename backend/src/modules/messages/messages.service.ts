@@ -8,8 +8,8 @@ import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessageStatus, KAFKA_TOPICS, Platform, MessageType } from '@/common/constants';
 import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
-import { OutgoingMessageEvent } from '@/common/platform/types/kafka-events.type';
 import {
+  OutgoingMessageEvent,
   WebSocketNotificationEvent,
   NewMessagePayload,
   ConversationUpdatedPayload,

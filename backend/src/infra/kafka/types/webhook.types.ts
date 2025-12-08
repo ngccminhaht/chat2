@@ -163,3 +163,44 @@ export interface MessagesReadPayload {
   conversationId: string;
   messageIds: string[];
 }
+
+/**
+ * Outgoing message event published to messages.outgoing
+ */
+export interface OutgoingMessageEvent {
+  /** Internal message ID (MongoDB _id) */
+  messageId: string;
+
+  /** Conversation ID */
+  conversationId: string;
+
+  /** Platform name */
+  platform: Platform;
+
+  /** Platform connection ID */
+  platformConnectionId: string;
+
+  /** Platform account ID (Page ID, OA ID, etc.) */
+  platformAccountId: string;
+
+  /** Recipient platform user ID */
+  recipientId: string;
+
+  /** Message content */
+  message: {
+    type: MessageType;
+    text?: string;
+    mediaUrl?: string;
+    mediaType?: string;
+    fileName?: string;
+    stickerId?: string;
+  };
+
+  /** Platform credentials */
+  credentials: {
+    accessToken: string;
+  };
+
+  /** Event timestamp */
+  timestamp: number;
+}
