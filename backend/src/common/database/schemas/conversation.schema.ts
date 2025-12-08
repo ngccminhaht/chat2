@@ -1,15 +1,17 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { Platform, ConversationStatus } from '@/common/constants';
 
 export type ConversationDocument = Conversation & Document;
 
 @Schema({ timestamps: true })
 export class Conversation {
   @Prop({
+    type: String,
     required: true,
-    enum: ['facebook', 'zalo', 'tiktok', 'shopee'],
+    enum: Object.values(Platform),
   })
-  platform: string;
+  platform: Platform;
 
   @Prop({ required: true })
   platformConversationId: string;
@@ -31,11 +33,12 @@ export class Conversation {
   customerAvatar?: string;
 
   @Prop({
+    type: String,
     required: true,
-    enum: ['open', 'closed', 'archived'],
-    default: 'open',
+    enum: Object.values(ConversationStatus),
+    default: ConversationStatus.OPEN,
   })
-  status: string;
+  status: ConversationStatus;
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   assignedTo?: Types.ObjectId;

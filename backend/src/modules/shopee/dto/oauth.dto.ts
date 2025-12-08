@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class ShopeeAuthUrlDto {
   @IsOptional()
@@ -6,16 +6,28 @@ export class ShopeeAuthUrlDto {
   state?: string;
 }
 
-export class ShopeeCallbackDto {
+export class ShopeeAuthorizeDto {
+  @IsNotEmpty()
   @IsString()
-  code: string;
-
-  @IsString()
-  state: string;
+  userId: string;
 
   @IsOptional()
   @IsString()
-  shop_id?: string;
+  state?: string;
+}
+
+export class ShopeeCallbackDto {
+  @IsNotEmpty()
+  @IsString()
+  code: string;
+
+  @IsNotEmpty()
+  @IsString()
+  state: string;
+
+  @IsNotEmpty()
+  @IsString()
+  shop_id: string;
 }
 
 export interface ShopeeTokenResponse {

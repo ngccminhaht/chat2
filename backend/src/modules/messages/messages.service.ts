@@ -6,6 +6,7 @@ import { Conversation, ConversationDocument } from '@/common/database/schemas/co
 import { PlatformConnection, PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { MessageStatus } from '@/common/constants';
 import { FacebookService } from '@/modules/facebook/facebook.service';
 import { ZaloService } from '@/modules/zalo/zalo.service';
 import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
@@ -117,7 +118,7 @@ export class MessagesService {
       type,
       content,
       sender: senderInfo,
-      status: 'pending',
+      status: MessageStatus.PENDING,
       metadata: {
         sentByUserId: userId,
       },
@@ -196,7 +197,7 @@ export class MessagesService {
 
         // Update message with actual platform message ID and status
         message.platformMessageId = result.message_id;
-        message.status = 'sent';
+        message.status = MessageStatus.SENT;
         await message.save();
 
         // Update conversation's last message
@@ -232,7 +233,7 @@ export class MessagesService {
 
         // Update message with actual platform message ID and status
         message.platformMessageId = result.message_id;
-        message.status = 'sent';
+        message.status = MessageStatus.SENT;
         await message.save();
 
         // Update conversation's last message
@@ -253,7 +254,7 @@ export class MessagesService {
       this.logger.error('Failed to send message to platform:', error);
 
       // Update message status to failed
-      message.status = 'failed';
+      message.status = MessageStatus.FAILED;
       message.metadata = {
         ...message.metadata,
         error: error.message,
@@ -309,7 +310,7 @@ export class MessagesService {
       .find({
         conversationId: new Types.ObjectId(conversationId),
         direction: 'inbound',
-        status: { $ne: 'read' }, // Not equal to 'read'
+        status: { $ne: MessageStatus.READ },
       })
       .exec();
 
@@ -321,7 +322,7 @@ export class MessagesService {
     const messageIds = messagesToUpdate.map((m) => m._id);
     await this.messageModel.updateMany(
       { _id: { $in: messageIds } },
-      { status: 'read' },
+      { status: MessageStatus.READ },
     ).exec();
 
     // Get updated messages

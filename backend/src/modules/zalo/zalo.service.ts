@@ -4,6 +4,7 @@ import { Model, Types } from "mongoose";
 import { createHmac, createHash, randomBytes } from "crypto";
 import axios from "axios";
 import { EnvService } from "@/common/env";
+import { ConnectionStatus, ConversationStatus, MessageStatus } from "@/common/constants";
 import {
   Conversation,
   ConversationDocument,
@@ -267,7 +268,7 @@ export class ZaloService {
         customerPlatformUserId: senderId, // Global sender ID
         customerName: userProfile.displayName,
         customerAvatar: userProfile.avatar,
-        status: "open",
+        status: ConversationStatus.OPEN,
         unreadCount: 0,
         metadata: {
           appId: payload.app_id,
@@ -302,7 +303,7 @@ export class ZaloService {
         name: conversation.customerName,
         avatar: conversation.customerAvatar,
       },
-      status: "sent",
+      status: MessageStatus.SENT,
       metadata: {
         rawPayload: payload,
       },
@@ -412,7 +413,7 @@ export class ZaloService {
         platform: "zalo",
         platformMessageId: payload.message.msg_id,
       },
-      { status: "delivered" }
+      { status: MessageStatus.DELIVERED }
     );
 
     this.logger.log(`Message ${payload.message.msg_id} delivered`);
@@ -429,7 +430,7 @@ export class ZaloService {
         platform: "zalo",
         platformMessageId: payload.message.msg_id,
       },
-      { status: "read" }
+      { status: MessageStatus.READ }
     );
 
     // Reset unread count for conversation
@@ -677,7 +678,7 @@ export class ZaloService {
         refreshToken: tokenResponse.refresh_token,
         expiresAt,
       };
-      existing.status = "active";
+      existing.status = ConnectionStatus.ACTIVE;
       existing.metadata = {
         ...existing.metadata,
         oaId: oaInfo.oa_id,
@@ -699,7 +700,7 @@ export class ZaloService {
         refreshToken: tokenResponse.refresh_token,
         expiresAt,
       },
-      status: "active",
+      status: ConnectionStatus.ACTIVE,
       metadata: {
         oaId: oaInfo.oa_id,
         description: oaInfo.description,

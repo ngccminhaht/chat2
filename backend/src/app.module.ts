@@ -14,6 +14,7 @@ import { MediaModule } from './modules/media/media.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
 import { ZaloModule } from './modules/zalo/zalo.module';
 import { ShopeeModule } from './modules/shopee/shopee.module';
+import { PlatformsModule } from './modules/platforms/platforms.module';
 
 @Module({
   imports: [
@@ -44,10 +45,13 @@ import { ShopeeModule } from './modules/shopee/shopee.module';
     ConnectionsModule,
     MediaModule,
 
-    // Platform modules
+    // Platform modules (legacy - to be deprecated)
     FacebookModule,
     ZaloModule,
     ShopeeModule,
+
+    // New unified platform module
+    PlatformsModule,
   ],
 })
 export class AppModule {}

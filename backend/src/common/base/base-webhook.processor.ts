@@ -10,6 +10,8 @@ import {
   MessageDirection,
   MessageType,
   ConversationStatus,
+  ConnectionStatus,
+  MessageStatus,
 } from '../constants';
 import {
   NormalizedMessage,
@@ -127,7 +129,7 @@ export abstract class BaseWebhookProcessor<TPayload = unknown>
       .findOne({
         platform: this.platform,
         platformAccountId,
-        status: 'active',
+        status: ConnectionStatus.ACTIVE,
       })
       .exec();
   }
@@ -209,7 +211,7 @@ export abstract class BaseWebhookProcessor<TPayload = unknown>
       type: normalizedMessage.type,
       senderId: normalizedMessage.senderId,
       content: normalizedMessage.content,
-      status: 'delivered',
+      status: MessageStatus.DELIVERED,
       metadata: normalizedMessage.metadata,
       createdAt: normalizedMessage.timestamp,
     });

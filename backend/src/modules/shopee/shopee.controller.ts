@@ -16,7 +16,7 @@ import {
 import { Request, Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { ShopeeWebhookDto } from './dto/shopee-webhook.dto';
-import { ShopeeAuthUrlDto, ShopeeCallbackDto } from './dto/oauth.dto';
+import { ShopeeAuthUrlDto, ShopeeAuthorizeDto, ShopeeCallbackDto } from './dto/oauth.dto';
 import { ShopeeService } from './shopee.service';
 import { WebhookPublisherService } from '@/modules/webhooks/webhook-publisher.service';
 import { OAuthStateService } from '@/modules/connections/oauth-state.service';
@@ -115,22 +115,14 @@ export class ShopeeController {
    * GET /api/shopee/authorize?userId=xxx
    */
   @Get('authorize')
-  async authorize(
-    @Query() dto: ShopeeAuthUrlDto,
-    @Query('userId') userId: string,
-    @Res() res: Response,
-  ) {
-    if (!userId) {
-      throw new BadRequestException('userId query parameter is required');
-    }
-
-    this.logger.log('🔐 User authorizing Shopee:', { userId });
+  async authorize(@Query() dto: ShopeeAuthorizeDto, @Res() res: Response) {
+    this.logger.log('🔐 User authorizing Shopee:', { userId: dto.userId });
 
     const { url, state } = this.shopeeService.getAuthorizationUrl(dto.state);
 
     await this.oauthStateService.storeState(state, {
       state,
-      userId,
+      userId: dto.userId,
       createdAt: Date.now(),
     });
 
@@ -142,31 +134,22 @@ export class ShopeeController {
    * GET /api/shopee/callback?code=xxx&state=xxx&shop_id=xxx
    */
   @Get('callback')
-  async callback(
-    @Query('code') code: string,
-    @Query('state') state: string,
-    @Query('shop_id') shopId: string,
-    @Res() res: Response,
-  ) {
-    this.logger.log('🔙 Shopee callback received:', { code: code?.substring(0, 20) + '...', state, shopId });
+  async callback(@Query() dto: ShopeeCallbackDto, @Res() res: Response) {
+    this.logger.log('🔙 Shopee callback received:', {
+      code: dto.code?.substring(0, 20) + '...',
+      state: dto.state,
+      shopId: dto.shop_id,
+    });
 
-    if (!code || !state || !shopId) {
-      throw new BadRequestException('Authorization code, state, and shop_id are required');
-    }
-
-    const storedStateData = await this.oauthStateService.getAndDeleteState(state);
+    const storedStateData = await this.oauthStateService.getAndDeleteState(dto.state);
     if (!storedStateData) {
       throw new BadRequestException('OAuth state not found or expired');
     }
 
-    if (state !== storedStateData.state) {
-      throw new BadRequestException('Invalid OAuth state');
-    }
-
     const userId = storedStateData.userId;
 
-    const tokenResponse = await this.shopeeService.exchangeCodeForToken(code, shopId);
-    const shopInfo = await this.shopeeService.getShopInfo(tokenResponse.access_token, parseInt(shopId));
+    const tokenResponse = await this.shopeeService.exchangeCodeForToken(dto.code, dto.shop_id);
+    const shopInfo = await this.shopeeService.getShopInfo(tokenResponse.access_token, parseInt(dto.shop_id));
 
     const connection = await this.shopeeService.savePlatformConnection(userId, tokenResponse, shopInfo);
 
@@ -213,17 +196,9 @@ export class ShopeeController {
   async completeOAuth(@Query() dto: ShopeeCallbackDto, @NestRequest() req: any) {
     const userId = req.user.userId;
 
-    if (!dto.code || !dto.state || !dto.shop_id) {
-      throw new BadRequestException('Authorization code, state, and shop_id are required');
-    }
-
     const storedStateData = await this.oauthStateService.getAndDeleteState(dto.state);
     if (!storedStateData) {
       throw new BadRequestException('OAuth state not found or expired');
-    }
-
-    if (dto.state !== storedStateData.state) {
-      throw new BadRequestException('Invalid OAuth state');
     }
 
     const tokenResponse = await this.shopeeService.exchangeCodeForToken(dto.code, dto.shop_id);

@@ -14,6 +14,7 @@ import {
   MessageDocument,
 } from '@/common/database/schemas/message.schema';
 import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
+import { ConnectionStatus } from '@/common/constants';
 
 @Injectable()
 export class ConnectionsService {
@@ -73,7 +74,7 @@ export class ConnectionsService {
 
   async updateStatus(
     id: string,
-    status: 'active' | 'inactive' | 'expired',
+    status: ConnectionStatus,
   ): Promise<PlatformConnectionDocument | null> {
     this.logger.log(`Updating platform connection ${id} status to ${status}`);
 

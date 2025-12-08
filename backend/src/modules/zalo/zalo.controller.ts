@@ -15,7 +15,7 @@ import {
 import { Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
-import { ZaloAuthUrlDto, ZaloCallbackDto } from './dto/oauth.dto';
+import { ZaloAuthUrlDto, ZaloAuthorizeDto, ZaloCallbackDto } from './dto/oauth.dto';
 import { ZaloService } from './zalo.service';
 import { WebhookPublisherService } from '@/modules/webhooks/webhook-publisher.service';
 import { OAuthStateService } from '@/modules/connections/oauth-state.service';
@@ -83,22 +83,14 @@ export class ZaloController {
    * GET /api/zalo/authorize?userId=xxx
    */
   @Get('authorize')
-  async authorize(
-    @Query() dto: ZaloAuthUrlDto,
-    @Query('userId') userId: string,
-    @Res() res: Response,
-  ) {
-    if (!userId) {
-      throw new BadRequestException('userId query parameter is required');
-    }
-
-    this.logger.log('🔐 User authorizing Zalo:', { userId });
+  async authorize(@Query() dto: ZaloAuthorizeDto, @Res() res: Response) {
+    this.logger.log('🔐 User authorizing Zalo:', { userId: dto.userId });
 
     const { url, codeVerifier, state } = this.zaloService.getAuthorizationUrl(dto.state);
 
     await this.oauthStateService.storeState(state, {
       state,
-      userId,
+      userId: dto.userId,
       codeVerifier,
       createdAt: Date.now(),
     });
@@ -111,31 +103,22 @@ export class ZaloController {
    * GET /api/zalo/callback?code=xxx&state=xxx&oa_id=xxx
    */
   @Get('callback')
-  async callback(
-    @Query('code') code: string,
-    @Query('state') state: string,
-    @Query('oa_id') oaId: string,
-    @Res() res: Response,
-  ) {
-    this.logger.log('🔙 Zalo callback received:', { code: code?.substring(0, 20) + '...', state, oaId });
+  async callback(@Query() dto: ZaloCallbackDto, @Res() res: Response) {
+    this.logger.log('🔙 Zalo callback received:', {
+      code: dto.code?.substring(0, 20) + '...',
+      state: dto.state,
+      oaId: dto.oa_id,
+    });
 
-    if (!code || !state) {
-      throw new BadRequestException('Authorization code and state are required');
-    }
-
-    const storedStateData = await this.oauthStateService.getAndDeleteState(state);
+    const storedStateData = await this.oauthStateService.getAndDeleteState(dto.state);
     if (!storedStateData) {
       throw new BadRequestException('OAuth state not found or expired');
-    }
-
-    if (state !== storedStateData.state) {
-      throw new BadRequestException('Invalid OAuth state');
     }
 
     const userId = storedStateData.userId;
     const codeVerifier = storedStateData.codeVerifier;
 
-    const tokenResponse = await this.zaloService.exchangeCodeForToken(code, codeVerifier, oaId);
+    const tokenResponse = await this.zaloService.exchangeCodeForToken(dto.code, codeVerifier, dto.oa_id);
     const oaInfo = await this.zaloService.getOAInfo(tokenResponse.access_token);
 
     const connection = await this.zaloService.savePlatformConnection(userId, tokenResponse, oaInfo);
@@ -184,17 +167,9 @@ export class ZaloController {
   async completeOAuth(@Query() dto: ZaloCallbackDto, @NestRequest() req: any) {
     const userId = req.user.userId;
 
-    if (!dto.code || !dto.state) {
-      throw new BadRequestException('Authorization code and state are required');
-    }
-
     const storedStateData = await this.oauthStateService.getAndDeleteState(dto.state);
     if (!storedStateData) {
       throw new BadRequestException('OAuth state not found or expired');
-    }
-
-    if (dto.state !== storedStateData.state) {
-      throw new BadRequestException('Invalid OAuth state');
     }
 
     const codeVerifier = dto.code_verifier || storedStateData.codeVerifier;

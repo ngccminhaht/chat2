@@ -1,5 +1,6 @@
 import { connect, connection } from 'mongoose';
 import * as dotenv from 'dotenv';
+import { ConnectionStatus } from '../src/common/constants';
 
 // Load environment variables
 dotenv.config();
@@ -27,7 +28,7 @@ async function fixPlatformConnections() {
     console.log('\nUpdating all platform connections to active...');
     const result = await platformConnections.updateMany(
       {},
-      { $set: { status: 'active' } }
+      { $set: { status: ConnectionStatus.ACTIVE } }
     );
 
     console.log(`Updated ${result.modifiedCount} platform connection(s)`);

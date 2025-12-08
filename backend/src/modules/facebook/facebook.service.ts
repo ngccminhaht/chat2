@@ -4,6 +4,7 @@ import { Model, Types } from "mongoose";
 import { createHmac, randomBytes } from "crypto";
 import axios from 'axios';
 import { EnvService } from '@/common/env';
+import { ConnectionStatus, ConversationStatus, MessageStatus } from '@/common/constants';
 import {
   Conversation,
   ConversationDocument,
@@ -251,7 +252,7 @@ export class FacebookService {
         customerPlatformUserId: senderId,
         customerName: userProfile.name,
         customerAvatar: userProfile.profile_pic,
-        status: "open",
+        status: ConversationStatus.OPEN,
         unreadCount: 0,
         metadata: {
           pageId: pageId,
@@ -320,7 +321,7 @@ export class FacebookService {
         name: userProfile.name,
         avatar: userProfile.profile_pic,
       },
-      status: "sent",
+      status: MessageStatus.SENT,
       metadata: {
         rawPayload: event,
       },
@@ -366,7 +367,7 @@ export class FacebookService {
           platform: "facebook",
           platformMessageId: mid,
         },
-        { status: "delivered" }
+        { status: MessageStatus.DELIVERED }
       );
     }
 
@@ -401,7 +402,7 @@ export class FacebookService {
           platform: "facebook",
           createdAt: { $lte: new Date(event.read.watermark) },
         },
-        { status: "read" }
+        { status: MessageStatus.READ }
       );
 
       // Reset conversation unread count
@@ -447,7 +448,7 @@ export class FacebookService {
         platformAccountId: pageId,
         customerPlatformUserId: senderId,
         customerName: `Facebook User ${senderId}`,
-        status: "open",
+        status: ConversationStatus.OPEN,
         unreadCount: 0,
         metadata: { pageId },
       });
@@ -470,7 +471,7 @@ export class FacebookService {
         platformUserId: senderId,
         name: conversation.customerName,
       },
-      status: "sent",
+      status: MessageStatus.SENT,
       metadata: {
         rawPayload: event,
       },
@@ -558,7 +559,7 @@ export class FacebookService {
         platformAccountId: pageId,
         customerPlatformUserId: commenterId,
         customerName: changeValue.sender_name || `Facebook User ${commenterId}`,
-        status: 'open',
+        status: ConversationStatus.OPEN,
         unreadCount: 0,
         metadata: {
           pageId: pageId,
@@ -588,7 +589,7 @@ export class FacebookService {
         platformUserId: commenterId,
         name: conversation.customerName,
       },
-      status: 'sent',
+      status: MessageStatus.SENT,
       metadata: {
         rawPayload: changeValue,
         postId: postId,
@@ -880,7 +881,7 @@ export class FacebookService {
       existing.credentials = {
         accessToken: pageInfo.access_token,
       };
-      existing.status = 'active';
+      existing.status = ConnectionStatus.ACTIVE;
       existing.metadata = {
         ...existing.metadata,
         pageId: pageInfo.id,
@@ -905,7 +906,7 @@ export class FacebookService {
       credentials: {
         accessToken: pageInfo.access_token,
       },
-      status: 'active',
+      status: ConnectionStatus.ACTIVE,
       metadata: {
         pageId: pageInfo.id,
         pageName: pageInfo.name,
@@ -945,7 +946,7 @@ export class FacebookService {
       .find({
         userId: new Types.ObjectId(userId),
         platform: 'facebook',
-        status: 'active',
+        status: ConnectionStatus.ACTIVE,
       })
       .exec();
 

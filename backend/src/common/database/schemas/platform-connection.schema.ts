@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { Platform, ConnectionStatus } from '@/common/constants';
 
 export type PlatformConnectionDocument = PlatformConnection & Document;
 
@@ -9,10 +10,11 @@ export class PlatformConnection {
   userId?: Types.ObjectId;
 
   @Prop({
+    type: String,
     required: true,
-    enum: ['facebook', 'zalo', 'tiktok', 'shopee'],
+    enum: Object.values(Platform),
   })
-  platform: string;
+  platform: Platform;
 
   @Prop({ required: true })
   platformAccountId: string;
@@ -29,11 +31,12 @@ export class PlatformConnection {
   };
 
   @Prop({
+    type: String,
     required: true,
-    enum: ['active', 'expired', 'error', 'pending'],
-    default: 'active',
+    enum: Object.values(ConnectionStatus),
+    default: ConnectionStatus.ACTIVE,
   })
-  status: string;
+  status: ConnectionStatus;
 
   @Prop()
   webhookSecret: string;

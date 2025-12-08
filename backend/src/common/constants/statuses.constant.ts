@@ -16,6 +16,7 @@ export enum ConversationStatus {
   PENDING = 'pending',
   RESOLVED = 'resolved',
   CLOSED = 'closed',
+  ARCHIVED = 'archived',
 }
 
 export enum MessageStatus {

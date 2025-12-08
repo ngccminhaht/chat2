@@ -16,7 +16,13 @@ import {
 import { Request, Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { FacebookWebhookDto } from './dto/facebook-webhook.dto';
-import { FacebookAuthUrlDto, FacebookCallbackDto } from './dto/oauth.dto';
+import {
+  FacebookAuthUrlDto,
+  FacebookAuthorizeDto,
+  FacebookCallbackDto,
+  FacebookPendingPagesDto,
+  FacebookSavePagesDto,
+} from './dto/oauth.dto';
 import { FacebookService } from './facebook.service';
 import { WebhookPublisherService } from '@/modules/webhooks/webhook-publisher.service';
 import { OAuthStateService } from '@/modules/connections/oauth-state.service';
@@ -114,22 +120,14 @@ export class FacebookController {
    * GET /api/facebook/authorize?userId=xxx
    */
   @Get('authorize')
-  async authorize(
-    @Query() dto: FacebookAuthUrlDto,
-    @Query('userId') userId: string,
-    @Res() res: Response,
-  ) {
-    if (!userId) {
-      throw new BadRequestException('userId query parameter is required');
-    }
-
-    this.logger.log('🔐 User authorizing Facebook:', { userId });
+  async authorize(@Query() dto: FacebookAuthorizeDto, @Res() res: Response) {
+    this.logger.log('🔐 User authorizing Facebook:', { userId: dto.userId });
 
     const { url, state } = this.facebookService.getAuthorizationUrl(dto.state);
 
     await this.oauthStateService.storeState(state, {
       state,
-      userId,
+      userId: dto.userId,
       createdAt: Date.now(),
     });
 
@@ -141,32 +139,20 @@ export class FacebookController {
    * GET /api/facebook/callback?code=xxx&state=xxx
    */
   @Get('callback')
-  async callback(
-    @Query('code') code: string,
-    @Query('state') state: string,
-    @Res() res: Response,
-  ) {
+  async callback(@Query() dto: FacebookCallbackDto, @Res() res: Response) {
     this.logger.log('🔙 Facebook callback received:', {
-      code: code?.substring(0, 20) + '...',
-      state,
+      code: dto.code?.substring(0, 20) + '...',
+      state: dto.state,
     });
 
-    if (!code || !state) {
-      throw new BadRequestException('Authorization code and state are required');
-    }
-
-    const storedStateData = await this.oauthStateService.getAndDeleteState(state);
+    const storedStateData = await this.oauthStateService.getAndDeleteState(dto.state);
     if (!storedStateData) {
       throw new BadRequestException('OAuth state not found or expired');
     }
 
     this.logger.log('✅ State verified, exchanging code for token');
 
-    if (state !== storedStateData.state) {
-      throw new BadRequestException('Invalid OAuth state');
-    }
-
-    const tokenResponse = await this.facebookService.exchangeCodeForToken(code);
+    const tokenResponse = await this.facebookService.exchangeCodeForToken(dto.code);
     const pages = await this.facebookService.getPages(tokenResponse.access_token);
 
     if (pages.length === 0) {
@@ -244,17 +230,9 @@ export class FacebookController {
   async completeOAuth(@Query() dto: FacebookCallbackDto, @NestRequest() req: any) {
     const userId = req.user.userId;
 
-    if (!dto.code || !dto.state) {
-      throw new BadRequestException('Authorization code and state are required');
-    }
-
     const storedStateData = await this.oauthStateService.getAndDeleteState(dto.state);
     if (!storedStateData) {
       throw new BadRequestException('OAuth state not found or expired');
-    }
-
-    if (dto.state !== storedStateData.state) {
-      throw new BadRequestException('Invalid OAuth state');
     }
 
     const tokenResponse = await this.facebookService.exchangeCodeForToken(dto.code);
@@ -342,14 +320,10 @@ export class FacebookController {
    */
   @Get('pending-pages')
   @UseGuards(JwtAuthGuard)
-  async getPendingPages(@Query('token') token: string, @NestRequest() req: any) {
-    if (!token) {
-      throw new BadRequestException('Selection token is required');
-    }
-
+  async getPendingPages(@Query() dto: FacebookPendingPagesDto, @NestRequest() req: any) {
     const userId = req.user.userId;
 
-    const pendingData = await this.oauthStateService.getState(`pages_${token}`);
+    const pendingData = await this.oauthStateService.getState(`pages_${dto.token}`);
 
     if (!pendingData) {
       throw new BadRequestException('Selection token expired or invalid');
@@ -372,19 +346,11 @@ export class FacebookController {
    */
   @Get('save-pages')
   @UseGuards(JwtAuthGuard)
-  async saveSelectedPages(
-    @Query('token') token: string,
-    @Query('pageIds') pageIds: string,
-    @NestRequest() req: any,
-  ) {
-    if (!token || !pageIds) {
-      throw new BadRequestException('Token and page IDs are required');
-    }
-
+  async saveSelectedPages(@Query() dto: FacebookSavePagesDto, @NestRequest() req: any) {
     const userId = req.user.userId;
-    const selectedPageIds = pageIds.split(',');
+    const selectedPageIds = dto.pageIds.split(',');
 
-    const pendingData = await this.oauthStateService.getAndDeleteState(`pages_${token}`);
+    const pendingData = await this.oauthStateService.getAndDeleteState(`pages_${dto.token}`);
 
     if (!pendingData) {
       throw new BadRequestException('Selection token expired or invalid');

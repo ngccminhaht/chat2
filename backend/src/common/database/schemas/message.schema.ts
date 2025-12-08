@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { Platform, MessageDirection, MessageType, MessageStatus } from '@/common/constants';
 
 export type MessageDocument = Message & Document;
 
@@ -9,25 +10,28 @@ export class Message {
   conversationId: Types.ObjectId;
 
   @Prop({
+    type: String,
     required: true,
-    enum: ['facebook', 'zalo', 'tiktok', 'shopee'],
+    enum: Object.values(Platform),
   })
-  platform: string;
+  platform: Platform;
 
   @Prop({ required: true })
   platformMessageId: string;
 
   @Prop({
+    type: String,
     required: true,
-    enum: ['inbound', 'outbound'],
+    enum: Object.values(MessageDirection),
   })
-  direction: string;
+  direction: MessageDirection;
 
   @Prop({
+    type: String,
     required: true,
-    enum: ['text', 'image', 'video', 'file', 'sticker', 'audio', 'location'],
+    enum: Object.values(MessageType),
   })
-  type: string;
+  type: MessageType;
 
   @Prop({ type: Object, required: true })
   content: {
@@ -48,11 +52,12 @@ export class Message {
   };
 
   @Prop({
+    type: String,
     required: true,
-    enum: ['pending', 'sent', 'delivered', 'read', 'failed'],
-    default: 'pending',
+    enum: Object.values(MessageStatus),
+    default: MessageStatus.PENDING,
   })
-  status: string;
+  status: MessageStatus;
 
   @Prop({ type: Object, default: {} })
   metadata: {

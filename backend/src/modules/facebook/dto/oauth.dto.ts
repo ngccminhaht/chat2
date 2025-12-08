@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class FacebookAuthUrlDto {
   @IsOptional()
@@ -6,12 +6,40 @@ export class FacebookAuthUrlDto {
   state?: string;
 }
 
+export class FacebookAuthorizeDto {
+  @IsNotEmpty()
+  @IsString()
+  userId: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+}
+
 export class FacebookCallbackDto {
+  @IsNotEmpty()
   @IsString()
   code: string;
 
+  @IsNotEmpty()
   @IsString()
   state: string;
+}
+
+export class FacebookPendingPagesDto {
+  @IsNotEmpty()
+  @IsString()
+  token: string;
+}
+
+export class FacebookSavePagesDto {
+  @IsNotEmpty()
+  @IsString()
+  token: string;
+
+  @IsNotEmpty()
+  @IsString()
+  pageIds: string;
 }
 
 export interface FacebookTokenResponse {

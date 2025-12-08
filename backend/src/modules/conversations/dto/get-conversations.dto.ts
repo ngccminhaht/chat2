@@ -1,14 +1,15 @@
 import { IsEnum, IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ConversationStatus, Platform } from '@/common/constants';
 
 export class GetConversationsDto {
   @IsOptional()
-  @IsEnum(['open', 'closed', 'archived'])
-  status?: string;
+  @IsEnum(ConversationStatus)
+  status?: ConversationStatus;
 
   @IsOptional()
-  @IsEnum(['facebook', 'zalo', 'tiktok', 'shopee'])
-  platform?: string;
+  @IsEnum(Platform)
+  platform?: Platform;
 
   @IsOptional()
   @IsString()

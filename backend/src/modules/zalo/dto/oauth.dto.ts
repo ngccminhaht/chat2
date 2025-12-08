@@ -1,6 +1,20 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class ZaloAuthUrlDto {
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  userId?: string;
+}
+
+export class ZaloAuthorizeDto {
+  @IsNotEmpty()
+  @IsString()
+  userId: string;
+
   @IsOptional()
   @IsString()
   state?: string;

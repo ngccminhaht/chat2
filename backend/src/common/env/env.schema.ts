@@ -57,8 +57,9 @@ export class EnvSchema {
   JWT_REFRESH_EXPIRES_IN?: string;
 
   // Kafka
-  @IsString()
-  KAFKA_BROKERS: string = 'localhost:8311';
+  @IsArray()
+  @Transform(({ value }) => value ? value.split(',').map((v: string) => v.trim()) : ['localhost:8311'])
+  KAFKA_BROKERS: string[] = ['localhost:8311'];
 
   @IsString()
   KAFKA_CLIENT_ID: string = 'omnichat-backend';
@@ -117,6 +118,10 @@ export class EnvSchema {
   @IsString()
   @IsOptional()
   SHOPEE_ENV?: string;
+
+  @IsString()
+  @IsOptional()
+  SHOPEE_API_URL?: string;
 
   // TikTok
   @IsString()

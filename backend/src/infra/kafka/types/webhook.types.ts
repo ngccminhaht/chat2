@@ -2,6 +2,8 @@
  * Kafka Message Types for Webhook Events
  */
 
+import { Platform, MessageStatus, MessageType } from '@/common/constants';
+
 /**
  * Raw webhook event published to platform.webhooks.raw
  */
@@ -9,8 +11,8 @@ export interface WebhookRawEvent {
   /** Unique event ID */
   eventId: string;
 
-  /** Platform name (facebook, zalo, tiktok, shopee) */
-  platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
+  /** Platform name */
+  platform: Platform;
 
   /** Platform account ID (OA ID, Page ID, etc.) */
   platformAccountId: string;
@@ -48,7 +50,7 @@ export interface IncomingMessageEvent {
   platformConnectionId: string;
 
   /** Platform name */
-  platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
+  platform: Platform;
 
   /** Platform message ID */
   platformMessageId: string;
@@ -57,7 +59,7 @@ export interface IncomingMessageEvent {
   platformConversationId: string;
 
   /** Message type */
-  messageType: 'text' | 'image' | 'video' | 'file' | 'audio' | 'sticker' | 'location';
+  messageType: MessageType;
 
   /** Message content (normalized) */
   content: any;
@@ -84,10 +86,10 @@ export interface MessageStatusEvent {
   platformMessageId: string;
 
   /** Platform name */
-  platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
+  platform: Platform;
 
   /** New status */
-  status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
+  status: MessageStatus;
 
   /** Status timestamp */
   timestamp: number;

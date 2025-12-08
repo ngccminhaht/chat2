@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { createHmac, randomBytes } from 'crypto';
 import axios from 'axios';
 import { EnvService } from '@/common/env';
+import { ConnectionStatus, ConversationStatus, MessageStatus } from '@/common/constants';
 import {
   Conversation,
   ConversationDocument,
@@ -146,7 +147,7 @@ export class ShopeeService {
         platformAccountId: shopId,
         customerPlatformUserId: customerId,
         customerName: displayName,
-        status: 'open',
+        status: ConversationStatus.OPEN,
         unreadCount: 0,
         metadata: {
           shopId,
@@ -177,7 +178,7 @@ export class ShopeeService {
         platformUserId: customerId,
         name: data.from_name || conversation.customerName,
       },
-      status: 'sent',
+      status: MessageStatus.SENT,
       metadata: {
         rawPayload: payload,
         region: data.region,
@@ -420,7 +421,7 @@ export class ShopeeService {
         refreshToken: tokenResponse.refresh_token,
         expiresAt,
       };
-      existing.status = 'active';
+      existing.status = ConnectionStatus.ACTIVE;
       existing.metadata = {
         ...existing.metadata,
         shopId: shopInfo.shop_id.toString(),
@@ -442,7 +443,7 @@ export class ShopeeService {
         refreshToken: tokenResponse.refresh_token,
         expiresAt,
       },
-      status: 'active',
+      status: ConnectionStatus.ACTIVE,
       metadata: {
         shopId: shopInfo.shop_id.toString(),
         region: shopInfo.region,
