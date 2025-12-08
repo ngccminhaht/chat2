@@ -11,9 +11,6 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { ConnectionsModule } from './modules/connections/connections.module';
 import { MediaModule } from './modules/media/media.module';
-import { FacebookModule } from './modules/facebook/facebook.module';
-import { ZaloModule } from './modules/zalo/zalo.module';
-import { ShopeeModule } from './modules/shopee/shopee.module';
 import { PlatformsModule } from './modules/platforms/platforms.module';
 
 @Module({
@@ -45,12 +42,7 @@ import { PlatformsModule } from './modules/platforms/platforms.module';
     ConnectionsModule,
     MediaModule,
 
-    // Platform modules (legacy - to be deprecated)
-    FacebookModule,
-    ZaloModule,
-    ShopeeModule,
-
-    // New unified platform module
+    // Unified platform module (handles all platform integrations)
     PlatformsModule,
   ],
 })

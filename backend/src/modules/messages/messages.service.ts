@@ -6,11 +6,9 @@ import { Conversation, ConversationDocument } from '@/common/database/schemas/co
 import { PlatformConnection, PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
-import { MessageStatus } from '@/common/constants';
-import { FacebookService } from '@/modules/facebook/facebook.service';
-import { ZaloService } from '@/modules/zalo/zalo.service';
+import { MessageStatus, KAFKA_TOPICS, Platform, MessageType } from '@/common/constants';
 import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
-import { KAFKA_TOPICS } from '@/infra/kafka/kafka.config';
+import { OutgoingMessageEvent } from '@/common/platform/types/kafka-events.type';
 import {
   WebSocketNotificationEvent,
   NewMessagePayload,
@@ -29,8 +27,6 @@ export class MessagesService {
     private conversationModel: Model<ConversationDocument>,
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
-    private facebookService: FacebookService,
-    private zaloService: ZaloService,
     private kafkaProducer: KafkaProducerService,
   ) {}
 
@@ -76,6 +72,16 @@ export class MessagesService {
     };
   }
 
+  /**
+   * Send message via Kafka async flow
+   *
+   * Flow:
+   * 1. Create message with pending status
+   * 2. Publish to messages.outgoing topic
+   * 3. Return pending message (actual sending happens async)
+   * 4. OutgoingMessageConsumer handles sending via platform adapter
+   * 5. Consumer updates status and publishes WebSocket notification
+   */
   async send(userId: string, dto: SendMessageDto) {
     const { conversationId, type, content } = dto;
 
@@ -97,10 +103,9 @@ export class MessagesService {
       throw new NotFoundException('Platform connection not found');
     }
 
-    this.logger.log(`📧 Sending message to conversation: ${conversationId}`);
+    this.logger.log(`📧 Queuing message for conversation: ${conversationId}`);
     this.logger.log(`  Platform: ${conversation.platform}`);
     this.logger.log(`  Customer: ${conversation.customerPlatformUserId}`);
-    this.logger.log(`  Platform Connection: ${platformConnection._id} (${platformConnection.platform})`);
 
     // Sender info for outbound message (agent/system)
     const senderInfo = {
@@ -113,7 +118,7 @@ export class MessagesService {
     const message = await this.messageModel.create({
       conversationId: new Types.ObjectId(conversationId),
       platform: conversation.platform,
-      platformMessageId: `temp_${Date.now()}_${Math.random()}`, // Will be updated after platform API call
+      platformMessageId: `pending_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       direction: 'outbound',
       type,
       content,
@@ -124,151 +129,58 @@ export class MessagesService {
       },
     });
 
+    // Build outgoing message event for Kafka
+    const outgoingEvent: OutgoingMessageEvent = {
+      messageId: message._id.toString(),
+      conversationId: conversation._id.toString(),
+      platform: conversation.platform as Platform,
+      platformConnectionId: platformConnection._id.toString(),
+      platformAccountId: platformConnection.platformAccountId,
+      recipientId: conversation.customerPlatformUserId,
+      message: {
+        type: type as MessageType,
+        text: content.text,
+        mediaUrl: content.url || content.attachments?.[0]?.url,
+        mediaType: content.mediaType || content.attachments?.[0]?.type,
+        fileName: content.fileName || content.attachments?.[0]?.name,
+        stickerId: content.stickerId || content.attachments?.[0]?.stickerId,
+      },
+      credentials: {
+        accessToken: platformConnection.credentials.accessToken,
+      },
+      timestamp: Date.now(),
+    };
+
+    // Publish to Kafka for async processing
     try {
-      // Send message to platform
-      if (conversation.platform === 'zalo') {
-        this.logger.log('=== Sending Zalo message ===');
-        this.logger.log(`  Type: ${type}`);
-        this.logger.log(`  Recipient platformUserId: ${conversation.customerPlatformUserId}`);
-        this.logger.log(`  Platform connection: ${platformConnection._id}`);
+      await this.kafkaProducer.publish(KAFKA_TOPICS.MESSAGES_OUTGOING, {
+        key: conversationId, // Partition by conversation for ordering
+        value: outgoingEvent,
+      });
 
-        // Get OA access token from platform connection
-        const accessToken = platformConnection.credentials.accessToken;
-        let result: { message_id: string };
-        let lastMessageText = '';
-
-        // Send message based on type
-        switch (type) {
-          case 'text':
-            this.logger.log(`  Message content: ${content.text?.substring(0, 50)}...`);
-            result = await this.zaloService.sendTextMessage(
-              accessToken,
-              conversation.customerPlatformUserId,
-              content.text,
-            );
-            lastMessageText = content.text;
-            break;
-
-          case 'image':
-            if (!content.url && !content.attachments?.[0]?.url) {
-              throw new BadRequestException('Image URL is required');
-            }
-            const imageUrl = content.url || content.attachments[0].url;
-            this.logger.log(`  Image URL: ${imageUrl}`);
-            result = await this.zaloService.sendImageMessage(
-              accessToken,
-              conversation.customerPlatformUserId,
-              imageUrl,
-            );
-            lastMessageText = '[Hình ảnh]';
-            break;
-
-          case 'file':
-            if (!content.url && !content.attachments?.[0]?.url) {
-              throw new BadRequestException('File URL is required');
-            }
-            const fileUrl = content.url || content.attachments[0].url;
-            this.logger.log(`  File URL: ${fileUrl}`);
-            result = await this.zaloService.sendFileMessage(
-              accessToken,
-              conversation.customerPlatformUserId,
-              fileUrl,
-            );
-            lastMessageText = '[Tệp đính kèm]';
-            break;
-
-          case 'sticker':
-            if (!content.stickerId && !content.attachments?.[0]?.stickerId) {
-              throw new BadRequestException('Sticker ID is required');
-            }
-            const stickerId = content.stickerId || content.attachments[0].stickerId;
-            this.logger.log(`  Sticker ID: ${stickerId}`);
-            result = await this.zaloService.sendStickerMessage(
-              accessToken,
-              conversation.customerPlatformUserId,
-              stickerId,
-            );
-            lastMessageText = '[Sticker]';
-            break;
-
-          default:
-            throw new BadRequestException(`Message type '${type}' is not supported for Zalo`);
-        }
-
-        // Update message with actual platform message ID and status
-        message.platformMessageId = result.message_id;
-        message.status = MessageStatus.SENT;
-        await message.save();
-
-        // Update conversation's last message
-        await this.conversationModel.findByIdAndUpdate(conversationId, {
-          lastMessage: {
-            text: lastMessageText,
-            timestamp: new Date(),
-            senderId: platformConnection.platformAccountId,
-            messageId: message._id,
-          },
-        });
-
-        this.logger.log(`✅ Zalo message sent successfully: ${result.message_id}`);
-      } else if (conversation.platform === 'facebook') {
-        if (type !== 'text') {
-          throw new BadRequestException('Only text messages are supported for Facebook');
-        }
-
-        this.logger.log('=== Sending Facebook message ===');
-        this.logger.log(`  Recipient platformUserId: ${conversation.customerPlatformUserId}`);
-        this.logger.log(`  Platform connection: ${platformConnection._id}`);
-        this.logger.log(`  Message content: ${content.text?.substring(0, 50)}...`);
-
-        // Get page access token from platform connection
-        const pageAccessToken = platformConnection.credentials.accessToken;
-
-        // Send message via Facebook API
-        const result = await this.facebookService.sendTextMessage(
-          pageAccessToken,
-          conversation.customerPlatformUserId,
-          content.text,
-        );
-
-        // Update message with actual platform message ID and status
-        message.platformMessageId = result.message_id;
-        message.status = MessageStatus.SENT;
-        await message.save();
-
-        // Update conversation's last message
-        await this.conversationModel.findByIdAndUpdate(conversationId, {
-          lastMessage: {
-            text: content.text,
-            timestamp: new Date(),
-            senderId: platformConnection.platformAccountId,
-            messageId: message._id,
-          },
-        });
-
-        this.logger.log(`✅ Message sent successfully: ${result.message_id}`);
-      } else {
-        throw new BadRequestException(`Platform ${conversation.platform} not supported yet`);
-      }
+      this.logger.log(`📤 Published to ${KAFKA_TOPICS.MESSAGES_OUTGOING}: ${message._id}`);
     } catch (error) {
-      this.logger.error('Failed to send message to platform:', error);
+      this.logger.error(`Failed to publish outgoing message: ${error.message}`);
 
       // Update message status to failed
       message.status = MessageStatus.FAILED;
       message.metadata = {
         ...message.metadata,
-        error: error.message,
+        error: `Failed to queue message: ${error.message}`,
       };
       await message.save();
 
-      // Publish failed message notification to Kafka
-      await this.publishMessageNotification(platformConnection.userId.toString(), conversation, message);
-
-      throw error;
+      throw new BadRequestException('Failed to queue message for sending');
     }
 
-    // Publish successful message notification to Kafka
-    await this.publishMessageNotification(platformConnection.userId.toString(), conversation, message);
+    // Immediately publish pending message to WebSocket so UI shows it
+    if (platformConnection.userId) {
+      await this.publishPendingMessageNotification(
+        platformConnection.userId.toString(),
+        conversation,
+        message,
+      );
+    }
 
     return message;
   }
@@ -285,7 +197,7 @@ export class MessagesService {
       .exec();
   }
 
-  async markAsRead(conversationId: string, userId: string) {
+  async markAsRead(conversationId: string, _userId: string) {
     // Verify conversation exists
     const conversation = await this.conversationModel
       .findById(conversationId)
@@ -388,15 +300,16 @@ export class MessagesService {
   }
 
   /**
-   * Publish message and conversation notifications to Kafka
+   * Publish pending message notification to WebSocket
+   * This shows the message immediately in UI with 'pending' status
    */
-  private async publishMessageNotification(
+  private async publishPendingMessageNotification(
     userId: string,
     conversation: ConversationDocument,
     message: MessageDocument,
   ): Promise<void> {
     try {
-      // Publish new message event
+      // Publish new message event (with pending status)
       const newMessageEvent: WebSocketNotificationEvent = {
         type: 'message:new',
         userId,
@@ -409,7 +322,7 @@ export class MessagesService {
           content: message.content,
           sender: message.sender,
           status: message.status,
-          createdAt: (message as any).createdAt,
+          createdAt: new Date(),
         } as NewMessagePayload,
         timestamp: Date.now(),
       };
@@ -419,35 +332,9 @@ export class MessagesService {
         value: newMessageEvent,
       });
 
-      // Reload conversation to get updated lastMessage
-      const updatedConversation = await this.conversationModel
-        .findById(conversation._id)
-        .lean()
-        .exec();
-
-      if (updatedConversation) {
-        // Publish conversation updated event
-        const conversationEvent: WebSocketNotificationEvent = {
-          type: 'conversation:updated',
-          userId,
-          payload: {
-            _id: updatedConversation._id.toString(),
-            platform: updatedConversation.platform,
-            unreadCount: updatedConversation.unreadCount,
-            lastMessage: updatedConversation.lastMessage,
-          } as ConversationUpdatedPayload,
-          timestamp: Date.now(),
-        };
-
-        await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-          key: userId,
-          value: conversationEvent,
-        });
-      }
-
-      this.logger.log(`📤 Published message notifications to Kafka for user ${userId}`);
+      this.logger.log(`📤 Published pending message notification for user ${userId}`);
     } catch (error) {
-      this.logger.error('Failed to publish message notification:', error);
+      this.logger.error('Failed to publish pending message notification:', error);
     }
   }
 }

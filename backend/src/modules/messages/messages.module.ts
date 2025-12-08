@@ -5,10 +5,6 @@ import { MessagesService } from './messages.service';
 import { Message, MessageSchema } from '@/common/database/schemas/message.schema';
 import { Conversation, ConversationSchema } from '@/common/database/schemas/conversation.schema';
 import { PlatformConnection, PlatformConnectionSchema } from '@/common/database/schemas/platform-connection.schema';
-import { ConnectionsModule } from '@/modules/connections/connections.module';
-import { WebsocketModule } from '@/modules/websocket/websocket.module';
-import { FacebookModule } from '@/modules/facebook/facebook.module';
-import { ZaloModule } from '@/modules/zalo/zalo.module';
 
 @Module({
   imports: [
@@ -17,10 +13,7 @@ import { ZaloModule } from '@/modules/zalo/zalo.module';
       { name: Conversation.name, schema: ConversationSchema },
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
-    ConnectionsModule,
-    WebsocketModule,
-    FacebookModule,
-    ZaloModule,
+    // Note: KafkaModule is @Global(), no need to import here
   ],
   controllers: [MessagesController],
   providers: [MessagesService],
