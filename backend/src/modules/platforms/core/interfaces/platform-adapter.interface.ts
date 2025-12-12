@@ -105,6 +105,8 @@ export interface SendResult {
   success: boolean;
   platformMessageId?: string;
   error?: string;
+  /** Set to true when token has expired and needs refresh before retry */
+  needsTokenRefresh?: boolean;
 }
 
 // ============================================================================

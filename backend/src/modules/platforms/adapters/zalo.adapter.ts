@@ -13,6 +13,9 @@ import {
 } from '@/common/constants';
 import { EnvService } from '@/common/env';
 import { PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
+
+// Zalo error codes that indicate token expiration
+const ZALO_TOKEN_EXPIRED_ERRORS = [-216, -124]; // -216: access token expired, -124: invalid access token
 import {
   IPlatformAdapter,
   BasePlatformAdapter,
@@ -276,10 +279,23 @@ export class ZaloAdapter extends BasePlatformAdapter {
       this.logger.log(`📨 Zalo API response:`, response.data);
 
       if (response.data.error !== 0) {
-        this.logger.error(`❌ Zalo API error: ${response.data.error} - ${response.data.message}`);
+        const errorCode = response.data.error;
+        const errorMessage = response.data.message || `Zalo error: ${errorCode}`;
+
+        // Check if token expired - return special error for retry with refresh
+        if (ZALO_TOKEN_EXPIRED_ERRORS.includes(errorCode)) {
+          this.logger.warn(`🔄 Zalo access token expired (error ${errorCode}), needs refresh`);
+          return {
+            success: false,
+            error: errorMessage,
+            needsTokenRefresh: true,
+          };
+        }
+
+        this.logger.error(`❌ Zalo API error: ${errorCode} - ${errorMessage}`);
         return {
           success: false,
-          error: response.data.message || `Zalo error: ${response.data.error}`,
+          error: errorMessage,
         };
       }
 

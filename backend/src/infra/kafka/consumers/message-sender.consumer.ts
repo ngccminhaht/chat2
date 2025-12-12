@@ -8,9 +8,10 @@
 
 import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
+import axios from 'axios';
 import { KAFKA_TOPICS } from '../kafka.config';
 import { OutgoingMessageEvent } from '../types/webhook.types';
-import { Platform, MessageStatus, MessageType } from '@/common/constants';
+import { Platform, MessageStatus } from '@/common/constants';
 import { PlatformRegistry } from '@/modules/platforms/core/services/platform.registry';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -27,6 +28,7 @@ import {
   WebSocketNotificationEvent,
   MessageStatusPayload,
 } from '../types/webhook.types';
+import { EnvService } from '@/common/env';
 
 @Controller()
 export class MessageSenderConsumer {
@@ -39,6 +41,7 @@ export class MessageSenderConsumer {
     @InjectModel(PlatformConnection.name)
     private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
     private readonly kafkaProducer: KafkaProducerService,
+    private readonly envService: EnvService,
   ) {
     this.logger.log(`🚀 MessageSenderConsumer initialized, listening on: ${KAFKA_TOPICS.MESSAGES_OUTGOING}`);
   }
@@ -87,13 +90,30 @@ export class MessageSenderConsumer {
       const platformPayload = adapter.formatOutbound(outboundMessage);
 
       // 4. Send message via adapter
-      const result = await adapter.send(
+      let result = await adapter.send(
         connection,
         event.recipientId,
         platformPayload,
       );
 
-      // 5. Update message status
+      // 5. Handle token refresh if needed (Zalo specific)
+      if (!result.success && result.needsTokenRefresh && event.platform === Platform.ZALO) {
+        this.logger.log(`🔄 Attempting to refresh Zalo access token for connection ${connection._id}`);
+
+        const refreshedConnection = await this.refreshZaloToken(connection);
+        if (refreshedConnection) {
+          this.logger.log(`✅ Token refreshed, retrying send...`);
+          result = await adapter.send(
+            refreshedConnection,
+            event.recipientId,
+            platformPayload,
+          );
+        } else {
+          this.logger.error(`❌ Failed to refresh token, marking message as failed`);
+        }
+      }
+
+      // 6. Update message status
       if (result.success) {
         await this.updateMessageStatus(
           event.messageId,
@@ -113,7 +133,7 @@ export class MessageSenderConsumer {
         this.logger.error(`❌ Failed to send message: ${result.error}`);
       }
 
-      // 6. Publish status notification
+      // 7. Publish status notification
       await this.publishStatusNotification(event, result.success ? MessageStatus.SENT : MessageStatus.FAILED);
 
     } catch (error) {
@@ -215,6 +235,76 @@ export class MessageSenderConsumer {
       });
     } catch (error) {
       this.logger.error(`Failed to publish status notification: ${error.message}`);
+    }
+  }
+
+  /**
+   * Refresh Zalo access token and update connection in database
+   * @returns Updated connection with new tokens, or null if refresh failed
+   */
+  private async refreshZaloToken(
+    connection: PlatformConnectionDocument,
+  ): Promise<PlatformConnectionDocument | null> {
+    try {
+      const refreshToken = connection.credentials?.refreshToken;
+      if (!refreshToken || refreshToken === 'placeholder') {
+        this.logger.error(`❌ No valid refresh token for connection ${connection._id}`);
+        return null;
+      }
+
+      const appId = this.envService.get('ZALO_APP_ID');
+      const appSecret = this.envService.get('ZALO_APP_SECRET');
+
+      const params = new URLSearchParams({
+        app_id: appId,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      });
+
+      this.logger.log(`🔄 Calling Zalo refresh token API...`);
+
+      const response = await axios.post(
+        'https://oauth.zaloapp.com/v4/oa/access_token',
+        params.toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            secret_key: appSecret,
+          },
+        },
+      );
+
+      this.logger.log(`📨 Zalo refresh token response:`, {
+        error: response.data.error,
+        hasAccessToken: !!response.data.access_token,
+      });
+
+      // Check for error (Zalo returns error field on failure)
+      if (response.data.error) {
+        this.logger.error(`❌ Zalo refresh token error: ${response.data.error} - ${response.data.message}`);
+        return null;
+      }
+
+      // Update connection with new tokens
+      const newAccessToken = response.data.access_token;
+      const newRefreshToken = response.data.refresh_token;
+      const expiresIn = response.data.expires_in || 3600;
+
+      const updatedConnection = await this.platformConnectionModel.findByIdAndUpdate(
+        connection._id,
+        {
+          'credentials.accessToken': newAccessToken,
+          'credentials.refreshToken': newRefreshToken,
+          'credentials.expiresAt': new Date(Date.now() + expiresIn * 1000),
+        },
+        { new: true },
+      ).exec();
+
+      this.logger.log(`✅ Zalo token refreshed successfully for connection ${connection._id}`);
+      return updatedConnection;
+    } catch (error) {
+      this.logger.error(`❌ Failed to refresh Zalo token: ${error.response?.data || error.message}`);
+      return null;
     }
   }
 }
