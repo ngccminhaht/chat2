@@ -162,28 +162,49 @@ export class ShopeeService {
 
     // Determine message type
     const messageType = this.getMessageTypeString(data.message_type);
+    const platformMessageId = data.message_id;
 
-    // Create message
-    const message = await this.messageModel.create({
-      conversationId: conversation._id,
+    // Check for duplicate
+    const existingMessage = await this.messageModel.findOne({
       platform: 'shopee',
-      platformMessageId: data.message_id,
-      direction: 'inbound',
-      type: messageType,
-      content: {
-        text: data.content,
-        type: data.message_type,
-      },
-      sender: {
-        platformUserId: customerId,
-        name: data.from_name || conversation.customerName,
-      },
-      status: MessageStatus.SENT,
-      metadata: {
-        rawPayload: payload,
-        region: data.region,
-      },
-    });
+      platformMessageId,
+    }).exec();
+
+    if (existingMessage) {
+      this.logger.log(`⏭️ Skipping duplicate message: ${platformMessageId}`);
+      return;
+    }
+
+    // Create message (with E11000 handling)
+    let message: MessageDocument;
+    try {
+      message = await this.messageModel.create({
+        conversationId: conversation._id,
+        platform: 'shopee',
+        platformMessageId,
+        direction: 'inbound',
+        type: messageType,
+        content: {
+          text: data.content,
+          type: data.message_type,
+        },
+        sender: {
+          platformUserId: customerId,
+          name: data.from_name || conversation.customerName,
+        },
+        status: MessageStatus.SENT,
+        metadata: {
+          rawPayload: payload,
+          region: data.region,
+        },
+      });
+    } catch (error) {
+      if (error.code === 11000) {
+        this.logger.log(`⏭️ Skipping duplicate message (E11000): ${platformMessageId}`);
+        return;
+      }
+      throw error;
+    }
 
     this.logger.log(`✅ Message saved: ${message._id}`);
 

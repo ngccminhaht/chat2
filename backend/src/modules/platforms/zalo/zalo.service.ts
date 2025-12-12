@@ -282,8 +282,9 @@ export class ZaloService {
 
     // Determine message type from event_name
     const messageType = payload.event_name.replace("user_send_", ""); // user_send_text -> text
+    const platformMessageId = payload.message.msg_id;
 
-    // Create message
+    // Create message (with duplicate check)
     this.logger.log("Creating message in database:", {
       conversationId: conversation._id,
       messageType,
@@ -291,23 +292,43 @@ export class ZaloService {
       senderId: senderId,
     });
 
-    const message = await this.messageModel.create({
-      conversationId: conversation._id,
+    // Check for duplicate
+    const existingMessage = await this.messageModel.findOne({
       platform: "zalo",
-      platformMessageId: payload.message.msg_id,
-      direction: "inbound",
-      type: messageType,
-      content: payload.message, // Store entire message object
-      sender: {
-        platformUserId: senderId,
-        name: conversation.customerName,
-        avatar: conversation.customerAvatar,
-      },
-      status: MessageStatus.SENT,
-      metadata: {
-        rawPayload: payload,
-      },
-    });
+      platformMessageId,
+    }).exec();
+
+    if (existingMessage) {
+      this.logger.log(`⏭️ Skipping duplicate message: ${platformMessageId}`);
+      return;
+    }
+
+    let message: MessageDocument;
+    try {
+      message = await this.messageModel.create({
+        conversationId: conversation._id,
+        platform: "zalo",
+        platformMessageId,
+        direction: "inbound",
+        type: messageType,
+        content: payload.message, // Store entire message object
+        sender: {
+          platformUserId: senderId,
+          name: conversation.customerName,
+          avatar: conversation.customerAvatar,
+        },
+        status: MessageStatus.SENT,
+        metadata: {
+          rawPayload: payload,
+        },
+      });
+    } catch (error) {
+      if (error.code === 11000) {
+        this.logger.log(`⏭️ Skipping duplicate message (E11000): ${platformMessageId}`);
+        return;
+      }
+      throw error;
+    }
 
     this.logger.log(`✅ Message saved successfully: ${message._id}`);
 

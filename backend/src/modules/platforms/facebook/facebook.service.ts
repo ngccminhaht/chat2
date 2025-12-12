@@ -295,7 +295,7 @@ export class FacebookService {
       }
     }
 
-    // Create message
+    // Create message (with duplicate check)
     const messageId = message.mid;
 
     this.logger.log("Creating message in database:", {
@@ -305,27 +305,48 @@ export class FacebookService {
       senderId: senderId,
     });
 
-    const newMessage = await this.messageModel.create({
-      conversationId: conversation._id,
+    // Check for duplicate before creating
+    const existingMessage = await this.messageModel.findOne({
       platform: "facebook",
       platformMessageId: messageId,
-      direction: "inbound",
-      type: messageType,
-      content: {
-        text: messageText,
-        mediaUrl: message.attachments?.[0]?.payload?.url,
-        mediaType: message.attachments?.[0]?.type,
-      },
-      sender: {
-        platformUserId: senderId,
-        name: userProfile.name,
-        avatar: userProfile.profile_pic,
-      },
-      status: MessageStatus.SENT,
-      metadata: {
-        rawPayload: event,
-      },
-    });
+    }).exec();
+
+    if (existingMessage) {
+      this.logger.log(`⏭️ Skipping duplicate message: ${messageId}`);
+      return;
+    }
+
+    let newMessage: MessageDocument;
+    try {
+      newMessage = await this.messageModel.create({
+        conversationId: conversation._id,
+        platform: "facebook",
+        platformMessageId: messageId,
+        direction: "inbound",
+        type: messageType,
+        content: {
+          text: messageText,
+          mediaUrl: message.attachments?.[0]?.payload?.url,
+          mediaType: message.attachments?.[0]?.type,
+        },
+        sender: {
+          platformUserId: senderId,
+          name: userProfile.name,
+          avatar: userProfile.profile_pic,
+        },
+        status: MessageStatus.SENT,
+        metadata: {
+          rawPayload: event,
+        },
+      });
+    } catch (error) {
+      // E11000 duplicate key error - race condition, skip
+      if (error.code === 11000) {
+        this.logger.log(`⏭️ Skipping duplicate message (E11000): ${messageId}`);
+        return;
+      }
+      throw error;
+    }
 
     this.logger.log(`✅ Message saved successfully: ${newMessage._id}`);
 
@@ -454,28 +475,49 @@ export class FacebookService {
       });
     }
 
-    // Create postback as a message
+    // Create postback as a message (with duplicate check)
     const messageText = `[Postback: ${postback.title}]`;
+    const postbackMessageId = `postback_${senderId}_${timestamp.getTime()}`;
 
-    const newMessage = await this.messageModel.create({
-      conversationId: conversation._id,
+    // Check for duplicate
+    const existingPostback = await this.messageModel.findOne({
       platform: "facebook",
-      platformMessageId: `postback_${senderId}_${timestamp.getTime()}`,
-      direction: "inbound",
-      type: "postback",
-      content: {
-        text: messageText,
-        payload: postback.payload,
-      },
-      sender: {
-        platformUserId: senderId,
-        name: conversation.customerName,
-      },
-      status: MessageStatus.SENT,
-      metadata: {
-        rawPayload: event,
-      },
-    });
+      platformMessageId: postbackMessageId,
+    }).exec();
+
+    if (existingPostback) {
+      this.logger.log(`⏭️ Skipping duplicate postback: ${postbackMessageId}`);
+      return;
+    }
+
+    let newMessage: MessageDocument;
+    try {
+      newMessage = await this.messageModel.create({
+        conversationId: conversation._id,
+        platform: "facebook",
+        platformMessageId: postbackMessageId,
+        direction: "inbound",
+        type: "postback",
+        content: {
+          text: messageText,
+          payload: postback.payload,
+        },
+        sender: {
+          platformUserId: senderId,
+          name: conversation.customerName,
+        },
+        status: MessageStatus.SENT,
+        metadata: {
+          rawPayload: event,
+        },
+      });
+    } catch (error) {
+      if (error.code === 11000) {
+        this.logger.log(`⏭️ Skipping duplicate postback (E11000): ${postbackMessageId}`);
+        return;
+      }
+      throw error;
+    }
 
     await this.conversationModel.findByIdAndUpdate(conversation._id, {
       lastMessage: {
@@ -573,28 +615,49 @@ export class FacebookService {
       );
     }
 
-    // Create comment as a message
+    // Create comment as a message (with duplicate check)
     const messageText = commentText || '[Comment]';
+    const commentMessageId = commentId || `comment_${commenterId}_${timestamp.getTime()}`;
 
-    const newMessage = await this.messageModel.create({
-      conversationId: conversation._id,
+    // Check for duplicate
+    const existingComment = await this.messageModel.findOne({
       platform: 'facebook',
-      platformMessageId: commentId || `comment_${commenterId}_${timestamp.getTime()}`,
-      direction: 'inbound',
-      type: 'comment',
-      content: {
-        text: messageText,
-      },
-      sender: {
-        platformUserId: commenterId,
-        name: conversation.customerName,
-      },
-      status: MessageStatus.SENT,
-      metadata: {
-        rawPayload: changeValue,
-        postId: postId,
-      },
-    });
+      platformMessageId: commentMessageId,
+    }).exec();
+
+    if (existingComment) {
+      this.logger.log(`⏭️ Skipping duplicate comment: ${commentMessageId}`);
+      return;
+    }
+
+    let newMessage: MessageDocument;
+    try {
+      newMessage = await this.messageModel.create({
+        conversationId: conversation._id,
+        platform: 'facebook',
+        platformMessageId: commentMessageId,
+        direction: 'inbound',
+        type: 'comment',
+        content: {
+          text: messageText,
+        },
+        sender: {
+          platformUserId: commenterId,
+          name: conversation.customerName,
+        },
+        status: MessageStatus.SENT,
+        metadata: {
+          rawPayload: changeValue,
+          postId: postId,
+        },
+      });
+    } catch (error) {
+      if (error.code === 11000) {
+        this.logger.log(`⏭️ Skipping duplicate comment (E11000): ${commentMessageId}`);
+        return;
+      }
+      throw error;
+    }
 
     this.logger.log(`✅ Comment saved: ${newMessage._id}`);
 

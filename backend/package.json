@@ -11,7 +11,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand"
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.937.0",
@@ -42,16 +43,23 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@js-ak/kafkajs-mock": "^1.0.0",
     "@nestjs/cli": "^11.0.10",
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/testing": "^11.1.8",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.5",
+    "@types/jest": "^30.0.0",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
     "@types/passport-jwt": "^4.0.1",
+    "@types/supertest": "^6.0.2",
     "@types/uuid": "^11.0.0",
+    "jest": "^30.2.0",
+    "supertest": "^7.1.0",
+    "mongodb-memory-server": "^10.4.1",
+    "ts-jest": "^29.4.6",
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
