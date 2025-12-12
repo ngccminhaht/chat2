@@ -248,14 +248,23 @@ export class ZaloAdapter extends BasePlatformAdapter {
     try {
       const accessToken = connection.credentials.accessToken;
 
+      this.logger.log(`📤 Sending Zalo message to ${recipientId}`, {
+        payload,
+        hasAccessToken: !!accessToken,
+      });
+
+      const requestBody = {
+        recipient: {
+          user_id: recipientId,
+        },
+        ...payload,
+      };
+
+      this.logger.debug('Zalo API request:', JSON.stringify(requestBody, null, 2));
+
       const response = await axios.post(
         'https://openapi.zalo.me/v3.0/oa/message/cs',
-        {
-          recipient: {
-            user_id: recipientId,
-          },
-          ...payload,
-        },
+        requestBody,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -264,19 +273,23 @@ export class ZaloAdapter extends BasePlatformAdapter {
         },
       );
 
+      this.logger.log(`📨 Zalo API response:`, response.data);
+
       if (response.data.error !== 0) {
+        this.logger.error(`❌ Zalo API error: ${response.data.error} - ${response.data.message}`);
         return {
           success: false,
           error: response.data.message || `Zalo error: ${response.data.error}`,
         };
       }
 
+      this.logger.log(`✅ Zalo message sent successfully: ${response.data.data?.message_id}`);
       return {
         success: true,
         platformMessageId: response.data.data?.message_id,
       };
     } catch (error) {
-      this.logger.error('Zalo send failed:', error.response?.data || error.message);
+      this.logger.error('❌ Zalo send failed:', error.response?.data || error.message);
       return {
         success: false,
         error: error.response?.data?.message || error.message,

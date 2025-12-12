@@ -39,17 +39,29 @@ export class MessageSenderConsumer {
     @InjectModel(PlatformConnection.name)
     private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
     private readonly kafkaProducer: KafkaProducerService,
-  ) {}
+  ) {
+    this.logger.log(`🚀 MessageSenderConsumer initialized, listening on: ${KAFKA_TOPICS.MESSAGES_OUTGOING}`);
+  }
 
   @MessagePattern(KAFKA_TOPICS.MESSAGES_OUTGOING)
   async handleOutgoingMessage(@Payload() event: OutgoingMessageEvent): Promise<void> {
     this.logger.log(
       `📤 Processing outgoing message: ${event.messageId} to ${event.platform}`,
     );
+    this.logger.log(`📋 Event details:`, {
+      messageId: event.messageId,
+      conversationId: event.conversationId,
+      platform: event.platform,
+      platformConnectionId: event.platformConnectionId,
+      recipientId: event.recipientId,
+      messageType: event.message?.type,
+      messageText: event.message?.text?.substring(0, 50),
+    });
 
     try {
       // 1. Get platform adapter
       const adapter = this.platformRegistry.get(event.platform);
+      this.logger.log(`✅ Got adapter for platform: ${event.platform}`);
 
       // 2. Get platform connection for credentials
       const connection = await this.platformConnectionModel
