@@ -239,6 +239,29 @@ export class ZaloService {
         );
         await conversation.save();
       }
+
+      // Update customer name if it's still default (starts with "Zalo User")
+      if (conversation.customerName?.startsWith("Zalo User")) {
+        this.logger.log(`🔄 Updating default customer name for conversation ${conversation._id}`);
+        const platformConnection = await this.platformConnectionModel
+          .findById(platformConnectionId)
+          .exec();
+
+        if (platformConnection?.credentials?.accessToken) {
+          const userProfile = await this.getUserProfile(
+            platformConnection.credentials.accessToken,
+            senderId,
+            platformConnectionId
+          );
+
+          if (!userProfile.displayName.startsWith("Zalo User")) {
+            conversation.customerName = userProfile.displayName;
+            conversation.customerAvatar = userProfile.avatar;
+            await conversation.save();
+            this.logger.log(`✅ Updated customer name to: ${userProfile.displayName}`);
+          }
+        }
+      }
     }
 
     if (!conversation) {
