@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # MongoDB
   mongodb:
-    image: mongo:8
+    image: mongo:7
     container_name: omnichat-mongodb
     ports:
       - "8310:27017"
