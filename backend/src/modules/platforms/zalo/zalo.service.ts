@@ -255,7 +255,8 @@ export class ZaloService {
       if (platformConnection?.credentials?.accessToken) {
         userProfile = await this.getUserProfile(
           platformConnection.credentials.accessToken,
-          senderId
+          senderId,
+          platformConnectionId // Pass connection ID for token refresh
         );
         this.logger.log(`Fetched user profile: ${userProfile.displayName}`);
       }
@@ -622,10 +623,12 @@ export class ZaloService {
   /**
    * Get Zalo user profile by user ID
    * Returns user display name and avatar
+   * Automatically refreshes token if expired
    */
   async getUserProfile(
     accessToken: string,
-    userId: string
+    userId: string,
+    platformConnectionId?: string
   ): Promise<{ displayName: string; avatar?: string }> {
     try {
       this.logger.log(`🔍 Fetching user profile for userId: ${userId}`);
@@ -646,7 +649,24 @@ export class ZaloService {
         JSON.stringify(response.data, null, 2)
       );
 
-      console.log(response);
+      // Check for token expiration errors
+      const errorCode = response.data.error;
+      if (errorCode === -216 || errorCode === -124) {
+        this.logger.warn(`🔄 Access token expired when fetching profile, attempting refresh...`);
+
+        // Try to refresh token if we have platformConnectionId
+        if (platformConnectionId) {
+          const refreshedToken = await this.tryRefreshToken(platformConnectionId);
+          if (refreshedToken) {
+            // Retry with new token
+            return this.getUserProfile(refreshedToken, userId);
+          }
+        }
+
+        this.logger.error(`❌ Could not refresh token for profile fetch`);
+        return { displayName: `Zalo User ${userId.substring(0, 8)}` };
+      }
+
       if (response.data.error) {
         this.logger.error(
           `❌ Failed to get user profile for ${userId}:`,
@@ -674,6 +694,39 @@ export class ZaloService {
         error.response?.data || error.message
       );
       return { displayName: `Zalo User ${userId.substring(0, 8)}` };
+    }
+  }
+
+  /**
+   * Try to refresh access token for a platform connection
+   * @returns New access token if successful, null otherwise
+   */
+  private async tryRefreshToken(platformConnectionId: string): Promise<string | null> {
+    try {
+      const connection = await this.platformConnectionModel
+        .findById(platformConnectionId)
+        .exec();
+
+      if (!connection?.credentials?.refreshToken || connection.credentials.refreshToken === 'placeholder') {
+        this.logger.error(`❌ No valid refresh token for connection ${platformConnectionId}`);
+        return null;
+      }
+
+      const tokenResponse = await this.refreshAccessToken(connection.credentials.refreshToken);
+
+      // Update connection with new tokens
+      const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
+      await this.platformConnectionModel.findByIdAndUpdate(platformConnectionId, {
+        'credentials.accessToken': tokenResponse.access_token,
+        'credentials.refreshToken': tokenResponse.refresh_token,
+        'credentials.expiresAt': expiresAt,
+      });
+
+      this.logger.log(`✅ Token refreshed successfully for connection ${platformConnectionId}`);
+      return tokenResponse.access_token;
+    } catch (error) {
+      this.logger.error(`❌ Failed to refresh token: ${error.message}`);
+      return null;
     }
   }
 
