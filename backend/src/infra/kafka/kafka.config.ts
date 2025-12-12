@@ -27,7 +27,6 @@ export const KAFKA_TOPICS = {
  * Kafka Consumer Groups
  */
 export const KAFKA_CONSUMER_GROUPS = {
-  WEBHOOK_PROCESSOR: "webhook-processor-group",
   MESSAGE_SENDER: "message-sender-group",
   WEBSOCKET_BRIDGE: "websocket-bridge-group",
 } as const;

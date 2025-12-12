@@ -91,10 +91,6 @@ export abstract class BaseWebhookProcessor<TPayload = unknown>
       // Step 6: Update conversation last message
       await this.updateConversationLastMessage(conversation, message);
 
-      this.logger.log(
-        `Webhook processed successfully: ${message._id.toString()}`,
-      );
-
       return {
         success: true,
         messageId: message._id.toString(),
@@ -171,10 +167,6 @@ export abstract class BaseWebhookProcessor<TPayload = unknown>
           platformConnectionId: connection._id.toString(),
         },
       });
-
-      this.logger.log(
-        `Created new conversation: ${conversation._id.toString()}`,
-      );
     }
 
     return conversation;
@@ -196,9 +188,6 @@ export abstract class BaseWebhookProcessor<TPayload = unknown>
       .exec();
 
     if (existingMessage) {
-      this.logger.log(
-        `Message already exists: ${normalizedMessage.platformMessageId}`,
-      );
       return existingMessage;
     }
 

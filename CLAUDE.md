@@ -302,14 +302,62 @@ Partitioning by `conversationId` ensures message ordering within conversations.
 
 ### Adding a New Platform Integration
 
-1. Create webhook controller in `backend/src/modules/webhooks/{platform}/`
-2. Implement signature verification (each platform uses different algorithm)
-3. Create message adapter in `backend/src/modules/platform-connections/{platform}/adapter.ts`
-   - `normalize()`: Convert platform payload to internal schema
-   - `send()`: Call platform API to send message
-4. Add OAuth flow in `platform-connections` module
-5. Update `PlatformConnection.platform` enum in schema
-6. Create Kafka consumers for webhook processing
+The platform architecture uses the **Adapter Pattern** for easy extensibility:
+
+**Step 1: Create Platform Adapter** (`backend/src/modules/platforms/adapters/{platform}.adapter.ts`)
+```typescript
+@Injectable()
+export class NewPlatformAdapter extends BasePlatformAdapter {
+  readonly platform = Platform.NEW_PLATFORM;
+
+  verifySignature(rawBody: string, signature: string, secret: string): boolean { /* ... */ }
+  extractAccountId(payload: unknown): string { /* ... */ }
+  extractEvents(payload: unknown): PlatformEvent[] { /* ... */ }
+  normalizeMessage(event: MessageEvent): NormalizedMessage { /* ... */ }
+  getConversationKey(senderId: string, recipientId: string): string { /* ... */ }
+  formatOutbound(message: OutboundMessage): PlatformPayload { /* ... */ }
+  send(connection, recipientId, payload): Promise<SendResult> { /* ... */ }
+  fetchUserProfile(connection, userId): Promise<UserProfile> { /* ... */ }
+}
+```
+
+**Step 2: Register Adapter** (`backend/src/modules/platforms/adapters/adapters.module.ts`)
+```typescript
+// Add to providers and constructor
+this.platformRegistry.register(this.newPlatformAdapter);
+```
+
+**Step 3: Create Platform Module** (`backend/src/modules/platforms/{platform}/`)
+- `{platform}.controller.ts`: HTTP endpoints (webhook, OAuth)
+- `{platform}.service.ts`: Platform-specific OAuth logic
+- `{platform}.consumer.ts`: Kafka consumer (calls WebhookProcessorService)
+- `dto/`: Request/response validation
+
+**Step 4: Add Environment Variables** (`backend/src/common/env/env.schema.ts`)
+```typescript
+@IsString() @IsOptional() NEW_PLATFORM_APP_ID?: string;
+@IsString() @IsOptional() NEW_PLATFORM_APP_SECRET?: string;
+```
+
+**Step 5: Update Constants** (`backend/src/common/constants/platforms.constant.ts`)
+```typescript
+export enum Platform { ..., NEW_PLATFORM = 'new_platform' }
+```
+
+**Architecture Overview:**
+```
+modules/platforms/
+├── core/                     # Shared infrastructure (DO NOT MODIFY)
+│   ├── interfaces/           # IPlatformAdapter, types
+│   └── services/             # PlatformRegistry, WebhookProcessorService
+├── adapters/                 # Platform-specific implementations
+│   ├── facebook.adapter.ts
+│   ├── zalo.adapter.ts
+│   ├── shopee.adapter.ts
+│   ├── tiktok.adapter.ts
+│   └── {new}.adapter.ts      # ADD NEW ADAPTER HERE
+└── {platform}/               # Platform modules (HTTP, OAuth, Kafka)
+```
 
 ### Adding WebSocket Events
 
