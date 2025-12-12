@@ -1,143 +1,163 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   S3Client,
   PutObjectCommand,
-  HeadBucketCommand,
-  CreateBucketCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { EnvService } from '@/common/env';
 import { v4 as uuidv4 } from 'uuid';
 
-export interface UploadResult {
-  url: string;
+export interface PresignedUrlResult {
+  uploadUrl: string;
+  fileUrl: string;
   key: string;
-  bucket: string;
-  contentType: string;
-  size: number;
+  expiresIn: number;
+}
+
+export interface GetPresignedUrlResult {
+  url: string;
+  expiresIn: number;
 }
 
 @Injectable()
-export class MediaService implements OnModuleInit {
+export class MediaService {
   private readonly logger = new Logger(MediaService.name);
-  private s3Client: S3Client;
+  private s3Client: S3Client | null = null;
   private bucket: string;
   private publicUrl: string;
+  private isConfigured: boolean = false;
 
   constructor(private readonly envService: EnvService) {
-    const endpoint = this.envService.get('MINIO_ENDPOINT');
-    const port = this.envService.get('MINIO_PORT');
-    const accessKey = this.envService.get('MINIO_ACCESS_KEY');
-    const secretKey = this.envService.get('MINIO_SECRET_KEY');
+    this.initializeS3();
+  }
 
-    this.bucket = this.envService.get('MINIO_BUCKET');
-    this.publicUrl =
-      this.envService.get('MINIO_PUBLIC_URL') ||
-      `http://${endpoint}:${port}/${this.bucket}`;
+  private initializeS3(): void {
+    const endpoint = this.envService.get('S3_ENDPOINT');
+    const region = this.envService.get('S3_REGION');
+    const accessKeyId = this.envService.get('S3_ACCESS_KEY_ID');
+    const secretAccessKey = this.envService.get('S3_SECRET_ACCESS_KEY');
+    this.bucket = this.envService.get('S3_BUCKET');
+    this.publicUrl = this.envService.get('S3_PUBLIC_URL');
 
-    this.s3Client = new S3Client({
-      endpoint: `http://${endpoint}:${port}`,
-      region: 'us-east-1', // MinIO doesn't care about region
+    // Check if S3 is configured
+    if (!accessKeyId || !secretAccessKey || !this.bucket) {
+      this.logger.warn('⚠️ S3 not configured - media upload will be disabled');
+      return;
+    }
+
+    const s3Config: any = {
+      region: region || 'us-east-1',
       credentials: {
-        accessKeyId: accessKey,
-        secretAccessKey: secretKey,
+        accessKeyId,
+        secretAccessKey,
       },
-      forcePathStyle: true, // Required for MinIO
+    };
+
+    // If custom endpoint (MinIO, DigitalOcean Spaces, etc.)
+    if (endpoint) {
+      s3Config.endpoint = endpoint;
+      s3Config.forcePathStyle = true;
+    }
+
+    this.s3Client = new S3Client(s3Config);
+    this.isConfigured = true;
+
+    this.logger.log('📦 S3 client initialized:', {
+      endpoint: endpoint || 'AWS S3',
+      bucket: this.bucket,
+      region: region || 'us-east-1',
     });
   }
 
-  async onModuleInit() {
-    await this.ensureBucketExists();
+  /**
+   * Check if S3 is configured
+   */
+  isS3Configured(): boolean {
+    return this.isConfigured;
   }
 
-  private async ensureBucketExists(): Promise<void> {
-    try {
-      await this.s3Client.send(new HeadBucketCommand({ Bucket: this.bucket }));
-      this.logger.log(`✅ Bucket '${this.bucket}' exists`);
-    } catch (error: any) {
-      if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
-        this.logger.log(`Creating bucket '${this.bucket}'...`);
-        await this.s3Client.send(
-          new CreateBucketCommand({ Bucket: this.bucket }),
-        );
-        this.logger.log(`✅ Bucket '${this.bucket}' created`);
-      } else {
-        this.logger.warn(`Could not check bucket: ${error.message}`);
-      }
-    }
-  }
-
-  async upload(
-    file: Express.Multer.File,
-    folder: string = 'uploads',
-  ): Promise<UploadResult> {
-    const ext = this.getFileExtension(file.originalname);
-    const key = `${folder}/${uuidv4()}${ext}`;
-
-    this.logger.log(`📤 Uploading file: ${file.originalname} -> ${key}`);
-
-    await this.s3Client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ACL: 'public-read',
-      }),
-    );
-
-    const url = `${this.publicUrl}/${key}`;
-
-    this.logger.log(`✅ File uploaded: ${url}`);
-
-    return {
-      url,
-      key,
-      bucket: this.bucket,
-      contentType: file.mimetype,
-      size: file.size,
-    };
-  }
-
-  async uploadBuffer(
-    buffer: Buffer,
+  /**
+   * Generate presigned URL for uploading a file
+   * Frontend will use this URL to upload directly to S3
+   */
+  async getPresignedUploadUrl(
     filename: string,
     contentType: string,
     folder: string = 'uploads',
-  ): Promise<UploadResult> {
+    expiresIn: number = 3600, // 1 hour default
+  ): Promise<PresignedUrlResult> {
+    if (!this.s3Client) {
+      throw new Error('S3 is not configured');
+    }
+
     const ext = this.getFileExtension(filename);
     const key = `${folder}/${uuidv4()}${ext}`;
 
-    this.logger.log(`📤 Uploading buffer: ${filename} -> ${key}`);
+    this.logger.log(`🔗 Generating presigned upload URL for: ${filename} -> ${key}`);
 
-    await this.s3Client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType,
-        ACL: 'public-read',
-      }),
-    );
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType,
+    });
 
-    const url = `${this.publicUrl}/${key}`;
+    const uploadUrl = await getSignedUrl(this.s3Client, command, { expiresIn });
 
-    this.logger.log(`✅ Buffer uploaded: ${url}`);
+    // Generate the public URL for the file after upload
+    const fileUrl = this.publicUrl
+      ? `${this.publicUrl}/${key}`
+      : `https://${this.bucket}.s3.amazonaws.com/${key}`;
+
+    this.logger.log(`✅ Presigned URL generated, expires in ${expiresIn}s`);
+
+    return {
+      uploadUrl,
+      fileUrl,
+      key,
+      expiresIn,
+    };
+  }
+
+  /**
+   * Generate presigned URL for downloading/viewing a file
+   * Use this for private files that need temporary access
+   */
+  async getPresignedDownloadUrl(
+    key: string,
+    expiresIn: number = 3600,
+  ): Promise<GetPresignedUrlResult> {
+    if (!this.s3Client) {
+      throw new Error('S3 is not configured');
+    }
+
+    this.logger.log(`🔗 Generating presigned download URL for: ${key}`);
+
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+
+    const url = await getSignedUrl(this.s3Client, command, { expiresIn });
 
     return {
       url,
-      key,
-      bucket: this.bucket,
-      contentType,
-      size: buffer.length,
+      expiresIn,
     };
+  }
+
+  /**
+   * Get the public URL for a file (if bucket is public)
+   */
+  getPublicUrl(key: string): string {
+    if (this.publicUrl) {
+      return `${this.publicUrl}/${key}`;
+    }
+    return `https://${this.bucket}.s3.amazonaws.com/${key}`;
   }
 
   private getFileExtension(filename: string): string {
     const lastDot = filename.lastIndexOf('.');
     return lastDot !== -1 ? filename.slice(lastDot) : '';
-  }
-
-  getPublicUrl(key: string): string {
-    return `${this.publicUrl}/${key}`;
   }
 }

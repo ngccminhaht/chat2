@@ -136,24 +136,28 @@ export class EnvSchema {
   @IsOptional()
   TIKTOK_REDIRECT_URI?: string;
 
-  // MinIO / S3
+  // S3 / Object Storage (optional - for media uploads)
   @IsString()
-  MINIO_ENDPOINT: string = 'localhost';
-
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value, 10))
-  MINIO_PORT: number = 8316;
-
-  @IsString()
-  MINIO_ACCESS_KEY: string = 'minioadmin';
-
-  @IsString()
-  MINIO_SECRET_KEY: string = 'minioadmin123';
-
-  @IsString()
-  MINIO_BUCKET: string = 'omnichat-media';
+  @IsOptional()
+  S3_ENDPOINT?: string; // Custom endpoint (MinIO, DigitalOcean Spaces, etc.)
 
   @IsString()
   @IsOptional()
-  MINIO_PUBLIC_URL?: string;
+  S3_REGION?: string;
+
+  @IsString()
+  @IsOptional()
+  S3_ACCESS_KEY_ID?: string;
+
+  @IsString()
+  @IsOptional()
+  S3_SECRET_ACCESS_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  S3_BUCKET?: string;
+
+  @IsString()
+  @IsOptional()
+  S3_PUBLIC_URL?: string; // CDN or public bucket URL
 }

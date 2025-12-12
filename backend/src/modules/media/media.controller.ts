@@ -1,17 +1,17 @@
 import {
   Controller,
   Post,
-  UseInterceptors,
-  UploadedFile,
-  BadRequestException,
+  Get,
+  Body,
+  Query,
   UseGuards,
   Logger,
+  BadRequestException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { MediaService, UploadResult } from './media.service';
+import { MediaService, PresignedUrlResult, GetPresignedUrlResult } from './media.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
   // Images
   'image/jpeg',
@@ -36,70 +36,90 @@ const ALLOWED_MIME_TYPES = [
   'video/webm',
 ];
 
+interface PresignedUploadDto {
+  filename: string;
+  contentType: string;
+  folder?: string;
+}
+
 @Controller('media')
-@UseGuards(JwtAuthGuard)
 export class MediaController {
   private readonly logger = new Logger(MediaController.name);
 
   constructor(private readonly mediaService: MediaService) {}
 
-  @Post('upload')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: MAX_FILE_SIZE },
-    }),
-  )
-  async uploadFile(
-    @UploadedFile() file: Express.Multer.File,
-  ): Promise<UploadResult> {
-    if (!file) {
-      throw new BadRequestException('No file provided');
+  /**
+   * Check if media service is available
+   */
+  @Get('status')
+  getStatus(): { configured: boolean } {
+    return { configured: this.mediaService.isS3Configured() };
+  }
+
+  /**
+   * Get presigned URL for uploading a file
+   * Frontend calls this first, then uses the returned URL to upload directly to S3
+   */
+  @Post('presign/upload')
+  @UseGuards(JwtAuthGuard)
+  async getPresignedUploadUrl(
+    @Body() dto: PresignedUploadDto,
+  ): Promise<PresignedUrlResult> {
+    if (!this.mediaService.isS3Configured()) {
+      throw new ServiceUnavailableException('Media upload is not configured');
     }
 
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+    if (!dto.filename || !dto.contentType) {
+      throw new BadRequestException('filename and contentType are required');
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(dto.contentType)) {
       throw new BadRequestException(
-        `File type '${file.mimetype}' is not allowed`,
+        `File type '${dto.contentType}' is not allowed`,
       );
     }
 
-    this.logger.log(
-      `📁 Received file: ${file.originalname} (${file.mimetype}, ${file.size} bytes)`,
-    );
-
-    // Determine folder based on file type
-    let folder = 'files';
-    if (file.mimetype.startsWith('image/')) {
-      folder = 'images';
-    } else if (file.mimetype.startsWith('audio/')) {
-      folder = 'audio';
-    } else if (file.mimetype.startsWith('video/')) {
-      folder = 'video';
+    // Determine folder based on content type if not provided
+    let folder = dto.folder || 'files';
+    if (!dto.folder) {
+      if (dto.contentType.startsWith('image/')) {
+        folder = 'images';
+      } else if (dto.contentType.startsWith('audio/')) {
+        folder = 'audio';
+      } else if (dto.contentType.startsWith('video/')) {
+        folder = 'video';
+      }
     }
 
-    return this.mediaService.upload(file, folder);
+    this.logger.log(
+      `📁 Presigned upload request: ${dto.filename} (${dto.contentType}) -> ${folder}`,
+    );
+
+    return this.mediaService.getPresignedUploadUrl(
+      dto.filename,
+      dto.contentType,
+      folder,
+    );
   }
 
-  @Post('upload/image')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB for images
-    }),
-  )
-  async uploadImage(
-    @UploadedFile() file: Express.Multer.File,
-  ): Promise<UploadResult> {
-    if (!file) {
-      throw new BadRequestException('No file provided');
+  /**
+   * Get presigned URL for downloading/viewing a private file
+   */
+  @Get('presign/download')
+  @UseGuards(JwtAuthGuard)
+  async getPresignedDownloadUrl(
+    @Query('key') key: string,
+  ): Promise<GetPresignedUrlResult> {
+    if (!this.mediaService.isS3Configured()) {
+      throw new ServiceUnavailableException('Media service is not configured');
     }
 
-    if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('Only image files are allowed');
+    if (!key) {
+      throw new BadRequestException('key is required');
     }
 
-    this.logger.log(
-      `🖼️ Received image: ${file.originalname} (${file.mimetype}, ${file.size} bytes)`,
-    );
+    this.logger.log(`📁 Presigned download request: ${key}`);
 
-    return this.mediaService.upload(file, 'images');
+    return this.mediaService.getPresignedDownloadUrl(key);
   }
 }
