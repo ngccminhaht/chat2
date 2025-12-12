@@ -19,7 +19,7 @@ export class EnvSchema {
 
   // Database
   @IsString()
-  MONGODB_URI: string = 'mongodb://localhost:27017/miagent';
+  MONGODB_URI: string = 'mongodb://omnichat_admin:GKaAKhdwCncUPbcNmBi0@localhost:8310/omnichat?authSource=admin';
 
   @IsString()
   @IsOptional()
@@ -30,11 +30,11 @@ export class EnvSchema {
 
   @IsNumber()
   @Transform(({ value }) => parseInt(value, 10))
-  REDIS_PORT: number = 6379;
+  REDIS_PORT: number = 8313;
 
   @IsString()
   @IsOptional()
-  REDIS_PASSWORD?: string;
+  REDIS_PASSWORD?: string = '7Q7UlHQxhzFOZcvqTad8';
 
   @IsNumber()
   @Transform(({ value }) => parseInt(value, 10))

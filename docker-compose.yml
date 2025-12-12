@@ -9,12 +9,14 @@ services:
       - "8310:27017"
     environment:
       MONGO_INITDB_DATABASE: omnichat
+      MONGO_INITDB_ROOT_USERNAME: omnichat_admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-GKaAKhdwCncUPbcNmBi0}
     volumes:
       - mongodb_data:/data/db
     networks:
       - omnichat-network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "-u", "omnichat_admin", "-p", "${MONGO_PASSWORD:-GKaAKhdwCncUPbcNmBi0}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -72,11 +74,11 @@ services:
     networks:
       - omnichat-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-7Q7UlHQxhzFOZcvqTad8}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-7Q7UlHQxhzFOZcvqTad8}
 
 networks:
   omnichat-network:
