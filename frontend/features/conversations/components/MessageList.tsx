@@ -1,11 +1,39 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
-import { Box, Paper, Typography, Avatar, Stack } from '@mui/material';
+import { Box, Paper, Typography, Avatar, Stack, Link } from '@mui/material';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { format } from 'date-fns';
-import { Message } from '../types/conversation.types';
+import { Message, MessageContent } from '../types/conversation.types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
+
+// Helper to extract media URL from various formats (Zalo uses attachments array)
+function getMediaUrl(content: MessageContent): string | undefined {
+  // Direct mediaUrl (outbound messages, normalized format)
+  if (content.mediaUrl) return content.mediaUrl;
+
+  // Zalo inbound format: attachments[].payload.url
+  if (content.attachments && Array.isArray(content.attachments) && content.attachments.length > 0) {
+    const attachment = content.attachments[0];
+    if (attachment?.payload?.url) return attachment.payload.url;
+    if (attachment?.payload?.thumbnail) return attachment.payload.thumbnail;
+  }
+
+  return undefined;
+}
+
+// Helper to get file name
+function getFileName(content: MessageContent): string | undefined {
+  if (content.fileName) return content.fileName;
+
+  if (content.attachments && Array.isArray(content.attachments) && content.attachments.length > 0) {
+    const attachment = content.attachments[0];
+    if (attachment?.payload?.name) return attachment.payload.name;
+  }
+
+  return undefined;
+}
 
 interface MessageListProps {
   messages: Message[];
@@ -81,13 +109,17 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
                 {message.type === 'text' && (
                   <Typography variant="body1">{message.content.text}</Typography>
                 )}
-                {message.type === 'image' && message.content.mediaUrl && (
+                {message.type === 'image' && (
                   <Box>
-                    <img
-                      src={message.content.mediaUrl}
-                      alt="Message attachment"
-                      style={{ maxWidth: '100%', borderRadius: 4 }}
-                    />
+                    {getMediaUrl(message.content) ? (
+                      <img
+                        src={getMediaUrl(message.content)}
+                        alt="Message attachment"
+                        style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4, objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <Typography variant="body2">[Image]</Typography>
+                    )}
                     {message.content.text && (
                       <Typography variant="body1" sx={{ mt: 1 }}>
                         {message.content.text}
@@ -95,10 +127,62 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
                     )}
                   </Box>
                 )}
-                {message.type !== 'text' && message.type !== 'image' && (
-                  <Typography variant="body2">
-                    [{message.type.toUpperCase()}] {message.content.fileName || 'Attachment'}
-                  </Typography>
+                {message.type === 'file' && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <InsertDriveFileIcon />
+                    {getMediaUrl(message.content) ? (
+                      <Link
+                        href={getMediaUrl(message.content)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ color: isOutbound ? 'inherit' : 'primary.main' }}
+                      >
+                        {getFileName(message.content) || 'Download file'}
+                      </Link>
+                    ) : (
+                      <Typography variant="body2">
+                        {getFileName(message.content) || 'File attachment'}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+                {message.type === 'video' && (
+                  <Box>
+                    {getMediaUrl(message.content) ? (
+                      <video
+                        src={getMediaUrl(message.content)}
+                        controls
+                        style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
+                      />
+                    ) : (
+                      <Typography variant="body2">[Video]</Typography>
+                    )}
+                  </Box>
+                )}
+                {message.type === 'audio' && (
+                  <Box>
+                    {getMediaUrl(message.content) ? (
+                      <audio src={getMediaUrl(message.content)} controls style={{ width: '100%' }} />
+                    ) : (
+                      <Typography variant="body2">[Audio]</Typography>
+                    )}
+                  </Box>
+                )}
+                {message.type === 'sticker' && (
+                  <Box>
+                    {getMediaUrl(message.content) ? (
+                      <img
+                        src={getMediaUrl(message.content)}
+                        alt="Sticker"
+                        style={{ maxWidth: 150, maxHeight: 150 }}
+                      />
+                    ) : (
+                      <Typography variant="body2">[Sticker]</Typography>
+                    )}
+                  </Box>
+                )}
+                {message.type === 'location' && (
+                  <Typography variant="body2">{message.content.text || '[Location]'}</Typography>
                 )}
 
                 <Typography
