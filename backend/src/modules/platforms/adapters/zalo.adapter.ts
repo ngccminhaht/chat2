@@ -6,6 +6,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac } from 'crypto';
 import axios from 'axios';
+import FormData from 'form-data';
 import {
   Platform,
   MessageType,
@@ -341,6 +342,132 @@ export class ZaloAdapter extends BasePlatformAdapter {
       };
     } catch (error) {
       this.logger.error('❌ Zalo send failed:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+      };
+    }
+  }
+
+  // ==================== File Upload ====================
+
+  /**
+   * Upload file to Zalo server and get file token
+   * Required for sending file attachments (Zalo doesn't support external URLs for files)
+   * @param accessToken OA access token
+   * @param fileUrl URL of the file to upload
+   * @param fileName Original filename
+   * @returns File token to use in message
+   */
+  async uploadFile(
+    accessToken: string,
+    fileUrl: string,
+    fileName?: string,
+  ): Promise<{ token: string } | null> {
+    try {
+      this.logger.log(`📤 Uploading file to Zalo: ${fileUrl}`);
+
+      // Download file from URL
+      const fileResponse = await axios.get(fileUrl, {
+        responseType: 'arraybuffer',
+      });
+
+      const fileBuffer = Buffer.from(fileResponse.data);
+      const contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', fileBuffer, {
+        filename: fileName || 'file',
+        contentType,
+      });
+
+      // Upload to Zalo
+      const response = await axios.post(
+        'https://openapi.zalo.me/v2.0/oa/upload/file',
+        formData,
+        {
+          headers: {
+            ...formData.getHeaders(),
+            access_token: accessToken,
+          },
+        },
+      );
+
+      this.logger.log(`📥 Zalo upload response:`, response.data);
+
+      if (response.data.error !== 0) {
+        this.logger.error(`❌ Zalo upload error:`, response.data);
+        return null;
+      }
+
+      const token = response.data.data?.token;
+      if (!token) {
+        this.logger.error(`❌ No token in Zalo upload response`);
+        return null;
+      }
+
+      this.logger.log(`✅ File uploaded to Zalo, token: ${token.substring(0, 20)}...`);
+      return { token };
+    } catch (error) {
+      this.logger.error(`❌ Failed to upload file to Zalo:`, error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Send file message using file token
+   */
+  async sendFileWithToken(
+    connection: PlatformConnectionDocument,
+    recipientId: string,
+    fileToken: string,
+  ): Promise<SendResult> {
+    try {
+      const accessToken = connection.credentials.accessToken;
+
+      const requestBody = {
+        recipient: {
+          user_id: recipientId,
+        },
+        message: {
+          attachment: {
+            type: 'file',
+            payload: {
+              token: fileToken,
+            },
+          },
+        },
+      };
+
+      this.logger.log(`📤 Sending Zalo file message with token to ${recipientId}`);
+
+      const response = await axios.post(
+        'https://openapi.zalo.me/v3.0/oa/message/cs',
+        requestBody,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: accessToken,
+          },
+        },
+      );
+
+      this.logger.log(`📨 Zalo file send response:`, response.data);
+
+      if (response.data.error !== 0) {
+        return {
+          success: false,
+          error: response.data.message || `Zalo error: ${response.data.error}`,
+        };
+      }
+
+      return {
+        success: true,
+        platformMessageId: response.data.data?.message_id,
+      };
+    } catch (error) {
+      this.logger.error('❌ Zalo file send failed:', error.response?.data || error.message);
       return {
         success: false,
         error: error.response?.data?.message || error.message,

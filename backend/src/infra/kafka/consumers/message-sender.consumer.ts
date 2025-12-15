@@ -11,8 +11,9 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import axios from 'axios';
 import { KAFKA_TOPICS } from '../kafka.config';
 import { OutgoingMessageEvent } from '../types/webhook.types';
-import { Platform, MessageStatus } from '@/common/constants';
+import { Platform, MessageStatus, MessageType } from '@/common/constants';
 import { PlatformRegistry } from '@/modules/platforms/core/services/platform.registry';
+import { ZaloAdapter } from '@/modules/platforms/adapters/zalo.adapter';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -77,7 +78,65 @@ export class MessageSenderConsumer {
         return;
       }
 
-      // 3. Format outbound message using adapter
+      // 3. Handle Zalo file upload (Zalo requires uploading files to their server first)
+      if (
+        event.platform === Platform.ZALO &&
+        event.message.type === MessageType.FILE &&
+        event.message.mediaUrl
+      ) {
+        const zaloAdapter = adapter as ZaloAdapter;
+        const uploadResult = await zaloAdapter.uploadFile(
+          connection.credentials.accessToken,
+          event.message.mediaUrl,
+          event.message.fileName,
+        );
+
+        if (!uploadResult) {
+          this.logger.error(`❌ Failed to upload file to Zalo`);
+          await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, 'Failed to upload file to Zalo');
+          return;
+        }
+
+        // Send file message with token
+        let result = await zaloAdapter.sendFileWithToken(
+          connection,
+          event.recipientId,
+          uploadResult.token,
+        );
+
+        // Handle token refresh if needed
+        if (!result.success && result.needsTokenRefresh) {
+          const refreshedConnection = await this.refreshZaloToken(connection);
+          if (refreshedConnection) {
+            // Re-upload with new token
+            const reuploadResult = await zaloAdapter.uploadFile(
+              refreshedConnection.credentials.accessToken,
+              event.message.mediaUrl,
+              event.message.fileName,
+            );
+            if (reuploadResult) {
+              result = await zaloAdapter.sendFileWithToken(
+                refreshedConnection,
+                event.recipientId,
+                reuploadResult.token,
+              );
+            }
+          }
+        }
+
+        if (result.success) {
+          await this.updateMessageStatus(event.messageId, MessageStatus.SENT, undefined, result.platformMessageId);
+          this.logger.log(`✅ File sent: ${event.messageId} -> ${result.platformMessageId}`);
+        } else {
+          await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, result.error);
+          this.logger.error(`❌ Failed to send file: ${result.error}`);
+        }
+
+        await this.publishStatusNotification(event, result.success ? MessageStatus.SENT : MessageStatus.FAILED);
+        return;
+      }
+
+      // 4. Format outbound message using adapter (for non-file messages)
       const outboundMessage = {
         type: event.message.type,
         content: {
@@ -89,14 +148,14 @@ export class MessageSenderConsumer {
       };
       const platformPayload = adapter.formatOutbound(outboundMessage);
 
-      // 4. Send message via adapter
+      // 5. Send message via adapter
       let result = await adapter.send(
         connection,
         event.recipientId,
         platformPayload,
       );
 
-      // 5. Handle token refresh if needed (Zalo specific)
+      // 6. Handle token refresh if needed (Zalo specific)
       if (!result.success && result.needsTokenRefresh && event.platform === Platform.ZALO) {
         this.logger.log(`🔄 Attempting to refresh Zalo access token for connection ${connection._id}`);
 
