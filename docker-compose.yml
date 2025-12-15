@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # MongoDB
   mongodb:
-    image: mongo:6
+    image: mongo:latest
     container_name: omnichat-mongodb
     ports:
       - "8310:27017"
@@ -17,6 +17,27 @@ services:
       - omnichat-network
     healthcheck:
       test: ["CMD", "mongosh", "-u", "omnichat_admin", "-p", "${MONGO_PASSWORD:-GKaAKhdwCncUPbcNmBi0}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    container_name: omnichat-minio
+    ports:
+      - "8314:9000"
+      - "8315:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-omnichat_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-AToiDp2nGnoScVrcRxnR}
+    volumes:
+      - minio_data:/data
+    networks:
+      - omnichat-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -88,3 +109,4 @@ volumes:
   mongodb_data:
   kafka_data:
   redis_data:
+  minio_data:
