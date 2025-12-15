@@ -12,8 +12,9 @@ import EmptyState from '@/components/common/EmptyState';
 function getMediaUrl(content: MessageContent): string | undefined {
   // Direct mediaUrl (outbound messages, normalized format)
   if (content.mediaUrl) return content.mediaUrl;
+  if (content.url) return content.url;
 
-  // Zalo inbound format: attachments[].payload.url
+  // Zalo inbound format: attachments[].payload.url or attachments[].payload.thumbnail
   if (content.attachments && Array.isArray(content.attachments) && content.attachments.length > 0) {
     const attachment = content.attachments[0];
     if (attachment?.payload?.url) return attachment.payload.url;
@@ -33,6 +34,26 @@ function getFileName(content: MessageContent): string | undefined {
   }
 
   return undefined;
+}
+
+// Helper to get file size
+function getFileSize(content: MessageContent): number | undefined {
+  if (content.fileSize) return content.fileSize;
+
+  if (content.attachments && Array.isArray(content.attachments) && content.attachments.length > 0) {
+    const attachment = content.attachments[0];
+    if (attachment?.payload?.size) return attachment.payload.size;
+  }
+
+  return undefined;
+}
+
+// Format file size
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 interface MessageListProps {
@@ -130,20 +151,27 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
                 {message.type === 'file' && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <InsertDriveFileIcon />
-                    {getMediaUrl(message.content) ? (
-                      <Link
-                        href={getMediaUrl(message.content)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{ color: isOutbound ? 'inherit' : 'primary.main' }}
-                      >
-                        {getFileName(message.content) || 'Download file'}
-                      </Link>
-                    ) : (
-                      <Typography variant="body2">
-                        {getFileName(message.content) || 'File attachment'}
-                      </Typography>
-                    )}
+                    <Box>
+                      {getMediaUrl(message.content) ? (
+                        <Link
+                          href={getMediaUrl(message.content)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ color: isOutbound ? 'inherit' : 'primary.main' }}
+                        >
+                          {getFileName(message.content) || 'Download file'}
+                        </Link>
+                      ) : (
+                        <Typography variant="body2">
+                          {getFileName(message.content) || 'File attachment'}
+                        </Typography>
+                      )}
+                      {getFileSize(message.content) && (
+                        <Typography variant="caption" sx={{ display: 'block', opacity: 0.7 }}>
+                          {formatFileSize(getFileSize(message.content))}
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                 )}
                 {message.type === 'video' && (
