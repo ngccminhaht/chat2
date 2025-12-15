@@ -207,6 +207,41 @@ export class ZaloAdapter extends BasePlatformAdapter {
       };
     }
 
+    // Handle image - Zalo requires template media format
+    if (message.type === MessageType.IMAGE && message.content.mediaUrl) {
+      return {
+        message: {
+          attachment: {
+            type: 'template',
+            payload: {
+              template_type: 'media',
+              elements: [
+                {
+                  media_type: 'image',
+                  url: message.content.mediaUrl,
+                },
+              ],
+            },
+          },
+        },
+      };
+    }
+
+    // Handle file
+    if (message.type === MessageType.FILE && message.content.mediaUrl) {
+      return {
+        message: {
+          attachment: {
+            type: 'file',
+            payload: {
+              url: message.content.mediaUrl,
+            },
+          },
+        },
+      };
+    }
+
+    // Handle other media types (video, audio, sticker)
     if (message.content.mediaUrl) {
       return {
         message: {

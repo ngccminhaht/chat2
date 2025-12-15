@@ -140,7 +140,7 @@ export class MessagesService {
       message: {
         type: type as MessageType,
         text: content.text,
-        mediaUrl: content.url || content.attachments?.[0]?.url,
+        mediaUrl: content.mediaUrl || content.url || content.attachments?.[0]?.url,
         mediaType: content.mediaType || content.attachments?.[0]?.type,
         fileName: content.fileName || content.attachments?.[0]?.name,
         stickerId: content.stickerId || content.attachments?.[0]?.stickerId,
