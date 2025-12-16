@@ -208,10 +208,19 @@ describe('ZaloAdapter', () => {
       };
 
       const payload = adapter.formatOutbound(message);
+      // Zalo requires template media format for images
       expect(payload.message).toEqual({
         attachment: {
-          type: 'image',
-          payload: { url: 'https://example.com/image.jpg' },
+          type: 'template',
+          payload: {
+            template_type: 'media',
+            elements: [
+              {
+                media_type: 'image',
+                url: 'https://example.com/image.jpg',
+              },
+            ],
+          },
         },
       });
     });
