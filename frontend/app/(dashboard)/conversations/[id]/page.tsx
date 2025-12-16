@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Paper, Typography, Chip, Stack, Avatar } from '@mui/material';
-import { useMessages } from '@/features/conversations/hooks/useMessages';
+import { useInfiniteMessages } from '@/features/conversations/hooks/useInfiniteMessages';
 import { useConversation } from '@/features/conversations/hooks/useConversation';
 import { useMarkAsRead } from '@/features/conversations/hooks/useMarkAsRead';
 import { useConversationStore } from '@/features/conversations/stores/conversationStore';
 import MessageList from '@/features/conversations/components/MessageList';
 import MessageInput from '@/features/conversations/components/MessageInput';
 import ConversationList from '@/features/conversations/components/ConversationList';
+import TypingIndicator from '@/features/conversations/components/TypingIndicator';
 
 // Empty array constant to avoid re-creating on every render
 const EMPTY_MESSAGES: any[] = [];
@@ -18,13 +19,37 @@ export default function ConversationDetailPage() {
   const params = useParams();
   const conversationId = params.id as string;
 
-  const { data, isLoading } = useMessages({ conversationId });
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteMessages({ conversationId });
   const { data: conversationData } = useConversation({ conversationId });
   const { mutate: markAsRead } = useMarkAsRead();
+
+  // Flatten paginated messages (oldest first for display)
+  const apiMessages = useMemo(() => {
+    if (!data?.pages) return [];
+    // Pages are fetched newest first, flatten and reverse for chronological order
+    return data.pages.flatMap((page) => page.data).reverse();
+  }, [data?.pages]);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Get messages from Zustand store (updated by WebSocket)
   const messagesFromStore = useConversationStore((state) => state.messages[conversationId]);
   const storeMessages = messagesFromStore || EMPTY_MESSAGES;
+
+  // Get typing users for this conversation
+  const typingUsers = useConversationStore(
+    (state) => state.typingUsers[conversationId] || []
+  );
 
   // Get conversation from Zustand store
   const conversationFromStore = useConversationStore((state) =>
@@ -36,16 +61,16 @@ export default function ConversationDetailPage() {
 
   // Sync initial query data to Zustand store (only on first load)
   useEffect(() => {
-    if (data?.data && conversationId) {
+    if (apiMessages.length > 0 && conversationId) {
       const currentMessages = useConversationStore.getState().messages[conversationId];
       // Only set messages if store is empty (initial load)
       // Don't overwrite if store already has messages (from WebSocket or previous load)
       if (!currentMessages || currentMessages.length === 0) {
-        useConversationStore.getState().setMessages(conversationId, data.data);
+        useConversationStore.getState().setMessages(conversationId, apiMessages);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.data, conversationId]);
+  }, [apiMessages, conversationId]);
 
   // Sync conversation data to store
   useEffect(() => {
@@ -104,8 +129,17 @@ export default function ConversationDetailPage() {
 
             {/* Scrollable Message List */}
             <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-              <MessageList messages={storeMessages} isLoading={isLoading && storeMessages.length === 0} />
+              <MessageList
+                messages={storeMessages.length > 0 ? storeMessages : apiMessages}
+                isLoading={isLoading && storeMessages.length === 0}
+                isFetchingMore={isFetchingNextPage}
+                hasMore={hasNextPage}
+                onLoadMore={handleLoadMore}
+              />
             </Box>
+
+            {/* Typing Indicator */}
+            <TypingIndicator typingUsers={typingUsers} />
 
             {/* Fixed Message Input */}
             <Box sx={{ flexShrink: 0 }}>

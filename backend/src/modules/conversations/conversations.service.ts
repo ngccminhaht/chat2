@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
@@ -9,7 +14,9 @@ import {
   Message,
   MessageDocument,
 } from '@/common/database/schemas/message.schema';
+import { User, UserDocument } from '@/common/database/schemas/user.schema';
 import { GetConversationsDto } from './dto/get-conversations.dto';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
 
 @Injectable()
 export class ConversationsService {
@@ -20,6 +27,8 @@ export class ConversationsService {
     private conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name)
     private messageModel: Model<MessageDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {}
 
   /**
@@ -96,6 +105,57 @@ export class ConversationsService {
       throw new NotFoundException('Conversation not found');
     }
 
+    return conversation;
+  }
+
+  /**
+   * Update conversation (status, assignedTo, tags) with org check
+   */
+  async update(organizationId: string, id: string, dto: UpdateConversationDto) {
+    // Validate assignedTo user exists and belongs to same org
+    if (dto.assignedTo) {
+      const user = await this.userModel
+        .findOne({
+          _id: new Types.ObjectId(dto.assignedTo),
+          organizationId: new Types.ObjectId(organizationId),
+        })
+        .lean()
+        .exec();
+
+      if (!user) {
+        throw new BadRequestException(
+          'Assigned user not found or not in same organization',
+        );
+      }
+    }
+
+    const updateData: any = {};
+    if (dto.status !== undefined) updateData.status = dto.status;
+    if (dto.tags !== undefined) updateData.tags = dto.tags;
+    if (dto.assignedTo !== undefined) {
+      updateData.assignedTo = dto.assignedTo
+        ? new Types.ObjectId(dto.assignedTo)
+        : null;
+    }
+
+    const conversation = await this.conversationModel
+      .findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(id),
+          organizationId: new Types.ObjectId(organizationId),
+        },
+        updateData,
+        { new: true },
+      )
+      .populate('assignedTo', 'name email avatarUrl')
+      .lean()
+      .exec();
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    this.logger.log(`Updated conversation ${id}: ${JSON.stringify(dto)}`);
     return conversation;
   }
 

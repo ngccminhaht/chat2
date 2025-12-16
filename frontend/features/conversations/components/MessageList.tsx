@@ -1,8 +1,12 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
-import { Box, Paper, Typography, Avatar, Stack, Link } from '@mui/material';
+import { useRef, useEffect, useCallback } from 'react';
+import { Box, Paper, Typography, Avatar, Stack, Link, CircularProgress } from '@mui/material';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import CheckIcon from '@mui/icons-material/Check';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { format } from 'date-fns';
 import { Message, MessageContent } from '../types/conversation.types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
@@ -56,21 +60,78 @@ function formatFileSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Get status icon for outbound messages
+function getStatusIcon(status: string, isOutbound: boolean) {
+  if (!isOutbound) return null;
+
+  const iconStyle = { fontSize: 14, ml: 0.5, verticalAlign: 'middle' };
+
+  switch (status) {
+    case 'pending':
+      return <ScheduleIcon sx={iconStyle} />;
+    case 'sent':
+      return <CheckIcon sx={iconStyle} />;
+    case 'delivered':
+      return <DoneAllIcon sx={iconStyle} />;
+    case 'read':
+      return <DoneAllIcon sx={{ ...iconStyle, color: 'info.light' }} />;
+    case 'failed':
+      return <ErrorOutlineIcon sx={{ ...iconStyle, color: 'error.light' }} />;
+    default:
+      return null;
+  }
+}
+
 interface MessageListProps {
   messages: Message[];
   isLoading?: boolean;
+  isFetchingMore?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }
 
-export default function MessageList({ messages, isLoading }: MessageListProps) {
+export default function MessageList({
+  messages,
+  isLoading,
+  isFetchingMore,
+  hasMore,
+  onLoadMore,
+}: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const prevScrollHeight = useRef<number>(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Scroll to bottom on initial load and new messages
   useEffect(() => {
-    scrollToBottom();
+    if (!isFetchingMore) {
+      scrollToBottom();
+    }
+  }, [messages.length, isFetchingMore]);
+
+  // Preserve scroll position after loading older messages
+  useEffect(() => {
+    if (containerRef.current && prevScrollHeight.current > 0) {
+      const newScrollHeight = containerRef.current.scrollHeight;
+      containerRef.current.scrollTop = newScrollHeight - prevScrollHeight.current;
+      prevScrollHeight.current = 0;
+    }
   }, [messages]);
+
+  // Handle scroll to detect when user scrolls to top
+  const handleScroll = useCallback(() => {
+    if (!containerRef.current || !onLoadMore || !hasMore || isFetchingMore) return;
+
+    const { scrollTop } = containerRef.current;
+    // Load more when scrolled near top (within 100px)
+    if (scrollTop < 100) {
+      prevScrollHeight.current = containerRef.current.scrollHeight;
+      onLoadMore();
+    }
+  }, [onLoadMore, hasMore, isFetchingMore]);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -82,6 +143,8 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
 
   return (
     <Box
+      ref={containerRef}
+      onScroll={handleScroll}
       sx={{
         height: '100%',
         overflowY: 'auto',
@@ -91,6 +154,12 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
         gap: 2,
       }}
     >
+      {/* Loading indicator for older messages */}
+      {isFetchingMore && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
       {messages.map((message) => {
         const isOutbound = message.direction === 'outbound';
 
@@ -215,11 +284,12 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
 
                 <Typography
                   variant="caption"
+                  component="span"
                   color={isOutbound ? 'primary.contrastText' : 'text.secondary'}
-                  sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}
+                  sx={{ display: 'flex', alignItems: 'center', mt: 0.5, opacity: 0.7 }}
                 >
                   {format(new Date(message.createdAt), 'HH:mm')}
-                  {isOutbound && message.status !== 'sent' && ` · ${message.status}`}
+                  {getStatusIcon(message.status, isOutbound)}
                 </Typography>
               </Paper>
             </Box>

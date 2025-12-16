@@ -1,6 +1,16 @@
-import { Controller, Get, Param, Query, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Query,
+  Body,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { GetConversationsDto } from './dto/get-conversations.dto';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { JwtAuthGuard, TenantGuard } from '@/common/guards';
 import { CurrentOrganization } from '@/common/decorators';
 
@@ -23,6 +33,15 @@ export class ConversationsController {
     @Param('id') id: string,
   ) {
     return this.conversationsService.findOne(organizationId, id);
+  }
+
+  @Patch(':id')
+  update(
+    @CurrentOrganization() organizationId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateConversationDto,
+  ) {
+    return this.conversationsService.update(organizationId, id, dto);
   }
 
   @Delete(':id')
