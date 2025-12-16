@@ -112,6 +112,30 @@ export class WebsocketGateway
     });
   }
 
+  /**
+   * Join agent to org's agent room
+   * Called when agent opens conversations list to receive visitor events
+   */
+  @SubscribeMessage('join:org:agents')
+  handleJoinOrgAgents(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { organizationId: string },
+  ) {
+    const { organizationId } = data;
+    client.join(`org:${organizationId}:agents`);
+    this.logger.log(`Agent ${client.userId} joined org:${organizationId}:agents`);
+  }
+
+  @SubscribeMessage('leave:org:agents')
+  handleLeaveOrgAgents(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { organizationId: string },
+  ) {
+    const { organizationId } = data;
+    client.leave(`org:${organizationId}:agents`);
+    this.logger.log(`Agent ${client.userId} left org:${organizationId}:agents`);
+  }
+
   // Emit methods for backend services to call
   // All events are sent to specific user rooms based on userId
   emitToUser(userId: string, event: string, data: any) {

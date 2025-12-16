@@ -36,6 +36,7 @@
     "kafkajs": "2",
     "mongoose": "8",
     "multer": "^2.0.2",
+    "nanoid": "3",
     "passport": "0.7",
     "passport-jwt": "4",
     "reflect-metadata": "0.2",
