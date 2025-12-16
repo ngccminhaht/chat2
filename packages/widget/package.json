@@ -1,0 +1,24 @@
+{
+  "name": "@miagent/widget",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "analyze": "vite-bundle-visualizer"
+  },
+  "dependencies": {
+    "preact": "^10.19.3",
+    "goober": "^2.1.14",
+    "socket.io-client": "^4.7.2",
+    "nanoid": "^5.0.4"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.8.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10",
+    "vite-bundle-visualizer": "^1.0.0"
+  }
+}
