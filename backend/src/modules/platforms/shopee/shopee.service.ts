@@ -42,8 +42,7 @@ export class ShopeeService {
     private envService: EnvService,
   ) {
     this.partnerId = this.envService.get('SHOPEE_PARTNER_ID');
-    const rawPartnerKey = this.envService.get('SHOPEE_PARTNER_KEY');
-    this.partnerKey = rawPartnerKey?.startsWith('shpk') ? rawPartnerKey.substring(4) : rawPartnerKey;
+    this.partnerKey = this.envService.get('SHOPEE_PARTNER_KEY');
     this.redirectUri = this.envService.get('SHOPEE_REDIRECT_URI');
 
     const region = this.envService.get('SHOPEE_REGION') || 'vn';
