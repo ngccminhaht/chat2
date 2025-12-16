@@ -1,25 +1,33 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { createHmac, randomBytes } from 'crypto';
-import axios from 'axios';
-import { EnvService } from '@/common/env';
-import { ConnectionStatus, ConversationStatus, MessageStatus } from '@/common/constants';
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { createHmac, randomBytes } from "crypto";
+import axios from "axios";
+import { EnvService } from "@/common/env";
+import {
+  ConnectionStatus,
+  ConversationStatus,
+  MessageStatus,
+} from "@/common/constants";
 import {
   Conversation,
   ConversationDocument,
-} from '@/common/database/schemas/conversation.schema';
+} from "@/common/database/schemas/conversation.schema";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
+} from "@/common/database/schemas/message.schema";
 import {
   PlatformConnection,
   PlatformConnectionDocument,
-} from '@/common/database/schemas/platform-connection.schema';
-import { ShopeeWebhookDto, ShopeeMessageType } from './dto/shopee-webhook.dto';
-import { ShopeeTokenResponse, ShopeeShopInfo, ShopeeRefreshTokenResponse } from './dto/oauth.dto';
-import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
+} from "@/common/database/schemas/platform-connection.schema";
+import { ShopeeWebhookDto, ShopeeMessageType } from "./dto/shopee-webhook.dto";
+import {
+  ShopeeTokenResponse,
+  ShopeeShopInfo,
+  ShopeeRefreshTokenResponse,
+} from "./dto/oauth.dto";
+import { WebsocketGateway } from "@/modules/websocket/websocket.gateway";
 
 @Injectable()
 export class ShopeeService {
@@ -39,14 +47,14 @@ export class ShopeeService {
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private websocketGateway: WebsocketGateway,
-    private envService: EnvService,
+    private envService: EnvService
   ) {
-    this.partnerId = this.envService.get('SHOPEE_PARTNER_ID');
-    this.partnerKey = this.envService.get('SHOPEE_PARTNER_KEY');
-    this.redirectUri = this.envService.get('SHOPEE_REDIRECT_URI');
+    this.partnerId = this.envService.get("SHOPEE_PARTNER_ID");
+    this.partnerKey = this.envService.get("SHOPEE_PARTNER_KEY");
+    this.redirectUri = this.envService.get("SHOPEE_REDIRECT_URI");
 
-    const region = this.envService.get('SHOPEE_REGION') || 'vn';
-    const isTestEnv = this.envService.get('SHOPEE_ENV') === 'test';
+    const region = this.envService.get("SHOPEE_REGION") || "vn";
+    const isTestEnv = this.envService.get("SHOPEE_ENV") === "test";
     this.apiHost = isTestEnv
       ? `https://openplatform.sandbox.test-stable.shopee.sg`
       : `https://partner.shopeemobile.com`;
@@ -60,14 +68,21 @@ export class ShopeeService {
     url: string,
     body: string,
     signature: string,
-    partnerKey: string,
+    partnerKey: string
   ): boolean {
     // Shopee signature format: HMAC-SHA256(url + "|" + body, partner_key)
     const baseString = `${url}|${body}`;
-    const hmac = createHmac('sha256', partnerKey);
-    hmac.update(baseString);
-    const calculatedSignature = hmac.digest('hex');
 
+    console.log(baseString);
+
+    const hmac = createHmac("sha256", partnerKey);
+    hmac.update(baseString);
+    const calculatedSignature = hmac.digest("hex");
+
+    console.log({
+      calculatedSignature,
+      signature,
+    });
     return calculatedSignature === signature;
   }
 
@@ -77,24 +92,22 @@ export class ShopeeService {
   async processWebhook(payload: ShopeeWebhookDto): Promise<void> {
     const shopId = payload.shop_id;
 
-    this.logger.log(
-      `Processing Shopee webhook for shop ${shopId}`,
-    );
+    this.logger.log(`Processing Shopee webhook for shop ${shopId}`);
 
     // Find platform connection by shop ID
     const platformConnection = await this.platformConnectionModel
       .findOne({
-        platform: 'shopee',
+        platform: "shopee",
         platformAccountId: shopId.toString(),
       })
       .exec();
 
     if (!platformConnection) {
       this.logger.error(
-        `❌ Platform connection NOT FOUND for Shopee shop ID: ${shopId}`,
+        `❌ Platform connection NOT FOUND for Shopee shop ID: ${shopId}`
       );
       throw new Error(
-        `Platform connection not found for shop ${shopId}. Please connect your Shopee shop first.`,
+        `Platform connection not found for shop ${shopId}. Please connect your Shopee shop first.`
       );
     }
 
@@ -102,7 +115,10 @@ export class ShopeeService {
 
     // Handle message event
     if (payload.data.message_id) {
-      await this.handleIncomingMessage(payload, platformConnection._id.toString());
+      await this.handleIncomingMessage(
+        payload,
+        platformConnection._id.toString()
+      );
     }
   }
 
@@ -111,7 +127,7 @@ export class ShopeeService {
    */
   private async handleIncomingMessage(
     payload: ShopeeWebhookDto,
-    platformConnectionId: string,
+    platformConnectionId: string
   ): Promise<void> {
     const data = payload.data;
     const shopId = payload.shop_id.toString();
@@ -119,11 +135,15 @@ export class ShopeeService {
     const conversationId = data.conversation_id;
 
     if (!customerId || !conversationId) {
-      this.logger.error('Cannot process message: missing customer ID or conversation ID');
+      this.logger.error(
+        "Cannot process message: missing customer ID or conversation ID"
+      );
       return;
     }
 
-    this.logger.log(`Processing message from customer ${customerId} in conversation ${conversationId}`);
+    this.logger.log(
+      `Processing message from customer ${customerId} in conversation ${conversationId}`
+    );
 
     // Conversation key: conversation_id (Shopee provides unique conversation ID)
     const conversationKey = conversationId;
@@ -131,16 +151,17 @@ export class ShopeeService {
     // Find or create conversation
     let conversation = await this.conversationModel
       .findOne({
-        platform: 'shopee',
+        platform: "shopee",
         platformConversationId: conversationKey,
       })
       .exec();
 
     if (!conversation) {
-      const displayName = data.from_name || `Shopee Customer ${customerId.substring(0, 8)}`;
+      const displayName =
+        data.from_name || `Shopee Customer ${customerId.substring(0, 8)}`;
 
       conversation = await this.conversationModel.create({
-        platform: 'shopee',
+        platform: "shopee",
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
         platformAccountId: shopId,
@@ -155,7 +176,7 @@ export class ShopeeService {
       });
 
       this.logger.log(
-        `Created new conversation: ${conversation._id} for customer ${customerId}`,
+        `Created new conversation: ${conversation._id} for customer ${customerId}`
       );
     }
 
@@ -164,10 +185,12 @@ export class ShopeeService {
     const platformMessageId = data.message_id;
 
     // Check for duplicate
-    const existingMessage = await this.messageModel.findOne({
-      platform: 'shopee',
-      platformMessageId,
-    }).exec();
+    const existingMessage = await this.messageModel
+      .findOne({
+        platform: "shopee",
+        platformMessageId,
+      })
+      .exec();
 
     if (existingMessage) {
       this.logger.log(`⏭️ Skipping duplicate message: ${platformMessageId}`);
@@ -179,9 +202,9 @@ export class ShopeeService {
     try {
       message = await this.messageModel.create({
         conversationId: conversation._id,
-        platform: 'shopee',
+        platform: "shopee",
         platformMessageId,
-        direction: 'inbound',
+        direction: "inbound",
         type: messageType,
         content: {
           text: data.content,
@@ -199,7 +222,9 @@ export class ShopeeService {
       });
     } catch (error) {
       if (error.code === 11000) {
-        this.logger.log(`⏭️ Skipping duplicate message (E11000): ${platformMessageId}`);
+        this.logger.log(
+          `⏭️ Skipping duplicate message (E11000): ${platformMessageId}`
+        );
         return;
       }
       throw error;
@@ -278,21 +303,21 @@ export class ShopeeService {
   private getMessageTypeString(messageType: number): string {
     switch (messageType) {
       case ShopeeMessageType.TEXT:
-        return 'text';
+        return "text";
       case ShopeeMessageType.IMAGE:
-        return 'image';
+        return "image";
       case ShopeeMessageType.ITEM:
-        return 'item';
+        return "item";
       case ShopeeMessageType.ORDER:
-        return 'order';
+        return "order";
       case ShopeeMessageType.STICKER:
-        return 'sticker';
+        return "sticker";
       case ShopeeMessageType.VIDEO:
-        return 'video';
+        return "video";
       case ShopeeMessageType.FILE:
-        return 'file';
+        return "file";
       default:
-        return 'unknown';
+        return "unknown";
     }
   }
 
@@ -302,10 +327,12 @@ export class ShopeeService {
     path: string,
     timestamp: number,
     body?: any,
-    includePartnerId: boolean = true,
+    includePartnerId: boolean = true
   ): string {
     const partnerId = parseInt(this.partnerId);
-    let baseString = includePartnerId ? `${partnerId}${path}${timestamp}` : `${path}${timestamp}`;
+    let baseString = includePartnerId
+      ? `${partnerId}${path}${timestamp}`
+      : `${path}${timestamp}`;
 
     if (body?.access_token) {
       baseString += body.access_token;
@@ -314,14 +341,14 @@ export class ShopeeService {
       baseString += body.shop_id;
     }
 
-    const hmac = createHmac('sha256', this.partnerKey);
+    const hmac = createHmac("sha256", this.partnerKey);
     hmac.update(baseString);
-    return hmac.digest('hex');
+    return hmac.digest("hex");
   }
 
   getAuthorizationUrl(state?: string): { url: string; state: string } {
-    const finalState = state || randomBytes(16).toString('hex');
-    const path = '/api/v2/shop/auth_partner';
+    const finalState = state || randomBytes(16).toString("hex");
+    const path = "/api/v2/shop/auth_partner";
     const timestamp = Math.floor(Date.now() / 1000);
     const sign = this.generateSignature(path, timestamp);
 
@@ -341,34 +368,39 @@ export class ShopeeService {
     };
   }
 
-  async exchangeCodeForToken(code: string, shopId: string): Promise<ShopeeTokenResponse> {
+  async exchangeCodeForToken(
+    code: string,
+    shopId: string
+  ): Promise<ShopeeTokenResponse> {
     try {
-      const path = '/api/v2/auth/token/get';
+      const path = "/api/v2/auth/token/get";
       const timestamp = Math.floor(Date.now() / 1000);
       const partnerId = parseInt(this.partnerId);
       const shopIdInt = parseInt(shopId);
 
       const baseString = `${partnerId}${path}${timestamp}`;
-      const hmac = createHmac('sha256', this.partnerKey);
+      const hmac = createHmac("sha256", this.partnerKey);
       hmac.update(baseString);
-      const sign = hmac.digest('hex');
+      const sign = hmac.digest("hex");
 
       const response = await axios.post(
         `${this.apiHost}${path}`,
         { code, shop_id: shopIdInt, partner_id: partnerId },
-        { params: { partner_id: partnerId, timestamp, sign } },
+        { params: { partner_id: partnerId, timestamp, sign } }
       );
 
-      if (response.data.error && response.data.error !== '') {
+      if (response.data.error && response.data.error !== "") {
         throw new BadRequestException(
-          `Shopee OAuth error: ${response.data.message || response.data.error}`,
+          `Shopee OAuth error: ${response.data.message || response.data.error}`
         );
       }
 
       const tokenData = response.data.response || response.data;
 
       if (!tokenData?.access_token) {
-        throw new BadRequestException('Shopee OAuth response missing access_token');
+        throw new BadRequestException(
+          "Shopee OAuth response missing access_token"
+        );
       }
 
       return {
@@ -378,27 +410,37 @@ export class ShopeeService {
         shop_id: tokenData.shop_id || shopIdInt,
       };
     } catch (error) {
-      this.logger.error('Failed to exchange code for token:', error.response?.data || error.message);
-      throw new BadRequestException('Failed to exchange authorization code');
+      this.logger.error(
+        "Failed to exchange code for token:",
+        error.response?.data || error.message
+      );
+      throw new BadRequestException("Failed to exchange authorization code");
     }
   }
 
-  async getShopInfo(accessToken: string, shopId: number): Promise<ShopeeShopInfo> {
+  async getShopInfo(
+    accessToken: string,
+    shopId: number
+  ): Promise<ShopeeShopInfo> {
     try {
-      const path = '/api/v2/shop/get_shop_info';
+      const path = "/api/v2/shop/get_shop_info";
       const timestamp = Math.floor(Date.now() / 1000);
       const partnerId = parseInt(this.partnerId);
 
       const baseString = `${partnerId}${path}${timestamp}${accessToken}${shopId}`;
-      const hmac = createHmac('sha256', this.partnerKey);
+      const hmac = createHmac("sha256", this.partnerKey);
       hmac.update(baseString);
-      const sign = hmac.digest('hex');
+      const sign = hmac.digest("hex");
 
-      const queryString = `partner_id=${partnerId}&shop_id=${shopId}&timestamp=${timestamp}&access_token=${encodeURIComponent(accessToken)}&sign=${sign}`;
+      const queryString = `partner_id=${partnerId}&shop_id=${shopId}&timestamp=${timestamp}&access_token=${encodeURIComponent(
+        accessToken
+      )}&sign=${sign}`;
       const response = await axios.get(`${this.apiHost}${path}?${queryString}`);
 
-      if (response.data.error && response.data.error !== '') {
-        throw new BadRequestException(`Failed to get shop info: ${response.data.message}`);
+      if (response.data.error && response.data.error !== "") {
+        throw new BadRequestException(
+          `Failed to get shop info: ${response.data.message}`
+        );
       }
 
       const shopData = response.data;
@@ -410,18 +452,23 @@ export class ShopeeService {
         logo: shopData.shop_logo,
       };
     } catch (error) {
-      this.logger.error('Failed to get shop info:', error.response?.data || error.message);
-      throw new BadRequestException('Failed to fetch Shopee shop information');
+      this.logger.error(
+        "Failed to get shop info:",
+        error.response?.data || error.message
+      );
+      throw new BadRequestException("Failed to fetch Shopee shop information");
     }
   }
 
   async savePlatformConnection(
     userId: string,
     tokenResponse: ShopeeTokenResponse,
-    shopInfo: ShopeeShopInfo,
+    shopInfo: ShopeeShopInfo
   ): Promise<any> {
     if (!tokenResponse.access_token) {
-      throw new BadRequestException('Invalid token response: missing access_token');
+      throw new BadRequestException(
+        "Invalid token response: missing access_token"
+      );
     }
 
     const expiresAt = new Date(Date.now() + tokenResponse.expire_in * 1000);
@@ -429,7 +476,7 @@ export class ShopeeService {
     let existing = await this.platformConnectionModel
       .findOne({
         userId: new Types.ObjectId(userId),
-        platform: 'shopee',
+        platform: "shopee",
         platformAccountId: shopInfo.shop_id.toString(),
       })
       .exec();
@@ -455,7 +502,7 @@ export class ShopeeService {
 
     return this.platformConnectionModel.create({
       userId: new Types.ObjectId(userId),
-      platform: 'shopee',
+      platform: "shopee",
       platformAccountId: shopInfo.shop_id.toString(),
       platformAccountName: shopInfo.shop_name,
       credentials: {
@@ -473,26 +520,31 @@ export class ShopeeService {
     });
   }
 
-  async refreshToken(refreshToken: string, shopId: number): Promise<ShopeeRefreshTokenResponse> {
+  async refreshToken(
+    refreshToken: string,
+    shopId: number
+  ): Promise<ShopeeRefreshTokenResponse> {
     try {
-      const path = '/api/v2/auth/access_token/get';
+      const path = "/api/v2/auth/access_token/get";
       const timestamp = Math.floor(Date.now() / 1000);
       const partnerId = parseInt(this.partnerId);
 
       const baseString = `${partnerId}${path}${timestamp}${shopId}`;
-      const hmac = createHmac('sha256', this.partnerKey);
+      const hmac = createHmac("sha256", this.partnerKey);
       hmac.update(baseString);
-      const sign = hmac.digest('hex');
+      const sign = hmac.digest("hex");
 
       const response = await axios.post(
         `${this.apiHost}${path}`,
         { refresh_token: refreshToken, shop_id: shopId, partner_id: partnerId },
-        { params: { partner_id: partnerId, timestamp, sign } },
+        { params: { partner_id: partnerId, timestamp, sign } }
       );
 
       if (response.data.error) {
         throw new BadRequestException(
-          `Shopee token refresh error: ${response.data.message || response.data.error}`,
+          `Shopee token refresh error: ${
+            response.data.message || response.data.error
+          }`
         );
       }
 
@@ -503,18 +555,23 @@ export class ShopeeService {
         shop_id: response.data.shop_id,
       };
     } catch (error) {
-      this.logger.error('Failed to refresh token:', error.response?.data || error.message);
-      throw new BadRequestException('Failed to refresh Shopee access token');
+      this.logger.error(
+        "Failed to refresh token:",
+        error.response?.data || error.message
+      );
+      throw new BadRequestException("Failed to refresh Shopee access token");
     }
   }
 
   async syncConversations(platformConnectionId: string): Promise<number> {
     try {
-      this.logger.log(`Conversation sync for Shopee connection ${platformConnectionId}`);
-      this.logger.log('Note: Shopee conversations are synced via webhooks');
+      this.logger.log(
+        `Conversation sync for Shopee connection ${platformConnectionId}`
+      );
+      this.logger.log("Note: Shopee conversations are synced via webhooks");
       return 0;
     } catch (error) {
-      this.logger.error('Failed to sync conversations:', error);
+      this.logger.error("Failed to sync conversations:", error);
       throw error;
     }
   }
