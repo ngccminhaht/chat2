@@ -266,40 +266,44 @@ Frontend will start on `http://localhost:3001`
 - [x] MUI + Zustand + TanStack Query configuration
 - [x] WebSocket client setup
 
-### Phase 2: WebSocket Infrastructure (Next)
-- [ ] Socket.IO Gateway trong NestJS
-- [ ] Redis adapter cho horizontal scaling
-- [ ] WebSocket authentication middleware
-- [ ] Room-based architecture (user rooms, conversation rooms)
-- [ ] Kafka → WebSocket bridge
-- [ ] Frontend WebSocket integration với Zustand
+### Phase 2: WebSocket Infrastructure ✅
+- [x] Socket.IO Gateway trong NestJS
+- [x] Redis adapter cho horizontal scaling
+- [x] WebSocket authentication middleware
+- [x] Room-based architecture (user rooms, conversation rooms)
+- [x] Kafka → WebSocket bridge
+- [x] Frontend WebSocket integration với Zustand
 
-### Phase 3: Core Messaging (Next)
-- [ ] Kafka topics setup
-- [ ] Message normalization service
-- [ ] REST APIs (conversations, messages)
-- [ ] Frontend: Conversation list component
-- [ ] Frontend: Message list với virtual scrolling
-- [ ] Frontend: Message input component
+### Phase 3: Core Messaging ✅
+- [x] Kafka topics setup
+- [x] Message normalization service
+- [x] REST APIs (conversations, messages)
+- [x] Frontend: Conversation list component
+- [x] Frontend: Message list với infinite scrolling
+- [x] Frontend: Message input component
+- [x] Typing indicators UI
+- [x] Message status icons
 
-### Phase 4: Facebook Messenger Integration
-- [ ] Facebook OAuth flow
-- [ ] Webhook handler với signature verification
-- [ ] Message adapters (normalize + send)
-- [ ] Handle các message types
-- [ ] Media download service
+### Phase 4: Facebook Messenger Integration ✅
+- [x] Facebook OAuth flow
+- [x] Webhook handler với signature verification
+- [x] Message adapters (normalize + send)
+- [x] Handle các message types (text, image, video, audio, file, sticker, location)
+- [x] Media download service (S3/MinIO)
+- [x] Comments/Feed events handling
+- [x] Postback handling
 
-### Phase 5: Zalo OA Integration
+### Phase 5: Zalo OA Integration (Next)
 - [ ] Zalo OAuth flow
 - [ ] Webhook handlers
 - [ ] Message adapters
 
 ### Phase 6: Advanced Features
+- [x] Typing indicators
+- [x] Read receipts
+- [x] Media handling (S3/MinIO)
 - [ ] Team assignment
 - [ ] Quick replies & templates
-- [ ] Typing indicators
-- [ ] Read receipts
-- [ ] Media handling (S3/MinIO)
 - [ ] Search & filters
 - [ ] Analytics dashboard
 
