@@ -387,11 +387,11 @@ export class WebhookProcessorService {
     conversation: ConversationDocument,
     message: MessageDocument,
   ): Promise<void> {
-    if (!connection.userId) {
+    if (!connection.connectedBy) {
       return;
     }
 
-    const userId = connection.userId.toString();
+    const userId = connection.connectedBy.toString();
 
     // Reload conversation to get updated unreadCount
     const updatedConversation = await this.conversationModel.findById(conversation._id).exec();

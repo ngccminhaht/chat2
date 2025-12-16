@@ -7,6 +7,8 @@ describe('ConversationsController', () => {
   let controller: ConversationsController;
   let conversationsService: jest.Mocked<ConversationsService>;
 
+  const mockOrganizationId = 'org123';
+
   const mockConversationsService = {
     findAll: jest.fn(),
     findOne: jest.fn(),
@@ -38,10 +40,13 @@ describe('ConversationsController', () => {
 
       mockConversationsService.findAll.mockResolvedValue(mockConversations);
 
-      const result = await controller.findAll(dto);
+      const result = await controller.findAll(mockOrganizationId, dto);
 
       expect(result).toEqual(mockConversations);
-      expect(mockConversationsService.findAll).toHaveBeenCalledWith(dto);
+      expect(mockConversationsService.findAll).toHaveBeenCalledWith(
+        mockOrganizationId,
+        dto,
+      );
     });
 
     it('should filter by platform', async () => {
@@ -49,9 +54,12 @@ describe('ConversationsController', () => {
 
       mockConversationsService.findAll.mockResolvedValue([]);
 
-      await controller.findAll(dto);
+      await controller.findAll(mockOrganizationId, dto);
 
-      expect(mockConversationsService.findAll).toHaveBeenCalledWith(dto);
+      expect(mockConversationsService.findAll).toHaveBeenCalledWith(
+        mockOrganizationId,
+        dto,
+      );
     });
 
     it('should search by keyword', async () => {
@@ -59,9 +67,12 @@ describe('ConversationsController', () => {
 
       mockConversationsService.findAll.mockResolvedValue([]);
 
-      await controller.findAll(dto);
+      await controller.findAll(mockOrganizationId, dto);
 
-      expect(mockConversationsService.findAll).toHaveBeenCalledWith(dto);
+      expect(mockConversationsService.findAll).toHaveBeenCalledWith(
+        mockOrganizationId,
+        dto,
+      );
     });
   });
 
@@ -75,10 +86,13 @@ describe('ConversationsController', () => {
 
       mockConversationsService.findOne.mockResolvedValue(mockConversation);
 
-      const result = await controller.findOne('conv123');
+      const result = await controller.findOne(mockOrganizationId, 'conv123');
 
       expect(result).toEqual(mockConversation);
-      expect(mockConversationsService.findOne).toHaveBeenCalledWith('conv123');
+      expect(mockConversationsService.findOne).toHaveBeenCalledWith(
+        mockOrganizationId,
+        'conv123',
+      );
     });
   });
 
@@ -86,10 +100,13 @@ describe('ConversationsController', () => {
     it('should remove a conversation', async () => {
       mockConversationsService.remove.mockResolvedValue({ deleted: true });
 
-      const result = await controller.remove('conv123');
+      const result = await controller.remove(mockOrganizationId, 'conv123');
 
       expect(result).toEqual({ deleted: true });
-      expect(mockConversationsService.remove).toHaveBeenCalledWith('conv123');
+      expect(mockConversationsService.remove).toHaveBeenCalledWith(
+        mockOrganizationId,
+        'conv123',
+      );
     });
   });
 
@@ -97,10 +114,12 @@ describe('ConversationsController', () => {
     it('should remove all conversations', async () => {
       mockConversationsService.removeAll.mockResolvedValue({ deletedCount: 10 });
 
-      const result = await controller.removeAll();
+      const result = await controller.removeAll(mockOrganizationId);
 
       expect(result).toEqual({ deletedCount: 10 });
-      expect(mockConversationsService.removeAll).toHaveBeenCalled();
+      expect(mockConversationsService.removeAll).toHaveBeenCalledWith(
+        mockOrganizationId,
+      );
     });
   });
 });

@@ -5,6 +5,7 @@ import { RedisModule } from './infra/redis';
 import { KafkaModule } from './infra/kafka/kafka.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
@@ -12,6 +13,7 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
 import { ConnectionsModule } from './modules/connections/connections.module';
 import { MediaModule } from './modules/media/media.module';
 import { PlatformsModule } from './modules/platforms/platforms.module';
+import { WidgetModule } from './modules/widget/widget.module';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { PlatformsModule } from './modules/platforms/platforms.module';
     // Feature modules
     AuthModule,
     UsersModule,
+    OrganizationsModule,
     ConversationsModule,
     MessagesModule,
     WebhooksModule,
@@ -44,6 +47,9 @@ import { PlatformsModule } from './modules/platforms/platforms.module';
 
     // Unified platform module (handles all platform integrations)
     PlatformsModule,
+
+    // Widget configuration API
+    WidgetModule,
   ],
 })
 export class AppModule {}

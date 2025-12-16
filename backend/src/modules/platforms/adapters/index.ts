@@ -6,3 +6,4 @@ export * from './facebook.adapter';
 export * from './zalo.adapter';
 export * from './shopee.adapter';
 export * from './tiktok.adapter';
+export * from './web.adapter';

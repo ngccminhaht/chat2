@@ -1,8 +1,14 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Conversation, ConversationDocument } from '@/common/database/schemas/conversation.schema';
-import { Message, MessageDocument } from '@/common/database/schemas/message.schema';
+import {
+  Conversation,
+  ConversationDocument,
+} from '@/common/database/schemas/conversation.schema';
+import {
+  Message,
+  MessageDocument,
+} from '@/common/database/schemas/message.schema';
 import { GetConversationsDto } from './dto/get-conversations.dto';
 
 @Injectable()
@@ -16,10 +22,17 @@ export class ConversationsService {
     private messageModel: Model<MessageDocument>,
   ) {}
 
-  async findAll(dto: GetConversationsDto) {
+  /**
+   * Find all conversations for an organization
+   * IMPORTANT: organizationId is REQUIRED for tenant isolation
+   */
+  async findAll(organizationId: string, dto: GetConversationsDto) {
     const { status, platform, assignedTo, search, page = 1, limit = 20 } = dto;
 
-    const filter: any = {};
+    // CRITICAL: Always filter by organizationId
+    const filter: any = {
+      organizationId: new Types.ObjectId(organizationId),
+    };
 
     if (status) {
       filter.status = status;
@@ -34,9 +47,9 @@ export class ConversationsService {
     }
 
     if (search) {
-      // Search in participant names or last message text
+      // Search in customer name or last message text
       filter.$or = [
-        { 'participants.name': { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } },
         { 'lastMessage.text': { $regex: search, $options: 'i' } },
       ];
     }
@@ -49,7 +62,7 @@ export class ConversationsService {
         .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('assignedTo', 'name email avatar')
+        .populate('assignedTo', 'name email avatarUrl')
         .lean()
         .exec(),
       this.conversationModel.countDocuments(filter).exec(),
@@ -66,10 +79,16 @@ export class ConversationsService {
     };
   }
 
-  async findOne(id: string) {
+  /**
+   * Find a conversation by ID with org check
+   */
+  async findOne(organizationId: string, id: string) {
     const conversation = await this.conversationModel
-      .findById(id)
-      .populate('assignedTo', 'name email avatar')
+      .findOne({
+        _id: new Types.ObjectId(id),
+        organizationId: new Types.ObjectId(organizationId),
+      })
+      .populate('assignedTo', 'name email avatarUrl')
       .lean()
       .exec();
 
@@ -80,16 +99,18 @@ export class ConversationsService {
     return conversation;
   }
 
+  /**
+   * Update unread count (internal use, no org check needed as conversationId is trusted)
+   */
   async updateUnreadCount(conversationId: string, count: number) {
     return this.conversationModel
-      .findByIdAndUpdate(
-        conversationId,
-        { unreadCount: count },
-        { new: true },
-      )
+      .findByIdAndUpdate(conversationId, { unreadCount: count }, { new: true })
       .exec();
   }
 
+  /**
+   * Update last message (internal use)
+   */
   async updateLastMessage(conversationId: string, message: any) {
     return this.conversationModel
       .findByIdAndUpdate(
@@ -107,9 +128,17 @@ export class ConversationsService {
       .exec();
   }
 
-  async remove(id: string) {
-    // Delete conversation
-    const conversation = await this.conversationModel.findByIdAndDelete(id).exec();
+  /**
+   * Remove a conversation with org check
+   */
+  async remove(organizationId: string, id: string) {
+    // Delete conversation with org check
+    const conversation = await this.conversationModel
+      .findOneAndDelete({
+        _id: new Types.ObjectId(id),
+        organizationId: new Types.ObjectId(organizationId),
+      })
+      .exec();
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -117,7 +146,10 @@ export class ConversationsService {
 
     // Delete all messages in this conversation
     const deleteResult = await this.messageModel
-      .deleteMany({ conversationId: new Types.ObjectId(id) })
+      .deleteMany({
+        conversationId: new Types.ObjectId(id),
+        organizationId: new Types.ObjectId(organizationId),
+      })
       .exec();
 
     this.logger.log(
@@ -131,15 +163,22 @@ export class ConversationsService {
     };
   }
 
-  async removeAll() {
-    // Delete all conversations
-    const conversationResult = await this.conversationModel.deleteMany({}).exec();
+  /**
+   * Remove all conversations for an organization (admin only)
+   */
+  async removeAll(organizationId: string) {
+    // Delete all conversations for this org
+    const conversationResult = await this.conversationModel
+      .deleteMany({ organizationId: new Types.ObjectId(organizationId) })
+      .exec();
 
-    // Delete all messages
-    const messageResult = await this.messageModel.deleteMany({}).exec();
+    // Delete all messages for this org
+    const messageResult = await this.messageModel
+      .deleteMany({ organizationId: new Types.ObjectId(organizationId) })
+      .exec();
 
     this.logger.warn(
-      `Deleted ALL data: ${conversationResult.deletedCount} conversations and ${messageResult.deletedCount} messages`,
+      `Deleted ALL data for org ${organizationId}: ${conversationResult.deletedCount} conversations and ${messageResult.deletedCount} messages`,
     );
 
     return {

@@ -262,14 +262,14 @@ export class ShopeeService {
         .findById(conversation.platformConnectionId)
         .exec();
 
-      if (!platformConnection?.userId) {
+      if (!platformConnection?.connectedBy) {
         this.logger.warn(
-          `Cannot emit WebSocket notification: no userId for conversation ${conversation._id}`
+          `Cannot emit WebSocket notification: no connectedBy for conversation ${conversation._id}`
         );
         return;
       }
 
-      const userId = platformConnection.userId.toString();
+      const userId = platformConnection.connectedBy.toString();
 
       // Emit new message event
       this.websocketGateway.emitNewMessage(userId, {

@@ -1,12 +1,31 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Message, MessageDocument } from '@/common/database/schemas/message.schema';
-import { Conversation, ConversationDocument } from '@/common/database/schemas/conversation.schema';
-import { PlatformConnection, PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
+import {
+  Message,
+  MessageDocument,
+} from '@/common/database/schemas/message.schema';
+import {
+  Conversation,
+  ConversationDocument,
+} from '@/common/database/schemas/conversation.schema';
+import {
+  PlatformConnection,
+  PlatformConnectionDocument,
+} from '@/common/database/schemas/platform-connection.schema';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
-import { MessageStatus, KAFKA_TOPICS, Platform, MessageType } from '@/common/constants';
+import {
+  MessageStatus,
+  KAFKA_TOPICS,
+  Platform,
+  MessageType,
+} from '@/common/constants';
 import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
 import {
   OutgoingMessageEvent,
@@ -30,15 +49,22 @@ export class MessagesService {
     private kafkaProducer: KafkaProducerService,
   ) {}
 
+  /**
+   * Find messages by conversation with org check
+   */
   async findByConversation(
+    organizationId: string,
     conversationId: string,
     dto: GetMessagesDto,
   ) {
     const { page = 1, limit = 50 } = dto;
 
-    // Verify conversation exists
+    // Verify conversation exists and belongs to org
     const conversation = await this.conversationModel
-      .findById(conversationId)
+      .findOne({
+        _id: new Types.ObjectId(conversationId),
+        organizationId: new Types.ObjectId(organizationId),
+      })
       .exec();
 
     if (!conversation) {
@@ -49,14 +75,20 @@ export class MessagesService {
 
     const [messages, total] = await Promise.all([
       this.messageModel
-        .find({ conversationId: new Types.ObjectId(conversationId) })
+        .find({
+          conversationId: new Types.ObjectId(conversationId),
+          organizationId: new Types.ObjectId(organizationId),
+        })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean()
         .exec(),
       this.messageModel
-        .countDocuments({ conversationId: new Types.ObjectId(conversationId) })
+        .countDocuments({
+          conversationId: new Types.ObjectId(conversationId),
+          organizationId: new Types.ObjectId(organizationId),
+        })
         .exec(),
     ]);
 
@@ -82,21 +114,27 @@ export class MessagesService {
    * 4. OutgoingMessageConsumer handles sending via platform adapter
    * 5. Consumer updates status and publishes WebSocket notification
    */
-  async send(userId: string, dto: SendMessageDto) {
+  async send(organizationId: string, userId: string, dto: SendMessageDto) {
     const { conversationId, type, content } = dto;
 
-    // Verify conversation exists
+    // Verify conversation exists and belongs to org
     const conversation = await this.conversationModel
-      .findById(conversationId)
+      .findOne({
+        _id: new Types.ObjectId(conversationId),
+        organizationId: new Types.ObjectId(organizationId),
+      })
       .exec();
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
     }
 
-    // Get platform connection for access token
+    // Get platform connection for access token (also verify org)
     const platformConnection = await this.platformConnectionModel
-      .findById(conversation.platformConnectionId)
+      .findOne({
+        _id: conversation.platformConnectionId,
+        organizationId: new Types.ObjectId(organizationId),
+      })
       .exec();
 
     if (!platformConnection) {
@@ -114,8 +152,9 @@ export class MessagesService {
       avatar: platformConnection.metadata?.avatar,
     };
 
-    // Create message with pending status
+    // Create message with pending status (include organizationId)
     const message = await this.messageModel.create({
+      organizationId: new Types.ObjectId(organizationId),
       conversationId: new Types.ObjectId(conversationId),
       platform: conversation.platform,
       platformMessageId: `pending_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -174,9 +213,9 @@ export class MessagesService {
     }
 
     // Immediately publish pending message to WebSocket so UI shows it
-    if (platformConnection.userId) {
+    if (platformConnection.connectedBy) {
       await this.publishPendingMessageNotification(
-        platformConnection.userId.toString(),
+        platformConnection.connectedBy.toString(),
         conversation,
         message,
       );
@@ -197,10 +236,17 @@ export class MessagesService {
       .exec();
   }
 
-  async markAsRead(conversationId: string, _userId: string) {
-    // Verify conversation exists
+  async markAsRead(
+    organizationId: string,
+    conversationId: string,
+    _userId: string,
+  ) {
+    // Verify conversation exists and belongs to org
     const conversation = await this.conversationModel
-      .findById(conversationId)
+      .findOne({
+        _id: new Types.ObjectId(conversationId),
+        organizationId: new Types.ObjectId(organizationId),
+      })
       .populate('platformConnectionId')
       .exec();
 
@@ -210,7 +256,7 @@ export class MessagesService {
 
     // Get userId from platform connection
     const platformConnection = conversation.platformConnectionId as any;
-    const connectionUserId = platformConnection?.userId?.toString();
+    const connectionUserId = platformConnection?.connectedBy?.toString();
 
     if (!connectionUserId) {
       this.logger.warn(`No userId found for conversation ${conversationId}`);

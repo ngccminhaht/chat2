@@ -6,6 +6,14 @@ export type ConversationDocument = Conversation & Document;
 
 @Schema({ timestamps: true })
 export class Conversation {
+  // Multi-tenant: Organization reference (required for all queries)
+  @Prop({ type: Types.ObjectId, ref: 'Organization', required: true })
+  organizationId: Types.ObjectId;
+
+  // CRM: Link to customer profile (optional, created on first message)
+  @Prop({ type: Types.ObjectId, ref: 'Customer' })
+  customerId?: Types.ObjectId;
+
   @Prop({
     type: String,
     required: true,
@@ -63,8 +71,12 @@ export class Conversation {
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);
 
-// Indexes
-ConversationSchema.index({ status: 1, updatedAt: -1 });
-ConversationSchema.index({ platformConnectionId: 1, platformConversationId: 1 }, { unique: true });
-ConversationSchema.index({ assignedTo: 1 });
-ConversationSchema.index({ platform: 1, platformAccountId: 1 }); // For querying by OA/Page ID
+// Indexes - All queries MUST include organizationId for tenant isolation
+ConversationSchema.index({ organizationId: 1, status: 1, updatedAt: -1 }); // Main list query
+ConversationSchema.index(
+  { organizationId: 1, platformConnectionId: 1, platformConversationId: 1 },
+  { unique: true },
+); // Unique per org
+ConversationSchema.index({ organizationId: 1, assignedTo: 1 }); // Agent's conversations
+ConversationSchema.index({ organizationId: 1, customerId: 1 }); // Customer's conversations
+ConversationSchema.index({ organizationId: 1, platform: 1, platformAccountId: 1 }); // By OA/Page

@@ -6,8 +6,13 @@ export type PlatformConnectionDocument = PlatformConnection & Document;
 
 @Schema({ timestamps: true })
 export class PlatformConnection {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
-  userId?: Types.ObjectId;
+  // Multi-tenant: Organization reference (required for all queries)
+  @Prop({ type: Types.ObjectId, ref: 'Organization', required: true })
+  organizationId: Types.ObjectId;
+
+  // User who connected (optional, for audit trail)
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  connectedBy?: Types.ObjectId;
 
   @Prop({
     type: String,
@@ -55,6 +60,10 @@ export class PlatformConnection {
 
 export const PlatformConnectionSchema = SchemaFactory.createForClass(PlatformConnection);
 
-// Indexes
-PlatformConnectionSchema.index({ userId: 1 });
-PlatformConnectionSchema.index({ platform: 1, platformAccountId: 1 }, { unique: true });
+// Indexes - All queries MUST include organizationId for tenant isolation
+PlatformConnectionSchema.index({ organizationId: 1, status: 1 }); // Org's connections
+PlatformConnectionSchema.index(
+  { organizationId: 1, platform: 1, platformAccountId: 1 },
+  { unique: true },
+); // Unique per org
+PlatformConnectionSchema.index({ connectedBy: 1 }); // Audit trail

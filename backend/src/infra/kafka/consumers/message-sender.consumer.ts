@@ -271,11 +271,11 @@ export class MessageSenderConsumer {
         .findById(event.platformConnectionId)
         .exec();
 
-      if (!connection?.userId) {
+      if (!connection?.connectedBy) {
         return;
       }
 
-      const userId = connection.userId.toString();
+      const userId = connection.connectedBy.toString();
 
       const notification: WebSocketNotificationEvent = {
         type: 'message:status',

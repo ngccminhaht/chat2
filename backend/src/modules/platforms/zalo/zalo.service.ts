@@ -113,7 +113,7 @@ export class ZaloService {
         `✅ Found existing platform connection: ${connection._id}`
       );
       this.logger.log(`  Status: ${connection.status}`);
-      this.logger.log(`  User ID: ${connection.userId || "NOT SET"}`);
+      this.logger.log(`  Connected By: ${connection.connectedBy || "NOT SET"}`);
       this.logger.log(
         `  Refresh Token: ${connection.credentials?.refreshToken?.substring(
           0,
@@ -389,14 +389,14 @@ export class ZaloService {
         .findById(conversation.platformConnectionId)
         .exec();
 
-      if (!platformConnection?.userId) {
+      if (!platformConnection?.connectedBy) {
         this.logger.warn(
-          `Cannot publish notification: no userId for conversation ${conversation._id}`
+          `Cannot publish notification: no connectedBy for conversation ${conversation._id}`
         );
         return;
       }
 
-      const userId = platformConnection.userId.toString();
+      const userId = platformConnection.connectedBy.toString();
 
       // Publish new message event to Kafka
       const newMessageEvent: WebSocketNotificationEvent = {

@@ -6,6 +6,9 @@ describe('MessagesController', () => {
   let controller: MessagesController;
   let messagesService: jest.Mocked<MessagesService>;
 
+  const mockOrganizationId = 'org123';
+  const mockUserId = 'user123';
+
   const mockMessagesService = {
     findByConversation: jest.fn(),
     send: jest.fn(),
@@ -35,10 +38,15 @@ describe('MessagesController', () => {
 
       mockMessagesService.findByConversation.mockResolvedValue(mockMessages);
 
-      const result = await controller.findByConversation(conversationId, dto);
+      const result = await controller.findByConversation(
+        mockOrganizationId,
+        conversationId,
+        dto,
+      );
 
       expect(result).toEqual(mockMessages);
       expect(mockMessagesService.findByConversation).toHaveBeenCalledWith(
+        mockOrganizationId,
         conversationId,
         dto,
       );
@@ -50,9 +58,10 @@ describe('MessagesController', () => {
 
       mockMessagesService.findByConversation.mockResolvedValue([]);
 
-      await controller.findByConversation(conversationId, dto);
+      await controller.findByConversation(mockOrganizationId, conversationId, dto);
 
       expect(mockMessagesService.findByConversation).toHaveBeenCalledWith(
+        mockOrganizationId,
         conversationId,
         dto,
       );
@@ -60,7 +69,6 @@ describe('MessagesController', () => {
   });
 
   describe('send', () => {
-    const mockReq = { user: { userId: 'user123' } };
     const sendDto = {
       conversationId: 'conv123',
       type: 'text',
@@ -77,15 +85,18 @@ describe('MessagesController', () => {
 
       mockMessagesService.send.mockResolvedValue(mockMessage);
 
-      const result = await controller.send(mockReq, sendDto);
+      const result = await controller.send(mockOrganizationId, mockUserId, sendDto);
 
       expect(result).toEqual(mockMessage);
-      expect(mockMessagesService.send).toHaveBeenCalledWith('user123', sendDto);
+      expect(mockMessagesService.send).toHaveBeenCalledWith(
+        mockOrganizationId,
+        mockUserId,
+        sendDto,
+      );
     });
   });
 
   describe('markAsRead', () => {
-    const mockReq = { user: { userId: 'user123' } };
     const markReadDto = { conversationId: 'conv123' };
 
     it('should mark messages as read', async () => {
@@ -93,12 +104,17 @@ describe('MessagesController', () => {
 
       mockMessagesService.markAsRead.mockResolvedValue(mockResult);
 
-      const result = await controller.markAsRead(mockReq, markReadDto);
+      const result = await controller.markAsRead(
+        mockOrganizationId,
+        mockUserId,
+        markReadDto,
+      );
 
       expect(result).toEqual(mockResult);
       expect(mockMessagesService.markAsRead).toHaveBeenCalledWith(
+        mockOrganizationId,
         'conv123',
-        'user123',
+        mockUserId,
       );
     });
   });

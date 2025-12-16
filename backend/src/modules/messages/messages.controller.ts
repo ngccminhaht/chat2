@@ -1,32 +1,57 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, Patch } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Patch,
+} from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MarkReadDto } from './dto/mark-read.dto';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { JwtAuthGuard, TenantGuard } from '@/common/guards';
+import { CurrentOrganization, CurrentUser } from '@/common/decorators';
 
 @Controller('messages')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 
   @Get('conversation/:conversationId')
   findByConversation(
+    @CurrentOrganization() organizationId: string,
     @Param('conversationId') conversationId: string,
     @Query() dto: GetMessagesDto,
   ) {
-    return this.messagesService.findByConversation(conversationId, dto);
+    return this.messagesService.findByConversation(
+      organizationId,
+      conversationId,
+      dto,
+    );
   }
 
   @Post('send')
-  send(@Request() req, @Body() dto: SendMessageDto) {
-    const userId = req.user.userId;
-    return this.messagesService.send(userId, dto);
+  send(
+    @CurrentOrganization() organizationId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: SendMessageDto,
+  ) {
+    return this.messagesService.send(organizationId, userId, dto);
   }
 
   @Patch('mark-read')
-  markAsRead(@Request() req, @Body() dto: MarkReadDto) {
-    const userId = req.user.userId;
-    return this.messagesService.markAsRead(dto.conversationId, userId);
+  markAsRead(
+    @CurrentOrganization() organizationId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: MarkReadDto,
+  ) {
+    return this.messagesService.markAsRead(
+      organizationId,
+      dto.conversationId,
+      userId,
+    );
   }
 }

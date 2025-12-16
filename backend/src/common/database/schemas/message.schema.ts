@@ -6,6 +6,10 @@ export type MessageDocument = Message & Document;
 
 @Schema({ timestamps: true })
 export class Message {
+  // Multi-tenant: Organization reference (required for all queries)
+  @Prop({ type: Types.ObjectId, ref: 'Organization', required: true })
+  organizationId: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'Conversation', required: true })
   conversationId: Types.ObjectId;
 
@@ -69,7 +73,10 @@ export class Message {
 
 export const MessageSchema = SchemaFactory.createForClass(Message);
 
-// Indexes
-MessageSchema.index({ conversationId: 1, createdAt: -1 });
-MessageSchema.index({ platform: 1, platformMessageId: 1 }, { unique: true });
-MessageSchema.index({ 'content.text': 'text' }); // Text search index
+// Indexes - All queries MUST include organizationId for tenant isolation
+MessageSchema.index({ organizationId: 1, conversationId: 1, createdAt: -1 }); // Main query
+MessageSchema.index(
+  { organizationId: 1, platform: 1, platformMessageId: 1 },
+  { unique: true },
+); // Dedup per org
+MessageSchema.index({ 'content.text': 'text' }); // Text search (global, filtered in app)

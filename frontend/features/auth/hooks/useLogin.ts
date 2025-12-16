@@ -16,7 +16,14 @@ export function useLogin() {
       return response.data;
     },
     onSuccess: (data) => {
-      setAuth(data.user, data.accessToken, data.refreshToken);
+      setAuth(
+        data.user,
+        data.accessToken,
+        data.refreshToken,
+        data.organizationId,
+        data.organization,
+        data.organizations,
+      );
       router.push('/conversations');
     },
   });

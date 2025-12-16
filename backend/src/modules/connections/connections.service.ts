@@ -41,7 +41,7 @@ export class ConnectionsService {
       const doc: any = conn.toObject();
       return {
         id: conn._id.toString(),
-        userId: conn.userId.toString(),
+        connectedBy: conn.connectedBy?.toString(),
         platform: conn.platform,
         platformAccountId: conn.platformAccountId,
         platformAccountName: conn.platformAccountName,

@@ -178,8 +178,8 @@ export class MessageSenderService {
         .findById(conversation.platformConnectionId)
         .exec();
 
-      if (connection?.userId) {
-        await this.publishStatusUpdate(connection.userId.toString(), message);
+      if (connection?.connectedBy) {
+        await this.publishStatusUpdate(connection.connectedBy.toString(), message);
       }
     }
 
@@ -216,11 +216,11 @@ export class MessageSenderService {
     conversation: ConversationDocument,
     message: MessageDocument,
   ): Promise<void> {
-    if (!connection.userId) {
+    if (!connection.connectedBy) {
       return;
     }
 
-    const userId = connection.userId.toString();
+    const userId = connection.connectedBy.toString();
 
     // Publish new message event
     const messageEvent: WebSocketNotificationEvent = {

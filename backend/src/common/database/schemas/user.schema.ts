@@ -1,7 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 
 export type UserDocument = User & Document;
+
+// User settings interface
+export interface UserSettings {
+  notifications?: boolean;
+  language?: string;
+  theme?: 'light' | 'dark' | 'system';
+}
 
 @Schema({ timestamps: true })
 export class User {
@@ -14,17 +21,22 @@ export class User {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true, enum: ['admin', 'agent', 'viewer'], default: 'admin' })
-  role: string;
+  // Role removed - now per-organization in OrganizationMember
+
+  @Prop()
+  avatarUrl?: string;
 
   @Prop({ type: Object, default: {} })
-  settings: {
-    notifications?: boolean;
-    language?: string;
-  };
+  settings: UserSettings;
 
   @Prop({ default: true })
   isActive: boolean;
+
+  @Prop()
+  lastActiveAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+// Indexes
+UserSchema.index({ isActive: 1 });
