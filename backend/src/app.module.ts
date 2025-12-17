@@ -15,6 +15,7 @@ import { MediaModule } from './modules/media/media.module';
 import { PlatformsModule } from './modules/platforms/platforms.module';
 import { WidgetModule } from './modules/widget/widget.module';
 import { QuickRepliesModule } from './modules/quick-replies/quick-replies.module';
+import { AiAgentsModule } from './modules/ai-agents/ai-agents.module';
 
 @Module({
   imports: [
@@ -54,6 +55,9 @@ import { QuickRepliesModule } from './modules/quick-replies/quick-replies.module
 
     // Quick replies templates
     QuickRepliesModule,
+
+    // AI agents for automated responses
+    AiAgentsModule,
   ],
 })
 export class AppModule {}

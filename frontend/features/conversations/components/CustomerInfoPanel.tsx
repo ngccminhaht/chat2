@@ -25,10 +25,12 @@ import {
   LocalOffer as TagIcon,
   Person as PersonIcon,
   AccessTime as TimeIcon,
+  SmartToy as AiIcon,
 } from '@mui/icons-material';
 import { Conversation } from '../types/conversation.types';
 import { useUpdateConversation } from '../hooks/useUpdateConversation';
 import { useAgents } from '../hooks/useAgents';
+import { useActiveAiAgents } from '@/features/ai-agents/hooks/useAiAgents';
 import { useState, useEffect } from 'react';
 
 interface CustomerInfoPanelProps {
@@ -62,6 +64,7 @@ const statusColors: Record<string, 'success' | 'warning' | 'default'> = {
 export default function CustomerInfoPanel({ conversation, onClose }: CustomerInfoPanelProps) {
   const { mutate: updateConversation, isPending } = useUpdateConversation();
   const { data: agentsData, isLoading: isLoadingAgents } = useAgents();
+  const { data: aiAgents, isLoading: isLoadingAiAgents } = useActiveAiAgents();
 
   const [tagInput, setTagInput] = useState('');
   const [localTags, setLocalTags] = useState<string[]>(conversation.tags || []);
@@ -72,6 +75,7 @@ export default function CustomerInfoPanel({ conversation, onClose }: CustomerInf
   }, [conversation.tags]);
 
   const agents = agentsData?.data || [];
+  const activeAiAgents = aiAgents || [];
 
   // Handle status change
   const handleStatusChange = (newStatus: 'open' | 'closed' | 'archived') => {
@@ -202,12 +206,43 @@ export default function CustomerInfoPanel({ conversation, onClose }: CustomerInf
               <Select
                 value={conversation.assignedTo?._id || ''}
                 onChange={(e) => handleAssignmentChange(e.target.value || null)}
-                disabled={isPending || isLoadingAgents}
+                disabled={isPending || isLoadingAgents || isLoadingAiAgents}
                 displayEmpty
               >
                 <MenuItem value="">
                   <em>Unassigned</em>
                 </MenuItem>
+
+                {/* AI Agents Section */}
+                {activeAiAgents.length > 0 && (
+                  <MenuItem disabled sx={{ opacity: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      <AiIcon fontSize="inherit" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                      AI Agents
+                    </Typography>
+                  </MenuItem>
+                )}
+                {activeAiAgents.map((aiAgent) => (
+                  <MenuItem key={`ai-${aiAgent._id}`} value={`ai:${aiAgent._id}`}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Avatar sx={{ width: 24, height: 24, bgcolor: 'secondary.main' }}>
+                        <AiIcon sx={{ fontSize: 16 }} />
+                      </Avatar>
+                      <Typography variant="body2">{aiAgent.name}</Typography>
+                      <Chip label="AI" size="small" color="secondary" sx={{ height: 18 }} />
+                    </Stack>
+                  </MenuItem>
+                ))}
+
+                {/* Human Agents Section */}
+                {agents.length > 0 && (
+                  <MenuItem disabled sx={{ opacity: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      <PersonIcon fontSize="inherit" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                      Team Members
+                    </Typography>
+                  </MenuItem>
+                )}
                 {agents.map((agent) => (
                   <MenuItem key={agent._id} value={agent._id}>
                     <Stack direction="row" spacing={1} alignItems="center">
