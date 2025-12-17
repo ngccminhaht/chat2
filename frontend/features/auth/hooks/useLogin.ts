@@ -24,9 +24,8 @@ export function useLogin() {
         data.organization,
         data.organizations,
       );
-      // Users without organization must complete onboarding
-      const hasOrganization = data.organizationId || data.organizations?.length > 0;
-      router.push(hasOrganization ? '/conversations' : '/create-organization');
+      // Always redirect to organization selector after login
+      router.push('/organizations');
     },
   });
 }
