@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -18,6 +18,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import CloseIcon from '@mui/icons-material/Close';
 import { useSendMessage } from '../hooks/useSendMessage';
 import { useUploadMedia } from '../hooks/useUploadMedia';
+import { QuickReplyPicker } from '@/features/quick-replies';
 
 interface MessageInputProps {
   conversationId: string;
@@ -33,13 +34,33 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [filePreview, setFilePreview] = useState<FilePreview | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [quickReplySearch, setQuickReplySearch] = useState('');
   const { mutate: sendMessage, isPending: isSending } = useSendMessage();
   const { mutateAsync: uploadMedia, isPending: isUploading } = useUploadMedia();
   const isSendingRef = useRef(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textFieldRef = useRef<HTMLDivElement>(null);
 
   const isPending = isSending || isUploading;
+
+  // Detect "/" trigger for quick replies
+  useEffect(() => {
+    if (message.startsWith('/')) {
+      setShowQuickReplies(true);
+      setQuickReplySearch(message.slice(1)); // Text after "/"
+    } else {
+      setShowQuickReplies(false);
+      setQuickReplySearch('');
+    }
+  }, [message]);
+
+  // Handle quick reply selection
+  const handleQuickReplySelect = (content: string) => {
+    setMessage(content);
+    setShowQuickReplies(false);
+  };
 
   const handleSend = async () => {
     if (isPending || isSendingRef.current) return;
@@ -211,17 +232,27 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
           </MenuItem>
         </Menu>
 
-        <TextField
-          fullWidth
-          multiline
-          maxRows={4}
-          placeholder={filePreview ? 'Press send to upload...' : 'Type a message...'}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={isPending || !!filePreview}
-          size="small"
-        />
+        <Box sx={{ flexGrow: 1, position: 'relative' }}>
+          <TextField
+            fullWidth
+            multiline
+            maxRows={4}
+            placeholder={filePreview ? 'Press send to upload...' : 'Type / for quick replies...'}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isPending || !!filePreview}
+            size="small"
+            ref={textFieldRef}
+          />
+          <QuickReplyPicker
+            anchorEl={textFieldRef.current}
+            open={showQuickReplies}
+            searchText={quickReplySearch}
+            onSelect={handleQuickReplySelect}
+            onClose={() => setShowQuickReplies(false)}
+          />
+        </Box>
 
         <IconButton
           color="primary"

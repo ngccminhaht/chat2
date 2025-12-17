@@ -18,6 +18,7 @@ import EmptyState from '@/components/common/EmptyState';
 import { useConversations } from '../hooks/useConversations';
 import { useConversationStore } from '../stores/conversationStore';
 import { useWebSocketEvent } from '@/lib/websocket/useWebSocketEvent';
+import ConversationFilters, { ConversationFiltersState } from './ConversationFilters';
 
 interface ConversationListProps {
   activeConversationId?: string;
@@ -26,9 +27,16 @@ interface ConversationListProps {
 export default function ConversationList({ activeConversationId }: ConversationListProps) {
   const [status, setStatus] = useState<'open' | 'closed' | 'archived'>('open');
   const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<ConversationFiltersState>({});
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useConversations({ status, page: 1, limit: 50 });
+  // Combine tab status with additional filters
+  const { data, isLoading, error } = useConversations({
+    status: filters.status || status,
+    platform: filters.platform,
+    page: 1,
+    limit: 50,
+  });
 
   // Listen for connection deletion events and refetch conversations
   const handleConnectionDeleted = useCallback(() => {
@@ -82,14 +90,19 @@ export default function ConversationList({ activeConversationId }: ConversationL
           placeholder="Search conversations..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            },
           }}
         />
+        <Box sx={{ mt: 1 }}>
+          <ConversationFilters filters={filters} onFiltersChange={setFilters} />
+        </Box>
       </Box>
 
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>

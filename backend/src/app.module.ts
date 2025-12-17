@@ -14,6 +14,7 @@ import { ConnectionsModule } from './modules/connections/connections.module';
 import { MediaModule } from './modules/media/media.module';
 import { PlatformsModule } from './modules/platforms/platforms.module';
 import { WidgetModule } from './modules/widget/widget.module';
+import { QuickRepliesModule } from './modules/quick-replies/quick-replies.module';
 
 @Module({
   imports: [
@@ -50,6 +51,9 @@ import { WidgetModule } from './modules/widget/widget.module';
 
     // Widget configuration API
     WidgetModule,
+
+    // Quick replies templates
+    QuickRepliesModule,
   ],
 })
 export class AppModule {}

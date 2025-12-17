@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Box, Paper, Typography, Chip, Stack, Avatar } from '@mui/material';
+import { Box, Paper, Typography, Chip, Stack, Avatar, IconButton, useMediaQuery, useTheme } from '@mui/material';
+import { Info as InfoIcon } from '@mui/icons-material';
 import { useInfiniteMessages } from '@/features/conversations/hooks/useInfiniteMessages';
 import { useConversation } from '@/features/conversations/hooks/useConversation';
 import { useMarkAsRead } from '@/features/conversations/hooks/useMarkAsRead';
@@ -11,6 +12,7 @@ import MessageList from '@/features/conversations/components/MessageList';
 import MessageInput from '@/features/conversations/components/MessageInput';
 import ConversationList from '@/features/conversations/components/ConversationList';
 import TypingIndicator from '@/features/conversations/components/TypingIndicator';
+import CustomerInfoPanel from '@/features/conversations/components/CustomerInfoPanel';
 
 // Empty array constant to avoid re-creating on every render
 const EMPTY_MESSAGES: any[] = [];
@@ -18,6 +20,9 @@ const EMPTY_MESSAGES: any[] = [];
 export default function ConversationDetailPage() {
   const params = useParams();
   const conversationId = params.id as string;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [showInfoPanel, setShowInfoPanel] = useState(!isMobile);
 
   const {
     data,
@@ -100,30 +105,52 @@ export default function ConversationDetailPage() {
   return (
     <Box sx={{ height: 'calc(100vh - 112px)' }}>
       <Stack direction="row" spacing={2} sx={{ height: '100%' }}>
-        <Box sx={{ width: '33%', minWidth: 300 }}>
+        {/* Left: Conversation List */}
+        <Box sx={{ width: '28%', minWidth: 280, display: { xs: 'none', md: 'block' } }}>
           <ConversationList activeConversationId={conversationId} />
         </Box>
-        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+        {/* Center: Messages */}
+        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0 }}>
           <Paper sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
             {/* Fixed Header */}
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Avatar
-                  src={conversation?.customerAvatar}
-                  alt={conversation?.customerName || 'User'}
+              <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Avatar
+                    src={conversation?.customerAvatar}
+                    alt={conversation?.customerName || 'User'}
+                  >
+                    {conversation?.customerName?.charAt(0) || 'U'}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6">
+                      {conversation?.customerName || 'Unknown User'}
+                    </Typography>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Chip
+                        label={conversation?.platform || 'Unknown'}
+                        size="small"
+                        variant="outlined"
+                      />
+                      {conversation?.assignedTo && (
+                        <Chip
+                          label={conversation.assignedTo.name}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                      )}
+                    </Stack>
+                  </Box>
+                </Stack>
+                {/* Toggle Info Panel Button */}
+                <IconButton
+                  onClick={() => setShowInfoPanel(!showInfoPanel)}
+                  color={showInfoPanel ? 'primary' : 'default'}
                 >
-                  {conversation?.customerName?.charAt(0) || 'U'}
-                </Avatar>
-                <Box>
-                  <Typography variant="h6">
-                    {conversation?.customerName || 'Unknown User'}
-                  </Typography>
-                  <Chip
-                    label={conversation?.platform || 'Unknown'}
-                    size="small"
-                    variant="outlined"
-                  />
-                </Box>
+                  <InfoIcon />
+                </IconButton>
               </Stack>
             </Box>
 
@@ -147,6 +174,16 @@ export default function ConversationDetailPage() {
             </Box>
           </Paper>
         </Box>
+
+        {/* Right: Customer Info Panel */}
+        {showInfoPanel && conversation && (
+          <Box sx={{ width: '280px', minWidth: 280, display: { xs: 'none', lg: 'block' } }}>
+            <CustomerInfoPanel
+              conversation={conversation}
+              onClose={() => setShowInfoPanel(false)}
+            />
+          </Box>
+        )}
       </Stack>
     </Box>
   );

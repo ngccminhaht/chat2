@@ -3,6 +3,8 @@ export interface User {
   email: string;
   name: string;
   avatarUrl?: string;
+  avatar?: string;
+  role?: 'admin' | 'agent' | 'viewer';
 }
 
 export interface Organization {
