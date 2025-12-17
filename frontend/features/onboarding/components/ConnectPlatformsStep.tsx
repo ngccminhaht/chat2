@@ -56,8 +56,9 @@ export default function ConnectPlatformsStep() {
   const hasConnections = connectedPlatforms.length > 0;
 
   const handleConnect = (platformId: string) => {
-    // Redirect to connections page with platform param
-    router.push(`/integrations/connections?connect=${platformId}`);
+    // During onboarding, connections are handled after org selection
+    // For now, just show an alert - connections will be configured after org setup
+    alert(`Platform connection for ${platformId} will be available after completing setup.`);
   };
 
   const handleSkip = () => {

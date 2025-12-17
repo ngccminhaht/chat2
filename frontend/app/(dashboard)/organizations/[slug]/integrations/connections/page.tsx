@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
   Box,
   Typography,
@@ -17,11 +18,12 @@ import {
 } from '@/features/connections/hooks/usePlatformConnections';
 import PlatformConnectionCard from '@/features/connections/components/PlatformConnectionCard';
 import ConnectPlatformButton from '@/features/connections/components/ConnectPlatformButton';
-import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConnectionStatus } from '@/lib/constants';
 
 function ConnectionsPageContent() {
+  const params = useParams();
+  const slug = params.slug as string;
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { data: connections, isLoading, error } = usePlatformConnections();
@@ -44,10 +46,10 @@ function ConnectionsPageContent() {
         `Successfully ${actionText} ${platform}${account ? `: ${account}` : ''}!`
       );
       queryClient.invalidateQueries({ queryKey: ['connections'] });
-      window.history.replaceState({}, '', '/integrations/connections');
+      window.history.replaceState({}, '', `/organizations/${slug}/integrations/connections`);
       setTimeout(() => setSuccessMessage(null), 5000);
     }
-  }, [searchParams, queryClient]);
+  }, [searchParams, queryClient, slug]);
 
   const handleDisconnect = async (connectionId: string) => {
     if (confirm('Are you sure you want to disconnect this platform?')) {
@@ -55,8 +57,8 @@ function ConnectionsPageContent() {
         await deleteMutation.mutateAsync(connectionId);
         setSuccessMessage('Platform disconnected successfully!');
         setTimeout(() => setSuccessMessage(null), 3000);
-      } catch (error) {
-        console.error('Failed to disconnect platform:', error);
+      } catch {
+        console.error('Failed to disconnect platform');
       }
     }
   };
@@ -68,8 +70,8 @@ function ConnectionsPageContent() {
         `Platform ${newStatus === ConnectionStatus.ACTIVE ? 'activated' : 'deactivated'} successfully!`
       );
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (error) {
-      console.error('Failed to update platform status:', error);
+    } catch {
+      console.error('Failed to update platform status');
     }
   };
 

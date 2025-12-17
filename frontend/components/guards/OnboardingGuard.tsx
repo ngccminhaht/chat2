@@ -52,13 +52,13 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
 
       // Has organization - redirect away from onboarding
       if (hasOrganization && isOnboardingRoute) {
-        router.replace('/conversations');
+        router.replace('/organizations');
         return;
       }
 
       // Authenticated with organization - redirect away from auth routes
       if (isAuthRoute) {
-        router.replace('/conversations');
+        router.replace('/organizations');
         return;
       }
 

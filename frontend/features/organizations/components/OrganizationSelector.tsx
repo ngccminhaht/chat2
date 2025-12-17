@@ -15,12 +15,12 @@ export default function OrganizationSelector() {
   const switchOrg = useSwitchOrganization();
   const [switchingOrgId, setSwitchingOrgId] = useState<string | null>(null);
 
-  const handleSelectOrg = (orgId: string) => {
+  const handleSelectOrg = (orgId: string, orgSlug: string) => {
     setSwitchingOrgId(orgId);
     switchOrg.mutate(
       { organizationId: orgId },
       {
-        onSuccess: () => router.push('/conversations'),
+        onSuccess: () => router.push(`/organizations/${orgSlug}/conversations`),
         onError: () => setSwitchingOrgId(null),
       }
     );
@@ -61,7 +61,7 @@ export default function OrganizationSelector() {
           <Grid size={{ xs: 12, sm: 6, md: 4 }} key={org.id}>
             <OrganizationCard
               organization={org}
-              onClick={() => handleSelectOrg(org.id)}
+              onClick={() => handleSelectOrg(org.id, org.slug)}
               loading={switchingOrgId === org.id}
             />
           </Grid>

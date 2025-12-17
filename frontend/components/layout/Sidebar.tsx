@@ -21,7 +21,6 @@ import SmartToyIcon from "@mui/icons-material/SmartToy";
 import QuestionAnswerIcon from "@mui/icons-material/QuestionAnswer";
 import WidgetsIcon from "@mui/icons-material/Widgets";
 import PersonIcon from "@mui/icons-material/Person";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import BusinessIcon from "@mui/icons-material/Business";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
@@ -36,27 +35,27 @@ interface MenuItem {
   children?: MenuItem[];
 }
 
-const menuItems: MenuItem[] = [
-  { text: "Conversations", icon: <ChatIcon />, path: "/conversations" },
+// Function to generate menu items with org slug
+const getMenuItems = (orgSlug: string): MenuItem[] => [
+  { text: "Conversations", icon: <ChatIcon />, path: `/organizations/${orgSlug}/conversations` },
   {
     text: "Integrations",
     icon: <ExtensionIcon />,
-    path: "/integrations",
+    path: `/organizations/${orgSlug}/integrations`,
     children: [
-      { text: "Connections", icon: <LinkIcon />, path: "/integrations/connections" },
-      { text: "AI Agents", icon: <SmartToyIcon />, path: "/integrations/ai-agents" },
-      { text: "Quick Replies", icon: <QuestionAnswerIcon />, path: "/integrations/quick-replies" },
-      { text: "Widget", icon: <WidgetsIcon />, path: "/integrations/widget" },
+      { text: "Connections", icon: <LinkIcon />, path: `/organizations/${orgSlug}/integrations/connections` },
+      { text: "AI Agents", icon: <SmartToyIcon />, path: `/organizations/${orgSlug}/integrations/ai-agents` },
+      { text: "Quick Replies", icon: <QuestionAnswerIcon />, path: `/organizations/${orgSlug}/integrations/quick-replies` },
+      { text: "Widget", icon: <WidgetsIcon />, path: `/organizations/${orgSlug}/integrations/widget` },
     ],
   },
   {
     text: "Settings",
     icon: <SettingsIcon />,
-    path: "/settings",
+    path: `/organizations/${orgSlug}/settings`,
     children: [
+      { text: "Organization", icon: <BusinessIcon />, path: `/organizations/${orgSlug}/settings/organization` },
       { text: "Profile", icon: <PersonIcon />, path: "/settings/profile" },
-      { text: "Notifications", icon: <NotificationsIcon />, path: "/settings/notifications" },
-      { text: "Organization", icon: <BusinessIcon />, path: "/settings/organization" },
     ],
   },
 ];
@@ -64,15 +63,19 @@ const menuItems: MenuItem[] = [
 interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
+  orgSlug?: string;
 }
 
-export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
+export default function Sidebar({ mobileOpen, onMobileClose, orgSlug }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     Integrations: true,
     Settings: true,
   });
+
+  // Get menu items based on org slug
+  const menuItems = orgSlug ? getMenuItems(orgSlug) : [];
 
   const handleNavigation = (path: string) => {
     router.push(path);

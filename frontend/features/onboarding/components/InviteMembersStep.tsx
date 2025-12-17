@@ -61,7 +61,7 @@ export default function InviteMembersStep() {
     if (invites.length > 0) {
       try {
         await bulkInvite.mutateAsync(invites);
-        router.push('/conversations');
+        router.push('/organizations');
       } catch {
         // Error handled by mutation state
       }
@@ -69,11 +69,11 @@ export default function InviteMembersStep() {
   };
 
   const handleSkip = () => {
-    router.push('/conversations');
+    router.push('/organizations');
   };
 
   const handleComplete = () => {
-    router.push('/conversations');
+    router.push('/organizations');
   };
 
   return (

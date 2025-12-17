@@ -1,15 +1,19 @@
 'use client';
 
+import { useParams } from 'next/navigation';
 import { Box, Stack, Paper, Typography } from '@mui/material';
 import { ChatBubbleOutline as ChatIcon } from '@mui/icons-material';
 import ConversationList from '@/features/conversations/components/ConversationList';
 
 export default function ConversationsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+
   return (
     <Box sx={{ height: 'calc(100vh - 112px)' }}>
       <Stack direction="row" spacing={2} sx={{ height: '100%' }}>
         <Box sx={{ width: '33%', minWidth: 300 }}>
-          <ConversationList />
+          <ConversationList orgSlug={slug} />
         </Box>
         <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Paper sx={{ p: 4, textAlign: 'center' }}>

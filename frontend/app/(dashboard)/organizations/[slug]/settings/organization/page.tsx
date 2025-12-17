@@ -17,7 +17,6 @@ export default function OrganizationPage() {
   return (
     <Box>
       <Stack spacing={3} maxWidth={800} mx="auto" my={2}>
-        {/* Organization Settings */}
         <Paper>
           <Box p={3}>
             <Stack spacing={3}>
@@ -69,7 +68,6 @@ export default function OrganizationPage() {
           </Box>
         </Paper>
 
-        {/* Team Members Section */}
         <Paper>
           <Box p={3}>
             <OrganizationMembers />

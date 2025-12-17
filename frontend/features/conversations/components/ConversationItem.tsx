@@ -15,9 +15,10 @@ import { formatDistanceToNow } from 'date-fns';
 interface ConversationItemProps {
   conversation: Conversation;
   isActive?: boolean;
+  orgSlug: string;
 }
 
-export default function ConversationItem({ conversation, isActive }: ConversationItemProps) {
+export default function ConversationItem({ conversation, isActive, orgSlug }: ConversationItemProps) {
   const router = useRouter();
 
   const platformLabel = conversation.platform.toUpperCase();
@@ -26,7 +27,7 @@ export default function ConversationItem({ conversation, isActive }: Conversatio
     <ListItem disablePadding>
       <ListItemButton
         selected={isActive}
-        onClick={() => router.push(`/conversations/${conversation._id}`)}
+        onClick={() => router.push(`/organizations/${orgSlug}/conversations/${conversation._id}`)}
       >
         <ListItemAvatar>
           <Badge badgeContent={conversation.unreadCount} color="error">

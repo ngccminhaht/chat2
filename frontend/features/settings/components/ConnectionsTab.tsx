@@ -34,7 +34,7 @@ import {
 } from '@/features/connections/hooks/usePlatformConnections';
 import { PlatformConnection } from '@/features/connections/types/platform-connection.types';
 import { ConnectionStatus } from '@/lib/constants/statuses';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 
 // Platform icon mapping
 const platformIcons: Record<string, React.ReactNode> = {
@@ -54,6 +54,8 @@ const platformColors: Record<string, 'primary' | 'info' | 'secondary' | 'error'>
 
 export default function ConnectionsTab() {
   const router = useRouter();
+  const params = useParams();
+  const slug = params.slug as string;
   const { data: connections, isLoading } = usePlatformConnections();
   const deleteConnection = useDeletePlatformConnection();
   const updateStatus = useUpdatePlatformConnectionStatus();
@@ -103,7 +105,7 @@ export default function ConnectionsTab() {
           variant="contained"
           size="small"
           startIcon={<AddIcon />}
-          onClick={() => router.push('/integrations/connections')}
+          onClick={() => router.push(`/organizations/${slug}/integrations/connections`)}
         >
           Add Connection
         </Button>

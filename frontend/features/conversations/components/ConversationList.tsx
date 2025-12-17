@@ -22,9 +22,10 @@ import ConversationFilters, { ConversationFiltersState } from './ConversationFil
 
 interface ConversationListProps {
   activeConversationId?: string;
+  orgSlug: string;
 }
 
-export default function ConversationList({ activeConversationId }: ConversationListProps) {
+export default function ConversationList({ activeConversationId, orgSlug }: ConversationListProps) {
   const [status, setStatus] = useState<'open' | 'closed' | 'archived'>('open');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -123,6 +124,7 @@ export default function ConversationList({ activeConversationId }: ConversationL
                 key={conversation._id}
                 conversation={conversation}
                 isActive={conversation._id === activeConversationId}
+                orgSlug={orgSlug}
               />
             ))}
           </List>

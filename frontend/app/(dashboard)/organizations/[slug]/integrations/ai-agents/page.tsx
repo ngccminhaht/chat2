@@ -213,7 +213,6 @@ export default function AiAgentsPage() {
         </Stack>
       </Paper>
 
-      {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{editingAgent ? 'Edit AI Agent' : 'Create AI Agent'}</DialogTitle>
         <DialogContent>
@@ -225,7 +224,6 @@ export default function AiAgentsPage() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
-
             <TextField
               label="Description"
               fullWidth
@@ -234,7 +232,6 @@ export default function AiAgentsPage() {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
-
             <FormControl fullWidth>
               <InputLabel>Provider</InputLabel>
               <Select
@@ -248,7 +245,6 @@ export default function AiAgentsPage() {
                 <MenuItem value={AiProvider.GEMINI}>Google Gemini</MenuItem>
               </Select>
             </FormControl>
-
             <TextField
               label="Model"
               fullWidth
@@ -257,7 +253,6 @@ export default function AiAgentsPage() {
               value={form.model}
               onChange={(e) => setForm({ ...form, model: e.target.value })}
             />
-
             <TextField
               label="Webhook URL"
               fullWidth
@@ -266,7 +261,6 @@ export default function AiAgentsPage() {
               value={form.webhookUrl}
               onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })}
             />
-
             <TextField
               label="API Key"
               fullWidth
@@ -276,7 +270,6 @@ export default function AiAgentsPage() {
               value={form.apiKey}
               onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
             />
-
             <TextField
               label="System Prompt"
               fullWidth
@@ -306,7 +299,6 @@ export default function AiAgentsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
         <DialogTitle>Delete AI Agent</DialogTitle>
         <DialogContent>
