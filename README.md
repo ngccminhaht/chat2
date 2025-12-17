@@ -301,14 +301,16 @@ Frontend will start on `http://localhost:3001`
 - [x] File upload support
 - [x] User profile fetching
 
-### Phase 6: Advanced Features
+### Phase 6: Advanced Features ✅
 - [x] Typing indicators
 - [x] Read receipts
 - [x] Media handling (S3/MinIO)
-- [ ] Team assignment
-- [ ] Quick replies & templates
-- [ ] Search & filters
-- [ ] Analytics dashboard
+- [x] Team assignment (human agents + AI agents)
+- [x] Quick replies & templates
+- [x] Search & filters (server-side search)
+- [x] Customer info panel (status, assignment, tags)
+- [x] AI Agents management (external platform integration)
+- [x] Settings page (Profile, Notifications, Team, AI Agents, Organization)
 
 ## 🔧 Available Scripts
 

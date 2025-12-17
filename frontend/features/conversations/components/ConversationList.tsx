@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Box,
@@ -26,14 +26,24 @@ interface ConversationListProps {
 
 export default function ConversationList({ activeConversationId }: ConversationListProps) {
   const [status, setStatus] = useState<'open' | 'closed' | 'archived'>('open');
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filters, setFilters] = useState<ConversationFiltersState>({});
   const queryClient = useQueryClient();
 
-  // Combine tab status with additional filters
+  // Debounce search input (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Combine tab status with additional filters + server-side search
   const { data, isLoading, error } = useConversations({
     status: filters.status || status,
     platform: filters.platform,
+    search: debouncedSearch || undefined,
     page: 1,
     limit: 50,
   });
@@ -66,13 +76,8 @@ export default function ConversationList({ activeConversationId }: ConversationL
     setStatus(newValue as 'open' | 'closed' | 'archived');
   };
 
-  const filteredConversations = data?.data.filter((conversation) => {
-    if (!search) return true;
-    return (
-      conversation.customerName?.toLowerCase().includes(search.toLowerCase()) ||
-      conversation.lastMessage?.text?.toLowerCase().includes(search.toLowerCase())
-    );
-  });
+  // Server-side search is now handled by useConversations hook
+  const conversations = data?.data;
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -88,8 +93,8 @@ export default function ConversationList({ activeConversationId }: ConversationL
         <TextField
           fullWidth
           placeholder="Search conversations..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           slotProps={{
             input: {
               startAdornment: (
@@ -108,12 +113,12 @@ export default function ConversationList({ activeConversationId }: ConversationL
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         {isLoading && <LoadingSpinner />}
         {error && <EmptyState message="Error loading conversations" />}
-        {!isLoading && !error && filteredConversations?.length === 0 && (
+        {!isLoading && !error && conversations?.length === 0 && (
           <EmptyState message="No conversations found" />
         )}
-        {!isLoading && !error && filteredConversations && filteredConversations.length > 0 && (
+        {!isLoading && !error && conversations && conversations.length > 0 && (
           <List>
-            {filteredConversations.map((conversation) => (
+            {conversations.map((conversation) => (
               <ConversationItem
                 key={conversation._id}
                 conversation={conversation}

@@ -5,6 +5,8 @@ import { ConversationsResponse } from '../types/conversation.types';
 interface UseConversationsParams {
   status?: 'open' | 'closed' | 'archived';
   platform?: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
+  assignedTo?: string;
+  search?: string;
   page?: number;
   limit?: number;
 }

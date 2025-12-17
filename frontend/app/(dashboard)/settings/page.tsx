@@ -22,15 +22,43 @@ import {
   Chip,
   Alert,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Card,
+  CardContent,
+  CardActions,
 } from '@mui/material';
 import {
   Person as PersonIcon,
   Notifications as NotificationsIcon,
   Group as TeamIcon,
   Business as OrgIcon,
+  SmartToy as AiIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { useAgents } from '@/features/conversations/hooks/useAgents';
+import {
+  useAiAgents,
+  useCreateAiAgent,
+  useUpdateAiAgent,
+  useDeleteAiAgent,
+} from '@/features/ai-agents/hooks/useAiAgents';
+import {
+  AiAgent,
+  AiProvider,
+  AiAgentStatus,
+  CreateAiAgentDto,
+} from '@/features/ai-agents/types/ai-agent.types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -47,10 +75,33 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+const defaultAiAgentForm: CreateAiAgentDto = {
+  name: '',
+  description: '',
+  provider: AiProvider.CUSTOM,
+  model: '',
+  systemPrompt: '',
+  webhookUrl: '',
+  apiKey: '',
+};
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState(0);
   const user = useAuthStore((state) => state.user);
   const { data: agentsData, isLoading: isLoadingAgents } = useAgents();
+
+  // AI Agents
+  const { data: aiAgentsData, isLoading: isLoadingAiAgents } = useAiAgents();
+  const createAiAgent = useCreateAiAgent();
+  const updateAiAgent = useUpdateAiAgent();
+  const deleteAiAgent = useDeleteAiAgent();
+
+  // AI Agent dialog state
+  const [aiAgentDialogOpen, setAiAgentDialogOpen] = useState(false);
+  const [editingAiAgent, setEditingAiAgent] = useState<AiAgent | null>(null);
+  const [aiAgentForm, setAiAgentForm] = useState<CreateAiAgentDto>(defaultAiAgentForm);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [agentToDelete, setAgentToDelete] = useState<AiAgent | null>(null);
 
   // Notification settings state
   const [notifications, setNotifications] = useState({
@@ -69,6 +120,64 @@ export default function SettingsPage() {
     setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // AI Agent handlers
+  const handleOpenAiAgentDialog = (agent?: AiAgent) => {
+    if (agent) {
+      setEditingAiAgent(agent);
+      setAiAgentForm({
+        name: agent.name,
+        description: agent.description || '',
+        provider: agent.provider,
+        model: agent.model,
+        systemPrompt: agent.systemPrompt || '',
+        webhookUrl: agent.webhookUrl || '',
+        apiKey: '', // Don't show existing API key
+      });
+    } else {
+      setEditingAiAgent(null);
+      setAiAgentForm(defaultAiAgentForm);
+    }
+    setAiAgentDialogOpen(true);
+  };
+
+  const handleCloseAiAgentDialog = () => {
+    setAiAgentDialogOpen(false);
+    setEditingAiAgent(null);
+    setAiAgentForm(defaultAiAgentForm);
+  };
+
+  const handleSaveAiAgent = () => {
+    if (editingAiAgent) {
+      updateAiAgent.mutate(
+        { id: editingAiAgent._id, dto: aiAgentForm },
+        { onSuccess: handleCloseAiAgentDialog }
+      );
+    } else {
+      createAiAgent.mutate(aiAgentForm, { onSuccess: handleCloseAiAgentDialog });
+    }
+  };
+
+  const handleDeleteAiAgent = (agent: AiAgent) => {
+    setAgentToDelete(agent);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteAiAgent = () => {
+    if (agentToDelete) {
+      deleteAiAgent.mutate(agentToDelete._id, {
+        onSuccess: () => {
+          setDeleteConfirmOpen(false);
+          setAgentToDelete(null);
+        },
+      });
+    }
+  };
+
+  const handleToggleAiAgentStatus = (agent: AiAgent) => {
+    const newStatus = agent.status === AiAgentStatus.ACTIVE ? AiAgentStatus.INACTIVE : AiAgentStatus.ACTIVE;
+    updateAiAgent.mutate({ id: agent._id, dto: { status: newStatus } });
+  };
+
   return (
     <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}>
       <Paper sx={{ maxWidth: 900, mx: 'auto', my: 2 }}>
@@ -77,6 +186,7 @@ export default function SettingsPage() {
             <Tab icon={<PersonIcon />} label="Profile" iconPosition="start" />
             <Tab icon={<NotificationsIcon />} label="Notifications" iconPosition="start" />
             <Tab icon={<TeamIcon />} label="Team" iconPosition="start" />
+            <Tab icon={<AiIcon />} label="AI Agents" iconPosition="start" />
             <Tab icon={<OrgIcon />} label="Organization" iconPosition="start" />
           </Tabs>
         </Box>
@@ -279,8 +389,94 @@ export default function SettingsPage() {
           </Stack>
         </TabPanel>
 
-        {/* Organization Tab */}
+        {/* AI Agents Tab */}
         <TabPanel value={activeTab} index={3}>
+          <Stack spacing={3}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6">AI Agents</Typography>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => handleOpenAiAgentDialog()}
+              >
+                Add AI Agent
+              </Button>
+            </Stack>
+
+            <Alert severity="info">
+              AI Agents can automatically respond to customers when assigned to conversations.
+              Configure webhook URL to connect to your external AI platform.
+            </Alert>
+
+            {isLoadingAiAgents ? (
+              <Box display="flex" justifyContent="center" p={3}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <Stack spacing={2}>
+                {aiAgentsData?.data.map((agent) => (
+                  <Card key={agent._id} variant="outlined">
+                    <CardContent>
+                      <Stack direction="row" spacing={2} alignItems="flex-start">
+                        <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                          <AiIcon />
+                        </Avatar>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              {agent.name}
+                            </Typography>
+                            <Chip
+                              label={agent.status}
+                              size="small"
+                              color={agent.status === 'active' ? 'success' : 'default'}
+                            />
+                            <Chip
+                              label={agent.provider}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </Stack>
+                          {agent.description && (
+                            <Typography variant="body2" color="text.secondary" mt={0.5}>
+                              {agent.description}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" color="text.secondary" mt={1} display="block">
+                            Model: {agent.model} | Conversations: {agent.totalConversations} | Messages: {agent.totalMessages}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                    <CardActions>
+                      <Button
+                        size="small"
+                        onClick={() => handleToggleAiAgentStatus(agent)}
+                        disabled={updateAiAgent.isPending}
+                      >
+                        {agent.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </Button>
+                      <IconButton size="small" onClick={() => handleOpenAiAgentDialog(agent)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDeleteAiAgent(agent)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </CardActions>
+                  </Card>
+                ))}
+              </Stack>
+            )}
+
+            {!isLoadingAiAgents && (!aiAgentsData?.data || aiAgentsData.data.length === 0) && (
+              <Alert severity="info">No AI agents configured. Create one to get started.</Alert>
+            )}
+          </Stack>
+        </TabPanel>
+
+        {/* Organization Tab */}
+        <TabPanel value={activeTab} index={4}>
           <Stack spacing={3}>
             <Typography variant="h6">Organization Settings</Typography>
 
@@ -343,6 +539,120 @@ export default function SettingsPage() {
           </Stack>
         </TabPanel>
       </Paper>
+
+      {/* AI Agent Create/Edit Dialog */}
+      <Dialog open={aiAgentDialogOpen} onClose={handleCloseAiAgentDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingAiAgent ? 'Edit AI Agent' : 'Create AI Agent'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Name"
+              fullWidth
+              required
+              value={aiAgentForm.name}
+              onChange={(e) => setAiAgentForm({ ...aiAgentForm, name: e.target.value })}
+            />
+
+            <TextField
+              label="Description"
+              fullWidth
+              multiline
+              rows={2}
+              value={aiAgentForm.description}
+              onChange={(e) => setAiAgentForm({ ...aiAgentForm, description: e.target.value })}
+            />
+
+            <FormControl fullWidth>
+              <InputLabel>Provider</InputLabel>
+              <Select
+                value={aiAgentForm.provider}
+                label="Provider"
+                onChange={(e) => setAiAgentForm({ ...aiAgentForm, provider: e.target.value as AiProvider })}
+              >
+                <MenuItem value={AiProvider.CUSTOM}>Custom (External Platform)</MenuItem>
+                <MenuItem value={AiProvider.OPENAI}>OpenAI</MenuItem>
+                <MenuItem value={AiProvider.ANTHROPIC}>Anthropic</MenuItem>
+                <MenuItem value={AiProvider.GEMINI}>Google Gemini</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Model"
+              fullWidth
+              required
+              placeholder="e.g., gpt-4, claude-3, custom-model"
+              value={aiAgentForm.model}
+              onChange={(e) => setAiAgentForm({ ...aiAgentForm, model: e.target.value })}
+            />
+
+            <TextField
+              label="Webhook URL"
+              fullWidth
+              placeholder="https://your-ai-platform.com/webhook"
+              helperText="Endpoint to receive conversation context and return AI response"
+              value={aiAgentForm.webhookUrl}
+              onChange={(e) => setAiAgentForm({ ...aiAgentForm, webhookUrl: e.target.value })}
+            />
+
+            <TextField
+              label="API Key"
+              fullWidth
+              type="password"
+              placeholder={editingAiAgent ? '••••••••' : 'Enter API key'}
+              helperText={editingAiAgent ? 'Leave empty to keep existing key' : 'API key for authentication'}
+              value={aiAgentForm.apiKey}
+              onChange={(e) => setAiAgentForm({ ...aiAgentForm, apiKey: e.target.value })}
+            />
+
+            <TextField
+              label="System Prompt"
+              fullWidth
+              multiline
+              rows={4}
+              placeholder="You are a helpful customer service agent..."
+              value={aiAgentForm.systemPrompt}
+              onChange={(e) => setAiAgentForm({ ...aiAgentForm, systemPrompt: e.target.value })}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAiAgentDialog}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveAiAgent}
+            disabled={createAiAgent.isPending || updateAiAgent.isPending || !aiAgentForm.name || !aiAgentForm.model}
+          >
+            {createAiAgent.isPending || updateAiAgent.isPending ? (
+              <CircularProgress size={20} />
+            ) : editingAiAgent ? (
+              'Update'
+            ) : (
+              'Create'
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+        <DialogTitle>Delete AI Agent</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete &quot;{agentToDelete?.name}&quot;? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={confirmDeleteAiAgent}
+            disabled={deleteAiAgent.isPending}
+          >
+            {deleteAiAgent.isPending ? <CircularProgress size={20} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
