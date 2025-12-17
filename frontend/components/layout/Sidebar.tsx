@@ -22,7 +22,6 @@ import QuestionAnswerIcon from "@mui/icons-material/QuestionAnswer";
 import WidgetsIcon from "@mui/icons-material/Widgets";
 import PersonIcon from "@mui/icons-material/Person";
 import NotificationsIcon from "@mui/icons-material/Notifications";
-import GroupIcon from "@mui/icons-material/Group";
 import BusinessIcon from "@mui/icons-material/Business";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
@@ -57,7 +56,6 @@ const menuItems: MenuItem[] = [
     children: [
       { text: "Profile", icon: <PersonIcon />, path: "/settings/profile" },
       { text: "Notifications", icon: <NotificationsIcon />, path: "/settings/notifications" },
-      { text: "Team", icon: <GroupIcon />, path: "/settings/team" },
       { text: "Organization", icon: <BusinessIcon />, path: "/settings/organization" },
     ],
   },
