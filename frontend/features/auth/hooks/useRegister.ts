@@ -24,7 +24,9 @@ export function useRegister() {
         data.organization,
         data.organizations,
       );
-      router.push('/conversations');
+      // New users must create an organization first
+      const hasOrganization = data.organizationId || data.organizations?.length > 0;
+      router.push(hasOrganization ? '/conversations' : '/create-organization');
     },
   });
 }

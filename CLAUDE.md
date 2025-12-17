@@ -425,14 +425,47 @@ modules/platforms/
 - Frontend uses `@/*` for root directory
 - Strict mode disabled in both projects for faster development
 
+## Onboarding Flow
+
+New users follow a three-step onboarding process after authentication:
+
+**Route Structure:**
+- `(onboarding)` layout group: `/create-organization`, `/connect-platforms`, `/invite-members`
+- Shared layout: Header with branding, centered content container
+- `OnboardingGuard` component enforces flow: authenticated users without organization are redirected to onboarding
+
+**Steps:**
+1. **Create Organization** (`create-organization/page.tsx`)
+   - Hook: `useCreateOrganization()`
+   - Component: `CreateOrganizationForm` (name, slug, description)
+   - POST `/api/organizations` → sets organizationId in authStore
+
+2. **Connect Platforms** (`connect-platforms/page.tsx`)
+   - Component: `ConnectPlatformsStep`
+   - Shows available platforms (Facebook, Zalo, TikTok, Shopee)
+   - Optional step - can skip to next
+
+3. **Invite Members** (`invite-members/page.tsx`)
+   - Hook: `useInviteMembers()`
+   - Component: `InviteMembersStep` (email, role: admin/agent/viewer)
+   - POST `/api/organizations/{id}/members` → batch invite members
+
+**Progress Tracking:**
+- Hook: `useOnboardingProgress()` tracks current step
+- Component: `OnboardingProgress` displays step indicator
+- authStore integration for organizationId persistence
+
+**Types:** See `features/onboarding/types/onboarding.types.ts` - OnboardingStep, CreateOrganizationRequest, InviteMemberRequest
+
 ## Current Development Phase
 
-**Phase 1 (Complete):** Foundation setup
+**Phase 1 (Complete):** Foundation setup + Onboarding
 - NestJS modules scaffold
 - MongoDB schemas
 - JWT authentication
 - Next.js 16 with MUI + Zustand + TanStack Query
 - Docker Compose infrastructure
+- Onboarding flow (create organization, connect platforms, invite members)
 
 **Phase 2 (Next):** WebSocket Infrastructure
 - Socket.IO Gateway implementation
