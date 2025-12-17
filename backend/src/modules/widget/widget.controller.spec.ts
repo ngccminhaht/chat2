@@ -10,6 +10,7 @@ describe('WidgetController', () => {
   const mockWidgetConfig: WidgetConfig = {
     organizationId: 'org123',
     organizationName: 'Test Company',
+    organizationSlug: 'test-company',
     primaryColor: '#0066FF',
     position: 'right',
     greeting: 'Hello! How can we help?',
