@@ -33,13 +33,13 @@ async function bootstrap() {
   // Enable cookie parser
   app.use(cookieParser());
 
-  // Enable CORS with environment-based origins
+  // Enable CORS - allow all origins for widget embedding
   app.enableCors({
-    origin: envService.get('CORS_ORIGINS'),
+    origin: true,
     credentials: true,
   });
 
-  logger.log(`CORS enabled for origins: ${envService.get('CORS_ORIGINS').join(', ')}`);
+  logger.log('CORS enabled for all origins');
 
   // Global validation pipe
   app.useGlobalPipes(
