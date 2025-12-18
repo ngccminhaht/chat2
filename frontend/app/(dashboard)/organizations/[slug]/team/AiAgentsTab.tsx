@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import {
   Box,
-  Paper,
   Typography,
   Stack,
   Button,
@@ -54,7 +53,7 @@ const defaultAiAgentForm: CreateAiAgentDto = {
   apiKey: '',
 };
 
-export default function AiAgentsPage() {
+export default function AiAgentsTab() {
   const { data: aiAgentsData, isLoading } = useAiAgents();
   const createAiAgent = useCreateAiAgent();
   const updateAiAgent = useUpdateAiAgent();
@@ -124,94 +123,92 @@ export default function AiAgentsPage() {
     updateAiAgent.mutate({ id: agent._id, dto: { status: newStatus } });
   };
 
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" p={3}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}>
-      <Paper sx={{ maxWidth: 900, mx: 'auto', my: 2, p: 3 }}>
-        <Stack spacing={3}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="h5">AI Agents</Typography>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenDialog()}
-            >
-              Add AI Agent
-            </Button>
-          </Stack>
+    <Stack spacing={3}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="h6">AI Agents</Typography>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenDialog()}
+        >
+          Add AI Agent
+        </Button>
+      </Stack>
 
-          <Alert severity="info">
-            AI Agents can automatically respond to customers when assigned to conversations.
-            Configure webhook URL to connect to your external AI platform.
-          </Alert>
+      <Alert severity="info">
+        AI Agents can automatically respond to customers when assigned to conversations.
+        Configure webhook URL to connect to your external AI platform.
+      </Alert>
 
-          {isLoading ? (
-            <Box display="flex" justifyContent="center" p={3}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <Stack spacing={2}>
-              {aiAgentsData?.data.map((agent) => (
-                <Card key={agent._id} variant="outlined">
-                  <CardContent>
-                    <Stack direction="row" spacing={2} alignItems="flex-start">
-                      <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                        <AiIcon />
-                      </Avatar>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography variant="subtitle1" fontWeight="bold">
-                            {agent.name}
-                          </Typography>
-                          <Chip
-                            label={agent.status}
-                            size="small"
-                            color={agent.status === 'active' ? 'success' : 'default'}
-                          />
-                          <Chip label={agent.provider} size="small" variant="outlined" />
-                        </Stack>
-                        {agent.description && (
-                          <Typography variant="body2" color="text.secondary" mt={0.5}>
-                            {agent.description}
-                          </Typography>
-                        )}
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          mt={1}
-                          display="block"
-                        >
-                          Model: {agent.model} | Conversations: {agent.totalConversations} |
-                          Messages: {agent.totalMessages}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </CardContent>
-                  <CardActions>
-                    <Button
+      <Stack spacing={2}>
+        {aiAgentsData?.data.map((agent) => (
+          <Card key={agent._id} variant="outlined">
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="flex-start">
+                <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                  <AiIcon />
+                </Avatar>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {agent.name}
+                    </Typography>
+                    <Chip
+                      label={agent.status}
                       size="small"
-                      onClick={() => handleToggleStatus(agent)}
-                      disabled={updateAiAgent.isPending}
-                    >
-                      {agent.status === 'active' ? 'Deactivate' : 'Activate'}
-                    </Button>
-                    <IconButton size="small" onClick={() => handleOpenDialog(agent)}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(agent)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </CardActions>
-                </Card>
-              ))}
-            </Stack>
-          )}
+                      color={agent.status === 'active' ? 'success' : 'default'}
+                    />
+                    <Chip label={agent.provider} size="small" variant="outlined" />
+                  </Stack>
+                  {agent.description && (
+                    <Typography variant="body2" color="text.secondary" mt={0.5}>
+                      {agent.description}
+                    </Typography>
+                  )}
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    mt={1}
+                    display="block"
+                  >
+                    Model: {agent.model} | Conversations: {agent.totalConversations} |
+                    Messages: {agent.totalMessages}
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+            <CardActions>
+              <Button
+                size="small"
+                onClick={() => handleToggleStatus(agent)}
+                disabled={updateAiAgent.isPending}
+              >
+                {agent.status === 'active' ? 'Deactivate' : 'Activate'}
+              </Button>
+              <IconButton size="small" onClick={() => handleOpenDialog(agent)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" color="error" onClick={() => handleDelete(agent)}>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </CardActions>
+          </Card>
+        ))}
+      </Stack>
 
-          {!isLoading && (!aiAgentsData?.data || aiAgentsData.data.length === 0) && (
-            <Alert severity="info">No AI agents configured. Create one to get started.</Alert>
-          )}
-        </Stack>
-      </Paper>
+      {(!aiAgentsData?.data || aiAgentsData.data.length === 0) && (
+        <Alert severity="info">No AI agents configured. Create one to get started.</Alert>
+      )}
 
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{editingAgent ? 'Edit AI Agent' : 'Create AI Agent'}</DialogTitle>
@@ -319,6 +316,6 @@ export default function AiAgentsPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Stack>
   );
 }

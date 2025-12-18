@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Box,
   Card,
@@ -10,14 +11,43 @@ import {
   Typography,
   Alert,
   Link as MuiLink,
+  CircularProgress,
 } from "@mui/material";
 import Link from "next/link";
 import { useLogin } from "../hooks/useLogin";
+import { useAuthStore } from "../stores/authStore";
 
 export function LoginForm() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { mutate: login, isPending, error } = useLogin();
+
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const organization = useAuthStore((state) => state.organization);
+  const hasHydrated = useAuthStore((state) => state._hasHydrated);
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (!hasHydrated) return;
+
+    if (accessToken) {
+      if (organization?.slug) {
+        router.replace(`/organizations/${organization.slug}/conversations`);
+      } else {
+        router.replace('/organizations');
+      }
+    }
+  }, [accessToken, organization, hasHydrated, router]);
+
+  // Show loading while checking auth state
+  if (!hasHydrated || accessToken) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

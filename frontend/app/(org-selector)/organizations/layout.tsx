@@ -1,15 +1,13 @@
 'use client';
 
-import { Box, Container, AppBar, Toolbar, Typography } from '@mui/material';
+import { Box, Container, Toolbar } from '@mui/material';
+import Header from '@/components/layout/Header';
 
 export default function OrgSelectorLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
-      <AppBar position="static" color="transparent" elevation={0}>
-        <Toolbar>
-          <Typography variant="h6">MiAgent</Typography>
-        </Toolbar>
-      </AppBar>
+      <Header showMenuButton={false} />
+      <Toolbar />
       <Container maxWidth="md" sx={{ py: 4 }}>
         {children}
       </Container>

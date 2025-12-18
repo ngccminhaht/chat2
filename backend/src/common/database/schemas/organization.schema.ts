@@ -23,13 +23,33 @@ export interface OrganizationSettings {
 
 // Chat widget customization settings
 export interface WidgetSettings {
-  primaryColor?: string;
+  // Appearance
+  buttonStyle?: 'circle' | 'pill' | 'square';
+  buttonSize?: number;
+  buttonIcon?: 'chat' | 'message' | 'messenger' | 'custom';
+  customIconUrl?: string;
   position?: 'left' | 'right';
+  marginRight?: number;
+  marginBottom?: number;
+  marginBottomMobile?: number;
+  // Colors
+  primaryColor?: string;
+  textColor?: 'light' | 'dark';
+  // Avatar
+  avatarName?: string;
+  avatarUrl?: string;
+  // Window size
+  windowHeightMobile?: number;
+  windowHeight?: number;
+  windowHeightUnit?: '%' | 'px';
+  // Messages
   greeting?: string;
-  logo?: string;
   offlineMessage?: string;
+  // Pre-chat form
   preChatForm?: boolean;
   preChatFields?: string[]; // ['name', 'email', 'phone']
+  // Legacy
+  logo?: string;
 }
 
 export enum OrganizationPlan {

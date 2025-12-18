@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, AppBar, Toolbar, Typography, IconButton, Container } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { Box, Toolbar, Container } from '@mui/material';
+import Header from '@/components/layout/Header';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 
 export default function GlobalSettingsLayout({
@@ -14,15 +14,18 @@ export default function GlobalSettingsLayout({
   const router = useRouter();
   const accessToken = useAuthStore((state) => state.accessToken);
   const organization = useAuthStore((state) => state.organization);
+  const hasHydrated = useAuthStore((state) => state._hasHydrated);
 
   useEffect(() => {
+    // Wait for Zustand to hydrate from localStorage
+    if (!hasHydrated) return;
+
     if (!accessToken) {
       router.replace('/login');
     }
-  }, [accessToken, router]);
+  }, [accessToken, hasHydrated, router]);
 
   const handleBack = () => {
-    // Go back to current org dashboard if available, otherwise to org selector
     if (organization?.slug) {
       router.push(`/organizations/${organization.slug}/conversations`);
     } else {
@@ -32,21 +35,12 @@ export default function GlobalSettingsLayout({
 
   return (
     <Box>
-      <AppBar position="fixed">
-        <Toolbar>
-          <IconButton
-            edge="start"
-            color="inherit"
-            onClick={handleBack}
-            aria-label="back"
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h6" component="div" sx={{ ml: 2 }}>
-            Settings
-          </Typography>
-        </Toolbar>
-      </AppBar>
+      <Header
+        title="Settings"
+        showBackButton
+        onBackClick={handleBack}
+        showMenuButton={false}
+      />
       <Box component="main">
         <Toolbar />
         <Container maxWidth="md" sx={{ py: 3 }}>

@@ -32,9 +32,35 @@ import {
   useDeletePlatformConnection,
   useUpdatePlatformConnectionStatus,
 } from '@/features/connections/hooks/usePlatformConnections';
+import { useConnectFacebook } from '@/features/connections/hooks/useConnectFacebook';
+import { useConnectZalo } from '@/features/connections/hooks/useConnectZalo';
+import { useConnectShopee } from '@/features/connections/hooks/useConnectShopee';
 import { PlatformConnection } from '@/features/connections/types/platform-connection.types';
 import { ConnectionStatus } from '@/lib/constants/statuses';
-import { useRouter, useParams } from 'next/navigation';
+
+// Available platforms for connection
+const AVAILABLE_PLATFORMS = [
+  {
+    id: 'facebook',
+    name: 'Facebook Messenger',
+    description: 'Connect your Facebook Page to receive messages',
+  },
+  {
+    id: 'zalo',
+    name: 'Zalo OA',
+    description: 'Connect your Zalo Official Account',
+  },
+  {
+    id: 'tiktok',
+    name: 'TikTok Shop',
+    description: 'Connect your TikTok Shop account',
+  },
+  {
+    id: 'shopee',
+    name: 'Shopee',
+    description: 'Connect your Shopee seller account',
+  },
+];
 
 // Platform icon mapping
 const platformIcons: Record<string, React.ReactNode> = {
@@ -53,15 +79,37 @@ const platformColors: Record<string, 'primary' | 'info' | 'secondary' | 'error'>
 };
 
 export default function ConnectionsTab() {
-  const router = useRouter();
-  const params = useParams();
-  const slug = params.slug as string;
   const { data: connections, isLoading } = usePlatformConnections();
   const deleteConnection = useDeletePlatformConnection();
   const updateStatus = useUpdatePlatformConnectionStatus();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState<PlatformConnection | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+
+  // OAuth connection hooks
+  const { connectFacebook, isLoading: isLoadingFacebook } = useConnectFacebook();
+  const { connectZalo, isLoading: isLoadingZalo } = useConnectZalo();
+  const { connectShopee, isLoading: isLoadingShopee } = useConnectShopee();
+
+  const handleConnect = (platformId: string) => {
+    if (platformId === 'facebook') {
+      connectFacebook();
+    } else if (platformId === 'zalo') {
+      connectZalo();
+    } else if (platformId === 'shopee') {
+      connectShopee();
+    } else if (platformId === 'tiktok') {
+      alert('TikTok Shop connection coming soon!');
+    }
+  };
+
+  const isConnecting = (platformId: string) => {
+    if (platformId === 'facebook') return isLoadingFacebook;
+    if (platformId === 'zalo') return isLoadingZalo;
+    if (platformId === 'shopee') return isLoadingShopee;
+    return false;
+  };
 
   const handleDelete = (connection: PlatformConnection) => {
     setConnectionToDelete(connection);
@@ -105,7 +153,7 @@ export default function ConnectionsTab() {
           variant="contained"
           size="small"
           startIcon={<AddIcon />}
-          onClick={() => router.push(`/organizations/${slug}/integrations/connections`)}
+          onClick={() => setAddDialogOpen(true)}
         >
           Add Connection
         </Button>
@@ -184,6 +232,60 @@ export default function ConnectionsTab() {
           No platform connections found. Connect a platform to start receiving messages.
         </Alert>
       )}
+
+      {/* Add Connection Dialog */}
+      <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Platform Connection</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            Select a platform to connect. You will be redirected to authorize access.
+          </Typography>
+          <Stack spacing={2}>
+            {AVAILABLE_PLATFORMS.map((platform) => {
+              const isConnected = connections?.some((c) => c.platform === platform.id);
+              return (
+                <Card key={platform.id} variant="outlined">
+                  <CardContent sx={{ py: 1.5 }}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Avatar sx={{ bgcolor: 'background.default' }}>
+                        {platformIcons[platform.id]}
+                      </Avatar>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="subtitle2">{platform.name}</Typography>
+                          {isConnected && (
+                            <Chip label="Connected" size="small" color="success" />
+                          )}
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          {platform.description}
+                        </Typography>
+                      </Box>
+                      <Button
+                        size="small"
+                        variant={isConnected ? 'outlined' : 'contained'}
+                        disabled={isConnected || isConnecting(platform.id)}
+                        onClick={() => handleConnect(platform.id)}
+                      >
+                        {isConnecting(platform.id) ? (
+                          <CircularProgress size={20} />
+                        ) : isConnected ? (
+                          'Connected'
+                        ) : (
+                          'Connect'
+                        )}
+                      </Button>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>

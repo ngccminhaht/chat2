@@ -7,10 +7,12 @@ import {
   NotFoundException,
   Header,
   Logger,
+  UseGuards,
 } from '@nestjs/common';
 import { WidgetService } from './widget.service';
 import { Public, CurrentOrganization } from '@/common/decorators';
 import { UpdateWidgetConfigDto } from './dto/update-widget-config.dto';
+import { TenantGuard } from '@/common/guards/tenant.guard';
 
 @Controller('widget')
 export class WidgetController {
@@ -19,12 +21,42 @@ export class WidgetController {
   constructor(private readonly widgetService: WidgetService) {}
 
   /**
+   * GET /api/widget/config
+   * Get widget configuration for the current user's organization
+   */
+  @UseGuards(TenantGuard)
+  @Get('config')
+  async getMyWidgetConfig(@CurrentOrganization() organizationId: string) {
+    const config = await this.widgetService.getWidgetConfigByOrgId(
+      organizationId,
+    );
+    if (!config) {
+      throw new NotFoundException('Organization not found');
+    }
+    return config;
+  }
+
+  /**
+   * PATCH /api/widget/config
+   * Update widget configuration for the current user's organization
+   */
+  @UseGuards(TenantGuard)
+  @Patch('config')
+  async updateWidgetConfig(
+    @CurrentOrganization() organizationId: string,
+    @Body() dto: UpdateWidgetConfigDto,
+  ) {
+    return this.widgetService.updateWidgetConfig(organizationId, dto);
+  }
+
+  /**
    * GET /api/widget/:orgSlug/config
    * Public endpoint - no auth required
    * Returns widget configuration for embedding
    *
    * Note: CORS is handled globally in main.ts for widget endpoints
    * Widget config is intentionally public (non-sensitive display settings)
+   * IMPORTANT: This route must be AFTER /config routes to avoid matching "config" as orgSlug
    */
   @Public()
   @Get(':orgSlug/config')
@@ -43,32 +75,5 @@ export class WidgetController {
       this.logger.error(`Failed to get widget config: ${error.message}`);
       throw error;
     }
-  }
-
-  /**
-   * GET /api/widget/config
-   * Get widget configuration for the current user's organization
-   */
-  @Get('config')
-  async getMyWidgetConfig(@CurrentOrganization() organizationId: string) {
-    const config = await this.widgetService.getWidgetConfigByOrgId(
-      organizationId,
-    );
-    if (!config) {
-      throw new NotFoundException('Organization not found');
-    }
-    return config;
-  }
-
-  /**
-   * PATCH /api/widget/config
-   * Update widget configuration for the current user's organization
-   */
-  @Patch('config')
-  async updateWidgetConfig(
-    @CurrentOrganization() organizationId: string,
-    @Body() dto: UpdateWidgetConfigDto,
-  ) {
-    return this.widgetService.updateWidgetConfig(organizationId, dto);
   }
 }

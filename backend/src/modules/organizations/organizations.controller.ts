@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -20,6 +21,8 @@ import {
 } from './dto';
 import { UsersService } from '../users/users.service';
 import { OrganizationRole } from '@/common/database/schemas';
+import { WidgetService } from '../widget/widget.service';
+import { UpdateWidgetConfigDto } from '../widget/dto/update-widget-config.dto';
 
 // JWT payload interface
 interface JwtPayload {
@@ -34,6 +37,7 @@ export class OrganizationsController {
   constructor(
     private readonly organizationsService: OrganizationsService,
     private readonly usersService: UsersService,
+    private readonly widgetService: WidgetService,
   ) {}
 
   /**
@@ -200,5 +204,40 @@ export class OrganizationsController {
     @CurrentUser() user: JwtPayload,
   ) {
     await this.organizationsService.removeMember(id, targetUserId, user.sub);
+  }
+
+  /**
+   * Get widget configuration for organization
+   * GET /api/organizations/:id/widget
+   */
+  @Get(':id/widget')
+  async getWidgetConfig(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.organizationsService.assertRole(id, user.sub, [
+      OrganizationRole.OWNER,
+      OrganizationRole.ADMIN,
+      OrganizationRole.AGENT,
+      OrganizationRole.VIEWER,
+    ]);
+    return this.widgetService.getWidgetConfigByOrgId(id);
+  }
+
+  /**
+   * Update widget configuration for organization
+   * PATCH /api/organizations/:id/widget
+   */
+  @Patch(':id/widget')
+  async updateWidgetConfig(
+    @Param('id') id: string,
+    @Body() dto: UpdateWidgetConfigDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.organizationsService.assertRole(id, user.sub, [
+      OrganizationRole.OWNER,
+      OrganizationRole.ADMIN,
+    ]);
+    return this.widgetService.updateWidgetConfig(id, dto);
   }
 }

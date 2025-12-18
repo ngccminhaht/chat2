@@ -9,6 +9,7 @@ import {
 import { OrganizationsService } from './organizations.service';
 import { OrganizationsController } from './organizations.controller';
 import { UsersModule } from '../users/users.module';
+import { WidgetModule } from '../widget/widget.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UsersModule } from '../users/users.module';
       { name: OrganizationMember.name, schema: OrganizationMemberSchema },
     ]),
     forwardRef(() => UsersModule),
+    WidgetModule,
   ],
   controllers: [OrganizationsController],
   providers: [OrganizationsService],

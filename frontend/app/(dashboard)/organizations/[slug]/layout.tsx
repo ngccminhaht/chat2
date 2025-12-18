@@ -23,6 +23,7 @@ export default function OrganizationLayout({
   const organizations = useAuthStore((state) => state.organizations);
   const currentOrg = useAuthStore((state) => state.organization);
   const accessToken = useAuthStore((state) => state.accessToken);
+  const hasHydrated = useAuthStore((state) => state._hasHydrated);
   const switchOrg = useSwitchOrganization();
 
   // Setup WebSocket event listeners
@@ -30,6 +31,9 @@ export default function OrganizationLayout({
 
   // Validate org slug and switch if needed
   useEffect(() => {
+    // Wait for Zustand to hydrate from localStorage
+    if (!hasHydrated) return;
+
     if (!accessToken) {
       router.replace('/login');
       return;
@@ -55,7 +59,7 @@ export default function OrganizationLayout({
     } else {
       setIsValidating(false);
     }
-  }, [slug, organizations, currentOrg, accessToken, router, switchOrg]);
+  }, [slug, organizations, currentOrg, accessToken, hasHydrated, router, switchOrg]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
