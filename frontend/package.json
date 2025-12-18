@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 8315",
     "build": "yarn build:widget && next build",
-    "build:widget": "cd widget && npx vite build",
+    "build:widget": "cd widget && vite build",
     "start": "next start -p 8315",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
@@ -29,6 +29,8 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.4",
     "@types/react-dom": "^19.2.3",
-    "typescript": "^5.9.3"
+    "terser": "^5.44.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
   }
 }
