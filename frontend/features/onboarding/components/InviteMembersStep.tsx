@@ -24,7 +24,6 @@ import {
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { useBulkInviteMembers } from '../hooks/useInviteMembers';
 import type { InviteMemberRequest } from '../types/onboarding.types';
-import OnboardingProgress from './OnboardingProgress';
 
 const ROLE_LABELS = {
   admin: 'Admin',
@@ -78,8 +77,6 @@ export default function InviteMembersStep() {
 
   return (
     <Stack spacing={4}>
-      <OnboardingProgress />
-
       <Box>
         <Typography variant="h4" gutterBottom>
           Invite Team Members

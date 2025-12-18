@@ -19,7 +19,6 @@ import {
   ShoppingBag as ShopeeIcon,
 } from '@mui/icons-material';
 import { usePlatformConnections } from '@/features/connections/hooks/usePlatformConnections';
-import OnboardingProgress from './OnboardingProgress';
 
 const PLATFORMS = [
   {
@@ -71,8 +70,6 @@ export default function ConnectPlatformsStep() {
 
   return (
     <Stack spacing={4}>
-      <OnboardingProgress />
-
       <Box>
         <Typography variant="h4" gutterBottom>
           Connect Your Platforms
