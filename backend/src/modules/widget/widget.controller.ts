@@ -54,7 +54,7 @@ export class WidgetController {
    * Public endpoint - no auth required
    * Returns widget configuration for embedding
    *
-   * Note: CORS is handled globally in main.ts for widget endpoints
+   * CORS: Allow all origins since widget can be embedded on any website
    * Widget config is intentionally public (non-sensitive display settings)
    * IMPORTANT: This route must be AFTER /config routes to avoid matching "config" as orgSlug
    */

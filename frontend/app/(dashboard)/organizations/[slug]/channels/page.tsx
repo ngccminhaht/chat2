@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 import {
   Box,
   Paper,
@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Facebook as FacebookIcon,
   Chat as ZaloIcon,
@@ -29,23 +29,31 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Add as AddIcon,
-} from '@mui/icons-material';
+} from "@mui/icons-material";
 import {
   usePlatformConnections,
   useDeletePlatformConnection,
   useUpdatePlatformConnectionStatus,
-} from '@/features/connections/hooks/usePlatformConnections';
-import { useConnectFacebook } from '@/features/connections/hooks/useConnectFacebook';
-import { useConnectZalo } from '@/features/connections/hooks/useConnectZalo';
-import { useConnectShopee } from '@/features/connections/hooks/useConnectShopee';
-import { PlatformConnection } from '@/features/connections/types/platform-connection.types';
-import { ConnectionStatus } from '@/lib/constants/statuses';
+} from "@/features/connections/hooks/usePlatformConnections";
+import { useConnectFacebook } from "@/features/connections/hooks/useConnectFacebook";
+import { useConnectZalo } from "@/features/connections/hooks/useConnectZalo";
+import { useConnectShopee } from "@/features/connections/hooks/useConnectShopee";
+import { PlatformConnection } from "@/features/connections/types/platform-connection.types";
+import { ConnectionStatus } from "@/lib/constants/statuses";
 
 const PLATFORMS = [
-  { id: 'facebook', name: 'Facebook', icon: <FacebookIcon sx={{ color: '#1877F2' }} /> },
-  { id: 'zalo', name: 'Zalo OA', icon: <ZaloIcon sx={{ color: '#0068ff' }} /> },
-  { id: 'shopee', name: 'Shopee', icon: <ShopeeIcon sx={{ color: '#ee4d2d' }} /> },
-  { id: 'tiktok', name: 'TikTok', icon: <ShopeeIcon sx={{ color: '#000' }} /> },
+  {
+    id: "facebook",
+    name: "Facebook",
+    icon: <FacebookIcon sx={{ color: "#1877F2" }} />,
+  },
+  { id: "zalo", name: "Zalo OA", icon: <ZaloIcon sx={{ color: "#0068ff" }} /> },
+  {
+    id: "shopee",
+    name: "Shopee",
+    icon: <ShopeeIcon sx={{ color: "#ee4d2d" }} />,
+  },
+  { id: "tiktok", name: "TikTok", icon: <ShopeeIcon sx={{ color: "#000" }} /> },
 ];
 
 export default function ChannelsPage() {
@@ -55,32 +63,35 @@ export default function ChannelsPage() {
   const updateStatus = useUpdatePlatformConnectionStatus();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [connectionToDelete, setConnectionToDelete] = useState<PlatformConnection | null>(null);
+  const [connectionToDelete, setConnectionToDelete] =
+    useState<PlatformConnection | null>(null);
 
   // OAuth connection hooks
-  const { connectFacebook, isLoading: isLoadingFacebook } = useConnectFacebook();
+  const { connectFacebook, isLoading: isLoadingFacebook } =
+    useConnectFacebook();
   const { connectZalo, isLoading: isLoadingZalo } = useConnectZalo();
   const { connectShopee, isLoading: isLoadingShopee } = useConnectShopee();
 
   const currentPlatform = PLATFORMS[tab].id;
-  const platformConnections = connections?.filter((c) => c.platform === currentPlatform) || [];
+  const platformConnections =
+    connections?.filter((c) => c.platform === currentPlatform) || [];
 
   const handleConnect = () => {
-    if (currentPlatform === 'facebook') {
+    if (currentPlatform === "facebook") {
       connectFacebook();
-    } else if (currentPlatform === 'zalo') {
+    } else if (currentPlatform === "zalo") {
       connectZalo();
-    } else if (currentPlatform === 'shopee') {
+    } else if (currentPlatform === "shopee") {
       connectShopee();
-    } else if (currentPlatform === 'tiktok') {
-      alert('TikTok Shop connection coming soon!');
+    } else if (currentPlatform === "tiktok") {
+      alert("TikTok Shop connection coming soon!");
     }
   };
 
   const isConnecting = () => {
-    if (currentPlatform === 'facebook') return isLoadingFacebook;
-    if (currentPlatform === 'zalo') return isLoadingZalo;
-    if (currentPlatform === 'shopee') return isLoadingShopee;
+    if (currentPlatform === "facebook") return isLoadingFacebook;
+    if (currentPlatform === "zalo") return isLoadingZalo;
+    if (currentPlatform === "shopee") return isLoadingShopee;
     return false;
   };
 
@@ -109,42 +120,58 @@ export default function ChannelsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(dateString).toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   return (
-    <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}>
-      <Paper sx={{ mx: 2, my: 2 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 3, pt: 2 }}>
-          <Typography variant="h5">Channels</Typography>
-        </Stack>
-
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pr: 2 }}>
-          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2 }}>
-            {PLATFORMS.map((platform) => (
-              <Tab key={platform.id} icon={platform.icon} label={platform.name} iconPosition="start" />
-            ))}
-          </Tabs>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={isConnecting() ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
-            onClick={handleConnect}
-            disabled={isConnecting()}
+    <Box sx={{ height: "calc(100vh - 112px)", overflow: "auto", p: 2 }}>
+      <Typography variant="h5" sx={{ mb: 2 }}>
+        Channels
+      </Typography>
+      <Paper variant="outlined" sx={{ maxWidth: 900 }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ pr: 2 }}
           >
-            Connect {PLATFORMS[tab].name}
-          </Button>
-        </Stack>
+            <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+              {PLATFORMS.map((platform) => (
+                <Tab
+                  key={platform.id}
+                  icon={platform.icon}
+                  label={platform.name}
+                  iconPosition="start"
+                />
+              ))}
+            </Tabs>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={
+                isConnecting() ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <AddIcon />
+                )
+              }
+              onClick={handleConnect}
+              disabled={isConnecting()}
+            >
+              Connect {PLATFORMS[tab].name}
+            </Button>
+          </Stack>
+        </Box>
 
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ py: 3, px: 3 }}>
           <Stack spacing={3}>
-
             {isLoading ? (
               <Box display="flex" justifyContent="center" p={3}>
                 <CircularProgress />
@@ -154,27 +181,51 @@ export default function ChannelsPage() {
                 {platformConnections.map((connection) => (
                   <Card key={connection.id} variant="outlined">
                     <CardContent>
-                      <Stack direction="row" spacing={2} alignItems="flex-start">
-                        <Avatar sx={{ bgcolor: 'background.default' }}>
+                      <Stack
+                        direction="row"
+                        spacing={2}
+                        alignItems="flex-start"
+                      >
+                        <Avatar sx={{ bgcolor: "background.default" }}>
                           {PLATFORMS[tab].icon}
                         </Avatar>
                         <Box sx={{ flexGrow: 1 }}>
-                          <Stack direction="row" spacing={1} alignItems="center">
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                          >
                             <Typography variant="subtitle1" fontWeight="bold">
                               {connection.platformAccountName}
                             </Typography>
                             <Chip
                               label={connection.status}
                               size="small"
-                              color={connection.status === 'active' ? 'success' : 'warning'}
+                              color={
+                                connection.status === "active"
+                                  ? "success"
+                                  : "warning"
+                              }
                             />
                           </Stack>
-                          <Typography variant="body2" color="text.secondary" mt={0.5}>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            mt={0.5}
+                          >
                             ID: {connection.platformAccountId}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-                            Connected: {formatDate(connection.createdAt)} | Last sync:{' '}
-                            {connection.lastSyncAt ? formatDate(connection.lastSyncAt) : 'Never'}
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            display="block"
+                            mt={0.5}
+                          >
+                            Connected: {formatDate(connection.createdAt)} | Last
+                            sync:{" "}
+                            {connection.lastSyncAt
+                              ? formatDate(connection.lastSyncAt)
+                              : "Never"}
                           </Typography>
                         </Box>
                       </Stack>
@@ -185,7 +236,7 @@ export default function ChannelsPage() {
                         onClick={() => handleToggleStatus(connection)}
                         disabled={updateStatus.isPending}
                       >
-                        {connection.status === 'active' ? 'Pause' : 'Activate'}
+                        {connection.status === "active" ? "Pause" : "Activate"}
                       </Button>
                       <IconButton size="small" disabled>
                         <RefreshIcon fontSize="small" />
@@ -203,7 +254,8 @@ export default function ChannelsPage() {
               </Stack>
             ) : (
               <Alert severity="info">
-                No {PLATFORMS[tab].name} connections found. Click the button above to connect.
+                No {PLATFORMS[tab].name} connections found. Click the button
+                above to connect.
               </Alert>
             )}
           </Stack>
@@ -211,13 +263,16 @@ export default function ChannelsPage() {
       </Paper>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
         <DialogTitle>Delete Connection</DialogTitle>
         <DialogContent>
           <Typography>
             Are you sure you want to delete the connection to &quot;
-            {connectionToDelete?.platformAccountName}&quot;? You will stop receiving messages from
-            this account.
+            {connectionToDelete?.platformAccountName}&quot;? You will stop
+            receiving messages from this account.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -228,7 +283,11 @@ export default function ChannelsPage() {
             onClick={confirmDelete}
             disabled={deleteConnection.isPending}
           >
-            {deleteConnection.isPending ? <CircularProgress size={20} /> : 'Delete'}
+            {deleteConnection.isPending ? (
+              <CircularProgress size={20} />
+            ) : (
+              "Delete"
+            )}
           </Button>
         </DialogActions>
       </Dialog>
