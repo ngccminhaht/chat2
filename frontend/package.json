@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 8315",
     "build": "yarn build:widget && next build",
-    "build:widget": "cd widget && yarn install && yarn build",
+    "build:widget": "cd widget && npx vite build",
     "start": "next start -p 8315",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
