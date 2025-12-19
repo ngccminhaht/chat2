@@ -82,7 +82,8 @@ export default function ConversationDetailPage() {
         markAsRead({ conversationId });
       }
     }
-  }, [conversationId, storeMessages, markAsRead]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, storeMessages.length]);
 
   return (
     <Box sx={{ height: 'calc(100vh - 112px)' }}>
