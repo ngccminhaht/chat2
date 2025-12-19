@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
 import { Conversation } from '../types/conversation.types';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 interface UpdateConversationDto {
   status?: 'open' | 'closed' | 'archived';
@@ -10,6 +11,7 @@ interface UpdateConversationDto {
 
 export function useUpdateConversation() {
   const queryClient = useQueryClient();
+  const organizationId = useAuthStore((state) => state.organization?.id);
 
   return useMutation({
     mutationFn: async ({
@@ -20,17 +22,15 @@ export function useUpdateConversation() {
       data: UpdateConversationDto;
     }) => {
       const response = await apiClient.patch<Conversation>(
-        `/conversations/${conversationId}`,
+        `/organizations/${organizationId}/conversations/${conversationId}`,
         data,
       );
       return response.data;
     },
     onSuccess: (updatedConversation) => {
-      // Invalidate conversations list to refetch
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      // Update specific conversation cache
       queryClient.setQueryData(
-        ['conversation', updatedConversation._id],
+        ['conversation', organizationId, updatedConversation._id],
         updatedConversation,
       );
     },

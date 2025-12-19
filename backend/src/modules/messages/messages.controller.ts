@@ -12,17 +12,17 @@ import { MessagesService } from './messages.service';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MarkReadDto } from './dto/mark-read.dto';
-import { JwtAuthGuard, TenantGuard } from '@/common/guards';
-import { CurrentOrganization, CurrentUser } from '@/common/decorators';
+import { JwtAuthGuard } from '@/common/guards';
+import { CurrentUser } from '@/common/decorators';
 
-@Controller('messages')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@Controller('organizations/:organizationId/messages')
+@UseGuards(JwtAuthGuard)
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 
   @Get('conversation/:conversationId')
   findByConversation(
-    @CurrentOrganization() organizationId: string,
+    @Param('organizationId') organizationId: string,
     @Param('conversationId') conversationId: string,
     @Query() dto: GetMessagesDto,
   ) {
@@ -35,7 +35,7 @@ export class MessagesController {
 
   @Post('send')
   send(
-    @CurrentOrganization() organizationId: string,
+    @Param('organizationId') organizationId: string,
     @CurrentUser('sub') userId: string,
     @Body() dto: SendMessageDto,
   ) {
@@ -44,7 +44,7 @@ export class MessagesController {
 
   @Patch('mark-read')
   markAsRead(
-    @CurrentOrganization() organizationId: string,
+    @Param('organizationId') organizationId: string,
     @CurrentUser('sub') userId: string,
     @Body() dto: MarkReadDto,
   ) {

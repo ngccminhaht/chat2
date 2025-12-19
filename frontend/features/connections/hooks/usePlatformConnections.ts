@@ -11,8 +11,7 @@ export const usePlatformConnections = () => {
     queryKey: ['connections', organizationId],
     queryFn: async () => {
       const response = await apiClient.get<PlatformConnection[]>(
-        '/connections',
-        { params: { organizationId } }
+        `/organizations/${organizationId}/connections`
       );
       return response.data;
     },
@@ -22,13 +21,13 @@ export const usePlatformConnections = () => {
 
 export const useDeletePlatformConnection = () => {
   const queryClient = useQueryClient();
+  const organizationId = useAuthStore((state) => state.organization?.id);
 
   return useMutation({
     mutationFn: async (connectionId: string) => {
-      await apiClient.delete(`/connections/${connectionId}`);
+      await apiClient.delete(`/organizations/${organizationId}/connections/${connectionId}`);
     },
     onSuccess: () => {
-      // Refetch connections list after successful deletion
       queryClient.invalidateQueries({ queryKey: ['connections'] });
     },
   });
@@ -36,6 +35,7 @@ export const useDeletePlatformConnection = () => {
 
 export const useUpdatePlatformConnectionStatus = () => {
   const queryClient = useQueryClient();
+  const organizationId = useAuthStore((state) => state.organization?.id);
 
   return useMutation({
     mutationFn: async ({
@@ -45,12 +45,11 @@ export const useUpdatePlatformConnectionStatus = () => {
       connectionId: string;
       status: ConnectionStatus;
     }) => {
-      await apiClient.patch(`/connections/${connectionId}/status`, {
+      await apiClient.patch(`/organizations/${organizationId}/connections/${connectionId}/status`, {
         status,
       });
     },
     onSuccess: () => {
-      // Refetch connections list after successful status update
       queryClient.invalidateQueries({ queryKey: ['connections'] });
     },
   });

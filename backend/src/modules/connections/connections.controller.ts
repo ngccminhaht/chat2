@@ -5,7 +5,6 @@ import {
   Patch,
   Param,
   Body,
-  Query,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
@@ -13,7 +12,7 @@ import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { ConnectionsService } from './connections.service';
 import { UpdateStatusDto } from './dto/update-status.dto';
 
-@Controller('connections')
+@Controller('organizations/:organizationId/connections')
 @UseGuards(JwtAuthGuard)
 export class ConnectionsController {
   constructor(
@@ -22,19 +21,16 @@ export class ConnectionsController {
 
   /**
    * Get all platform connections for organization
-   * GET /api/connections?organizationId=xxx
+   * GET /api/organizations/:organizationId/connections
    */
   @Get()
-  findAll(@Query('organizationId') organizationId: string) {
-    if (!organizationId) {
-      throw new BadRequestException('organizationId is required');
-    }
+  findAll(@Param('organizationId') organizationId: string) {
     return this.connectionsService.findAllByOrganization(organizationId);
   }
 
   /**
    * Get a specific platform connection
-   * GET /api/connections/:id
+   * GET /api/organizations/:organizationId/connections/:id
    */
   @Get(':id')
   findOne(@Param('id') id: string) {
@@ -43,7 +39,7 @@ export class ConnectionsController {
 
   /**
    * Update platform connection status
-   * PATCH /api/connections/:id/status
+   * PATCH /api/organizations/:organizationId/connections/:id/status
    */
   @Patch(':id/status')
   async updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
@@ -58,7 +54,7 @@ export class ConnectionsController {
 
   /**
    * Delete a platform connection
-   * DELETE /api/connections/:id
+   * DELETE /api/organizations/:organizationId/connections/:id
    */
   @Delete(':id')
   async delete(@Param('id') id: string) {

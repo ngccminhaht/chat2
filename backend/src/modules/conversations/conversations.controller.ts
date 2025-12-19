@@ -11,17 +11,16 @@ import {
 import { ConversationsService } from './conversations.service';
 import { GetConversationsDto } from './dto/get-conversations.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
-import { JwtAuthGuard, TenantGuard } from '@/common/guards';
-import { CurrentOrganization } from '@/common/decorators';
+import { JwtAuthGuard } from '@/common/guards';
 
-@Controller('conversations')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@Controller('organizations/:organizationId/conversations')
+@UseGuards(JwtAuthGuard)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
   @Get()
   findAll(
-    @CurrentOrganization() organizationId: string,
+    @Param('organizationId') organizationId: string,
     @Query() dto: GetConversationsDto,
   ) {
     return this.conversationsService.findAll(organizationId, dto);
@@ -29,7 +28,7 @@ export class ConversationsController {
 
   @Get(':id')
   findOne(
-    @CurrentOrganization() organizationId: string,
+    @Param('organizationId') organizationId: string,
     @Param('id') id: string,
   ) {
     return this.conversationsService.findOne(organizationId, id);
@@ -37,7 +36,7 @@ export class ConversationsController {
 
   @Patch(':id')
   update(
-    @CurrentOrganization() organizationId: string,
+    @Param('organizationId') organizationId: string,
     @Param('id') id: string,
     @Body() dto: UpdateConversationDto,
   ) {
@@ -46,14 +45,14 @@ export class ConversationsController {
 
   @Delete(':id')
   remove(
-    @CurrentOrganization() organizationId: string,
+    @Param('organizationId') organizationId: string,
     @Param('id') id: string,
   ) {
     return this.conversationsService.remove(organizationId, id);
   }
 
   @Delete()
-  removeAll(@CurrentOrganization() organizationId: string) {
+  removeAll(@Param('organizationId') organizationId: string) {
     return this.conversationsService.removeAll(organizationId);
   }
 }

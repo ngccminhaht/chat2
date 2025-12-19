@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { Platform } from "@/lib/constants";
 import apiClient from "@/lib/api/client";
+import { useAuthStore } from "@/features/auth/stores/authStore";
 
 interface PlatformAuthUrlResponse {
   authUrl: string;
@@ -21,6 +22,7 @@ export function usePlatformConnection(options?: UsePlatformConnectionOptions) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingPlatform, setLoadingPlatform] = useState<Platform | null>(null);
+  const organizationId = useAuthStore((state) => state.organization?.id);
 
   const connect = async (platform: Platform) => {
     try {
@@ -29,7 +31,7 @@ export function usePlatformConnection(options?: UsePlatformConnectionOptions) {
       setError(null);
 
       const response = await apiClient.get<PlatformAuthUrlResponse>(
-        `/connections/${platform}/auth-url`
+        `/organizations/${organizationId}/connections/${platform}/auth-url`
       );
 
       const { authUrl } = response.data;
@@ -55,7 +57,7 @@ export function usePlatformConnection(options?: UsePlatformConnectionOptions) {
       setLoadingPlatform(platform);
       setError(null);
 
-      await apiClient.delete(`/connections/${connectionId}`);
+      await apiClient.delete(`/organizations/${organizationId}/connections/${connectionId}`);
 
       options?.onSuccess?.(platform);
       setIsLoading(false);
@@ -81,7 +83,7 @@ export function usePlatformConnection(options?: UsePlatformConnectionOptions) {
       setLoadingPlatform(platform);
       setError(null);
 
-      await apiClient.patch(`/connections/${connectionId}/status`, {
+      await apiClient.patch(`/organizations/${organizationId}/connections/${connectionId}/status`, {
         status: newStatus,
       });
 

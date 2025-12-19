@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import apiClient from '@/lib/api/client';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 interface SyncStatusResponse {
   success: boolean;
@@ -16,15 +17,15 @@ export const useSyncFacebookPages = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatusResponse | null>(null);
+  const organizationId = useAuthStore((state) => state.organization?.id);
 
   const syncPages = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Call backend to generate OAuth URL with sync mode flag
       const response = await apiClient.get<SyncAuthUrlResponse>(
-        '/connections/facebook/sync-auth-url'
+        `/organizations/${organizationId}/connections/facebook/sync-auth-url`
       );
 
       const { authUrl } = response.data;
@@ -40,7 +41,7 @@ export const useSyncFacebookPages = () => {
   const getSyncStatus = async () => {
     try {
       const response = await apiClient.get<SyncStatusResponse>(
-        '/connections/facebook/sync-status'
+        `/organizations/${organizationId}/connections/facebook/sync-status`
       );
       setSyncStatus(response.data);
       return response.data;
