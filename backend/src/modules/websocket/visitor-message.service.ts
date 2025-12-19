@@ -17,6 +17,7 @@ import {
   ConversationStatus,
 } from '@/common/constants';
 import { WebsocketGateway } from './websocket.gateway';
+import { VisitorGateway } from './visitor.gateway';
 import { nanoid } from 'nanoid';
 
 interface VisitorMessagePayload {
@@ -47,6 +48,8 @@ export class VisitorMessageService {
     private messageModel: Model<MessageDocument>,
     @Inject(forwardRef(() => WebsocketGateway))
     private readonly websocketGateway: WebsocketGateway,
+    @Inject(forwardRef(() => VisitorGateway))
+    private readonly visitorGateway: VisitorGateway,
   ) {}
 
   /**
@@ -275,7 +278,21 @@ export class VisitorMessageService {
       `Agent ${agentId} sent message to visitor ${sessionId}: ${message._id}`,
     );
 
-    // Return sessionId for emitting to visitor
+    // Emit message to visitor via WebSocket
+    this.visitorGateway.emitToVisitor(sessionId, 'message:new', {
+      _id: message._id,
+      conversationId: conversation._id,
+      direction: MessageDirection.OUTBOUND,
+      type: message.type,
+      content: message.content,
+      sender: message.sender,
+      status: message.status,
+      createdAt: (message as any).createdAt || new Date(),
+    });
+
+    this.logger.log(`📤 Emitted message to visitor ${sessionId}`);
+
+    // Return sessionId for any additional processing
     return {
       sessionId,
       message: message.toObject(),

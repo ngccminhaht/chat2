@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -34,6 +36,7 @@ import {
   ConversationUpdatedPayload,
   MessagesReadPayload,
 } from '@/infra/kafka/types/webhook.types';
+import { VisitorMessageService } from '@/modules/websocket/visitor-message.service';
 
 @Injectable()
 export class MessagesService {
@@ -47,6 +50,8 @@ export class MessagesService {
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private kafkaProducer: KafkaProducerService,
+    @Inject(forwardRef(() => VisitorMessageService))
+    private visitorMessageService: VisitorMessageService,
   ) {}
 
   /**
@@ -105,14 +110,20 @@ export class MessagesService {
   }
 
   /**
-   * Send message via Kafka async flow
+   * Send message via Kafka async flow (for platform conversations)
+   * or directly via WebSocket (for web chat conversations)
    *
-   * Flow:
+   * Flow for platforms (Zalo, Facebook, etc.):
    * 1. Create message with pending status
    * 2. Publish to messages.outgoing topic
    * 3. Return pending message (actual sending happens async)
    * 4. OutgoingMessageConsumer handles sending via platform adapter
    * 5. Consumer updates status and publishes WebSocket notification
+   *
+   * Flow for web chat:
+   * 1. Create message via VisitorMessageService
+   * 2. Emit directly to visitor via WebSocket
+   * 3. Return sent message
    */
   async send(organizationId: string, userId: string, dto: SendMessageDto) {
     const { conversationId, type, content } = dto;
@@ -127,6 +138,11 @@ export class MessagesService {
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
+    }
+
+    // Handle web chat conversations differently - they don't have platform connections
+    if (conversation.platform === Platform.WEB) {
+      return this.sendWebMessage(organizationId, userId, conversation, content);
     }
 
     // Get platform connection for access token (also verify org)
@@ -222,6 +238,32 @@ export class MessagesService {
     }
 
     return message;
+  }
+
+  /**
+   * Send message for web chat conversations
+   * Uses VisitorMessageService to handle direct WebSocket delivery
+   */
+  private async sendWebMessage(
+    organizationId: string,
+    userId: string,
+    conversation: ConversationDocument,
+    content: { text?: string; mediaUrl?: string; [key: string]: any },
+  ) {
+    this.logger.log(`📧 Sending web message for conversation: ${conversation._id}`);
+    this.logger.log(`  Visitor: ${conversation.customerPlatformUserId}`);
+
+    // Use VisitorMessageService to send and emit via WebSocket
+    const result = await this.visitorMessageService.sendToVisitor(
+      conversation._id.toString(),
+      userId,
+      'Agent', // Agent name - could be fetched from user service
+      { text: content.text, mediaUrl: content.mediaUrl },
+    );
+
+    this.logger.log(`📤 Web message sent: ${result.message._id}`);
+
+    return result.message;
   }
 
   async updateStatus(messageId: string, status: string) {

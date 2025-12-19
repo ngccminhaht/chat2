@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MessagesController } from './messages.controller';
 import { MessagesService } from './messages.service';
 import { Message, MessageSchema } from '@/common/database/schemas/message.schema';
 import { Conversation, ConversationSchema } from '@/common/database/schemas/conversation.schema';
 import { PlatformConnection, PlatformConnectionSchema } from '@/common/database/schemas/platform-connection.schema';
+import { WebsocketModule } from '@/modules/websocket/websocket.module';
 
 @Module({
   imports: [
@@ -14,6 +15,8 @@ import { PlatformConnection, PlatformConnectionSchema } from '@/common/database/
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
     // Note: KafkaModule is @Global(), no need to import here
+    // WebsocketModule for VisitorMessageService (web chat)
+    forwardRef(() => WebsocketModule),
   ],
   controllers: [MessagesController],
   providers: [MessagesService],
