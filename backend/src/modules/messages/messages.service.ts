@@ -254,14 +254,9 @@ export class MessagesService {
       throw new NotFoundException('Conversation not found');
     }
 
-    // Get userId from platform connection
+    // Get userId from platform connection, fallback to authenticated user
     const platformConnection = conversation.platformConnectionId as any;
-    const connectionUserId = platformConnection?.connectedBy?.toString();
-
-    if (!connectionUserId) {
-      this.logger.warn(`No userId found for conversation ${conversationId}`);
-      throw new BadRequestException('Platform connection has no associated user');
-    }
+    const connectionUserId = platformConnection?.connectedBy?.toString() || _userId;
 
     // Find all inbound messages that are not read yet
     const messagesToUpdate = await this.messageModel
