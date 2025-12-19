@@ -25,6 +25,7 @@ import { PlatformRegistry } from './services/platform.registry';
 import { WebhookProcessorService } from './services/webhook-processor.service';
 import { MessageSenderService } from './services/message-sender.service';
 import { MessageSenderConsumer } from '@/infra/kafka/consumers/message-sender.consumer';
+import { WebsocketModule } from '@/modules/websocket/websocket.module';
 
 @Global()
 @Module({
@@ -34,6 +35,7 @@ import { MessageSenderConsumer } from '@/infra/kafka/consumers/message-sender.co
       { name: Message.name, schema: MessageSchema },
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
+    WebsocketModule,
   ],
   controllers: [MessageSenderConsumer],
   providers: [
