@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import apiClient from '@/lib/api/client';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 interface ZaloAuthUrlResponse {
   authUrl: string;
@@ -9,15 +10,21 @@ interface ZaloAuthUrlResponse {
 export const useConnectZalo = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const organizationId = useAuthStore((state) => state.organizationId);
 
   const connectZalo = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
+      if (!organizationId) {
+        throw new Error('Organization not selected');
+      }
+
       // Call backend to generate OAuth URL and store state in Redis
       const response = await apiClient.get<ZaloAuthUrlResponse>(
-        '/zalo/auth-url'
+        '/zalo/auth-url',
+        { params: { organizationId } }
       );
 
       const { authUrl } = response.data;
@@ -26,7 +33,7 @@ export const useConnectZalo = () => {
       // State is already stored in Redis on backend
       window.location.href = authUrl;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to connect Zalo');
+      setError(err.response?.data?.message || err.message || 'Failed to connect Zalo');
       setIsLoading(false);
     }
   };

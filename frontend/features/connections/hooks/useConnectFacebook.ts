@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import apiClient from '@/lib/api/client';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 interface FacebookAuthUrlResponse {
   authUrl: string;
@@ -9,15 +10,21 @@ interface FacebookAuthUrlResponse {
 export const useConnectFacebook = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const organizationId = useAuthStore((state) => state.organizationId);
 
   const connectFacebook = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
+      if (!organizationId) {
+        throw new Error('Organization not selected');
+      }
+
       // Call backend to generate OAuth URL and store state in Redis
       const response = await apiClient.get<FacebookAuthUrlResponse>(
-        '/facebook/auth-url'
+        '/facebook/auth-url',
+        { params: { organizationId } }
       );
 
       const { authUrl } = response.data;
@@ -26,7 +33,7 @@ export const useConnectFacebook = () => {
       // State is already stored in Redis on backend
       window.location.href = authUrl;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to connect Facebook');
+      setError(err.response?.data?.message || err.message || 'Failed to connect Facebook');
       setIsLoading(false);
     }
   };
