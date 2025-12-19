@@ -7,6 +7,7 @@ Nền tảng chat đa kênh hỗ trợ Facebook Messenger, Zalo OA, TikTok Shop,
 ### Tech Stack
 
 **Backend:**
+
 - NestJS 10 (Node.js framework)
 - MongoDB 8 (Database với Mongoose ODM)
 - Kafka (Message streaming)
@@ -15,6 +16,7 @@ Nền tảng chat đa kênh hỗ trợ Facebook Messenger, Zalo OA, TikTok Shop,
 - JWT (Authentication)
 
 **Frontend:**
+
 - Next.js 16 RC (React framework với App Router)
 - MUI 7 (Material-UI components - chỉ dùng components có sẵn)
 - Zustand (State management)
@@ -77,28 +79,35 @@ miagent/
 ## 📊 MongoDB Schemas
 
 ### User
+
 ```typescript
 {
-  email: string (unique)
-  passwordHash: string
-  name: string
-  organizationId: ObjectId
-  role: 'admin' | 'agent' | 'viewer'
-  settings: { notifications, language }
-  isActive: boolean
+  email: string(unique);
+  passwordHash: string;
+  name: string;
+  organizationId: ObjectId;
+  role: "admin" | "agent" | "viewer";
+  settings: {
+    notifications, language;
+  }
+  isActive: boolean;
 }
 ```
 
 ### Organization
+
 ```typescript
 {
-  name: string
-  settings: { timezone, workingHours, autoAssignment }
-  isActive: boolean
+  name: string;
+  settings: {
+    timezone, workingHours, autoAssignment;
+  }
+  isActive: boolean;
 }
 ```
 
 ### PlatformConnection
+
 ```typescript
 {
   userId: ObjectId
@@ -115,6 +124,7 @@ miagent/
 ```
 
 ### Conversation
+
 ```typescript
 {
   organizationId: ObjectId
@@ -132,6 +142,7 @@ miagent/
 ```
 
 ### Message
+
 ```typescript
 {
   conversationId: ObjectId
@@ -150,6 +161,7 @@ miagent/
 ## 🔄 Message Flow Architecture
 
 ### Inbound (Platform → Frontend)
+
 ```
 Facebook/Zalo Webhook
   ↓ (POST /webhooks/{platform})
@@ -167,6 +179,7 @@ Frontend receives event
 ```
 
 ### Outbound (Frontend → Platform)
+
 ```
 User sends message in UI
   ↓ (POST /api/messages/send)
@@ -184,6 +197,7 @@ Frontend updates status
 ## 🌐 WebSocket Events
 
 ### Client → Server
+
 - `join:conversation` - Join conversation room
 - `leave:conversation` - Leave conversation room
 - `typing:start` - User starts typing
@@ -191,6 +205,7 @@ Frontend updates status
 - `message:read` - Mark message as read
 
 ### Server → Client
+
 - `message:new` - New message received
 - `message:status` - Message status changed (sent/delivered/read)
 - `conversation:updated` - Conversation metadata updated
@@ -201,22 +216,26 @@ Frontend updates status
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js 20+
 - Yarn
 - Docker & Docker Compose
 
 ### 1. Start infrastructure services
+
 ```bash
 docker-compose up -d
 ```
 
 Services will start:
+
 - MongoDB: `localhost:27017`
 - Kafka: `localhost:9092`
 - Redis: `localhost:6379`
 - Zookeeper: `localhost:2181`
 
 ### 2. Setup Backend
+
 ```bash
 cd backend
 
@@ -240,6 +259,7 @@ yarn start:dev
 Backend will start on `http://localhost:3000`
 
 ### 3. Setup Frontend
+
 ```bash
 cd frontend
 
@@ -258,6 +278,7 @@ Frontend will start on `http://localhost:3001`
 ## 📋 Development Checklist
 
 ### Phase 1: Foundation ✅
+
 - [x] NestJS project structure với modules
 - [x] MongoDB schemas (User, Organization, PlatformConnection, Conversation, Message)
 - [x] JWT authentication module
@@ -267,6 +288,7 @@ Frontend will start on `http://localhost:3001`
 - [x] WebSocket client setup
 
 ### Phase 2: WebSocket Infrastructure ✅
+
 - [x] Socket.IO Gateway trong NestJS
 - [x] Redis adapter cho horizontal scaling
 - [x] WebSocket authentication middleware
@@ -275,6 +297,7 @@ Frontend will start on `http://localhost:3001`
 - [x] Frontend WebSocket integration với Zustand
 
 ### Phase 3: Core Messaging ✅
+
 - [x] Kafka topics setup
 - [x] Message normalization service
 - [x] REST APIs (conversations, messages)
@@ -285,6 +308,7 @@ Frontend will start on `http://localhost:3001`
 - [x] Message status icons
 
 ### Phase 4: Facebook Messenger Integration ✅
+
 - [x] Facebook OAuth flow
 - [x] Webhook handler với signature verification
 - [x] Message adapters (normalize + send)
@@ -294,6 +318,7 @@ Frontend will start on `http://localhost:3001`
 - [x] Postback handling
 
 ### Phase 5: Zalo OA Integration ✅
+
 - [x] Zalo OAuth flow with PKCE
 - [x] Webhook handlers with signature verification
 - [x] Message adapters (all message types)
@@ -302,6 +327,7 @@ Frontend will start on `http://localhost:3001`
 - [x] User profile fetching
 
 ### Phase 6: Advanced Features ✅
+
 - [x] Typing indicators
 - [x] Read receipts
 - [x] Media handling (S3/MinIO)
@@ -315,8 +341,9 @@ Frontend will start on `http://localhost:3001`
 ## 🔧 Available Scripts
 
 ### Backend
+
 ```bash
-yarn start:dev    # Development mode với hot reload
+yarn dev    # Development mode với hot reload
 yarn start:prod   # Production mode
 yarn build        # Build TypeScript
 yarn lint         # Lint code
@@ -324,6 +351,7 @@ yarn test         # Run tests
 ```
 
 ### Frontend
+
 ```bash
 yarn dev          # Development mode (port 3001)
 yarn build        # Production build
@@ -335,6 +363,7 @@ yarn type-check   # TypeScript type checking
 ## 📝 Environment Variables
 
 ### Backend (.env)
+
 ```env
 NODE_ENV=development
 PORT=3000
@@ -358,6 +387,7 @@ ZALO_APP_SECRET=your-zalo-app-secret
 ```
 
 ### Frontend (.env.local)
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3000/api
 NEXT_PUBLIC_WS_URL=http://localhost:3000

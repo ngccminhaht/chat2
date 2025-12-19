@@ -9,6 +9,7 @@ Omnichannel chat platform supporting Facebook Messenger, Zalo OA, TikTok Shop, a
 ## Development Commands
 
 ### Infrastructure
+
 ```bash
 # Start all services (MongoDB, Kafka KRaft, Redis)
 docker-compose up -d
@@ -21,11 +22,12 @@ docker-compose logs -f [service-name]
 ```
 
 ### Backend (NestJS)
+
 ```bash
 cd backend
 
 # Development (hot reload on port 3000)
-yarn start:dev
+yarn dev
 
 # Production build and run
 yarn build
@@ -36,6 +38,7 @@ tsc --noEmit
 ```
 
 ### Frontend (Next.js 16)
+
 ```bash
 cd frontend
 
@@ -55,6 +58,7 @@ yarn type-check
 ### Message Flow Pattern
 
 **Inbound messages** follow this asynchronous pipeline:
+
 1. Platform webhook → Webhook handler (signature verification)
 2. Publish to Kafka (`platform.webhooks.raw`)
 3. Message processor consumes, normalizes, saves to MongoDB
@@ -63,6 +67,7 @@ yarn type-check
 6. Frontend receives real-time update
 
 **Outbound messages** follow:
+
 1. Frontend POST to `/api/messages/send` (saved as `status: 'pending'`)
 2. Publish to Kafka (`messages.outgoing`)
 3. Platform sender consumes, calls external API
@@ -72,10 +77,12 @@ yarn type-check
 ### State Management (Frontend)
 
 - **Zustand stores**: Client state (UI, active conversation, typing indicators)
+
   - `authStore`: User, JWT tokens (persisted to localStorage)
   - `conversationStore`: Active conversation, conversations list, messages cache, typing users
 
 - **TanStack Query**: Server state (API data fetching, caching, invalidation)
+
   - Use with `lib/api/client.ts` (axios instance with auto token refresh)
 
 - **WebSocket client** (`lib/websocket/client.ts`): Singleton that integrates with Zustand stores, auto-reconnect logic
@@ -83,6 +90,7 @@ yarn type-check
 ### MongoDB Schema Design
 
 **Key decisions:**
+
 - **Conversation schema** denormalizes `lastMessage` for fast list queries (avoid JOIN on messages collection)
 - **Message schema** uses text index on `content.text` for search
 - Platform-specific data stored in `metadata` field (flexible schema per platform)
@@ -91,6 +99,7 @@ yarn type-check
 ### Module Organization (Backend)
 
 Path alias `@/*` maps to `src/*`. All modules in `src/modules/`:
+
 - **auth**: JWT strategy, login/register/refresh endpoints
 - **users**: User CRUD with role-based access
 - **conversations**, **messages**: Core chat entities
@@ -100,6 +109,7 @@ Path alias `@/*` maps to `src/*`. All modules in `src/modules/`:
 - **media**: File upload/download, media storage
 
 Common utilities in `src/common/`:
+
 - `database/schemas`: Mongoose schemas exported as barrel
 - `kafka`: Producers and consumers (to be implemented)
 - `guards`: JWT auth guards
@@ -113,13 +123,15 @@ Common utilities in `src/common/`:
 **Location:** `backend/src/common/env/`
 
 **Key files:**
+
 - `env.schema.ts`: Defines all environment variables with validation decorators
 - `env.service.ts`: Simple service with generic `get()` method
 - `env.module.ts`: Global module with validation logic
 
 **Usage pattern:**
+
 ```typescript
-import { EnvService } from '@/common/env';
+import { EnvService } from "@/common/env";
 
 @Injectable()
 export class MyService {
@@ -127,9 +139,9 @@ export class MyService {
 
   myMethod() {
     // ✅ CORRECT - Type-safe access with autocomplete
-    const port = this.envService.get('PORT');           // Type: number
-    const mongoUri = this.envService.get('MONGODB_URI'); // Type: string
-    const corsOrigins = this.envService.get('CORS_ORIGINS'); // Type: string[]
+    const port = this.envService.get("PORT"); // Type: number
+    const mongoUri = this.envService.get("MONGODB_URI"); // Type: string
+    const corsOrigins = this.envService.get("CORS_ORIGINS"); // Type: string[]
 
     // ❌ WRONG - Never access process.env directly
     const port = process.env.PORT; // No type safety, no validation
@@ -138,12 +150,14 @@ export class MyService {
 ```
 
 **Adding new environment variables:**
+
 1. Add property to `EnvSchema` class in `env.schema.ts` with validation decorators
 2. Use `@Transform()` for type conversion (e.g., string to number)
 3. Use `@IsOptional()` for optional variables
 4. Access via `envService.get('VARIABLE_NAME')` - autocomplete will work
 
 **Example:**
+
 ```typescript
 // In env.schema.ts
 export class EnvSchema {
@@ -157,11 +171,12 @@ export class EnvSchema {
 }
 
 // In your service
-const port = this.envService.get('NEW_PORT');      // number
-const apiKey = this.envService.get('NEW_API_KEY'); // string | undefined
+const port = this.envService.get("NEW_PORT"); // number
+const apiKey = this.envService.get("NEW_API_KEY"); // string | undefined
 ```
 
 **Validation:**
+
 - All environment variables are validated on application startup
 - Invalid values throw errors before the app starts
 - Type conversion happens automatically via `@Transform()` decorators
@@ -169,12 +184,14 @@ const apiKey = this.envService.get('NEW_API_KEY'); // string | undefined
 ### Feature-Based Organization (Frontend)
 
 **Structure rules:**
+
 - Complex business logic organized in `features/` directory
 - Each feature has: components, hooks, lib, stores, types
 - Routes in `app/` import from `features/`
 - Shared code goes to root-level directories
 
 **Feature module structure:**
+
 ```
 features/
 ├── auth/
@@ -218,6 +235,7 @@ features/
 ```
 
 **App routes import from features:**
+
 ```
 app/(dashboard)/conversations/
 ├── page.tsx                    # Imports from features/conversations
@@ -229,6 +247,7 @@ app/(auth)/login/
 ```
 
 **Shared resources (root level):**
+
 ```
 components/                     # Shared UI components
 ├── common/
@@ -255,6 +274,7 @@ types/                          # Shared TypeScript types
 ```
 
 **Decision tree:**
+
 - ✅ **In `features/`**: Business logic for a specific domain (auth, conversations, settings)
 - ✅ **In root `components/`**: Pure UI components used across features (buttons, layouts)
 - ✅ **In root `lib/`**: Infrastructure (API client, WebSocket, utilities)
@@ -272,17 +292,20 @@ types/                          # Shared TypeScript types
 ### Frontend API Client
 
 `lib/api/client.ts` has two interceptors:
+
 - **Request**: Adds `Authorization: Bearer {token}` from `useAuthStore`
 - **Response**: On 401, attempts refresh token flow once (using `originalRequest._retry` flag)
 
 ### WebSocket Integration
 
 **Backend**:
+
 - Socket.IO gateway with Redis adapter for horizontal scaling
 - Room strategy: `user:{userId}` (all events sent to user-specific rooms)
 - Kafka consumer bridges `websocket.notifications` topic to Socket.IO emits
 
 **Frontend**:
+
 - `wsClient.connect()` on app init (after auth)
 - Listeners update Zustand stores directly (optimistic updates)
 - `joinConversation(id)` / `leaveConversation(id)` for room management
@@ -305,46 +328,68 @@ Partitioning by `conversationId` ensures message ordering within conversations.
 The platform architecture uses the **Adapter Pattern** for easy extensibility:
 
 **Step 1: Create Platform Adapter** (`backend/src/modules/platforms/adapters/{platform}.adapter.ts`)
+
 ```typescript
 @Injectable()
 export class NewPlatformAdapter extends BasePlatformAdapter {
   readonly platform = Platform.NEW_PLATFORM;
 
-  verifySignature(rawBody: string, signature: string, secret: string): boolean { /* ... */ }
-  extractAccountId(payload: unknown): string { /* ... */ }
-  extractEvents(payload: unknown): PlatformEvent[] { /* ... */ }
-  normalizeMessage(event: MessageEvent): NormalizedMessage { /* ... */ }
-  getConversationKey(senderId: string, recipientId: string): string { /* ... */ }
-  formatOutbound(message: OutboundMessage): PlatformPayload { /* ... */ }
-  send(connection, recipientId, payload): Promise<SendResult> { /* ... */ }
-  fetchUserProfile(connection, userId): Promise<UserProfile> { /* ... */ }
+  verifySignature(rawBody: string, signature: string, secret: string): boolean {
+    /* ... */
+  }
+  extractAccountId(payload: unknown): string {
+    /* ... */
+  }
+  extractEvents(payload: unknown): PlatformEvent[] {
+    /* ... */
+  }
+  normalizeMessage(event: MessageEvent): NormalizedMessage {
+    /* ... */
+  }
+  getConversationKey(senderId: string, recipientId: string): string {
+    /* ... */
+  }
+  formatOutbound(message: OutboundMessage): PlatformPayload {
+    /* ... */
+  }
+  send(connection, recipientId, payload): Promise<SendResult> {
+    /* ... */
+  }
+  fetchUserProfile(connection, userId): Promise<UserProfile> {
+    /* ... */
+  }
 }
 ```
 
 **Step 2: Register Adapter** (`backend/src/modules/platforms/adapters/adapters.module.ts`)
+
 ```typescript
 // Add to providers and constructor
 this.platformRegistry.register(this.newPlatformAdapter);
 ```
 
 **Step 3: Create Platform Module** (`backend/src/modules/platforms/{platform}/`)
+
 - `{platform}.controller.ts`: HTTP endpoints (webhook, OAuth)
 - `{platform}.service.ts`: Platform-specific OAuth logic
 - `{platform}.consumer.ts`: Kafka consumer (calls WebhookProcessorService)
 - `dto/`: Request/response validation
 
 **Step 4: Add Environment Variables** (`backend/src/common/env/env.schema.ts`)
+
 ```typescript
 @IsString() @IsOptional() NEW_PLATFORM_APP_ID?: string;
 @IsString() @IsOptional() NEW_PLATFORM_APP_SECRET?: string;
 ```
 
 **Step 5: Update Constants** (`backend/src/common/constants/platforms.constant.ts`)
+
 ```typescript
 export enum Platform { ..., NEW_PLATFORM = 'new_platform' }
 ```
 
 **Architecture Overview:**
+
 ```
 modules/platforms/
 ├── core/                     # Shared infrastructure (DO NOT MODIFY)
@@ -372,6 +417,7 @@ modules/platforms/
 ### Environment Setup
 
 **Required for development:**
+
 1. Copy `.env.example` → `.env` (backend)
 2. Copy `.env.local.example` → `.env.local` (frontend)
 3. Set JWT secrets (generate with `openssl rand -base64 32`)
@@ -381,6 +427,7 @@ modules/platforms/
 ## Technology Constraints
 
 ### Frontend (MUI) - STRICT RULES
+
 - **Only use built-in MUI components** - no custom component creation
 - **No custom theme** - use default MUI theme from `lib/theme.ts` as-is
 - **No custom styling:**
@@ -392,6 +439,7 @@ modules/platforms/
   - ✅ ONLY use MUI's built-in theme values via component props
 - Use `@mui/material-nextjs` for Next.js 16 App Router integration
 - **Example of correct usage:**
+
   ```tsx
   // ✅ CORRECT - Using only MUI components with their props
   <Button variant="contained" color="primary" size="large">
@@ -410,17 +458,20 @@ modules/platforms/
   ```
 
 ### Package Management
+
 - **Use Yarn** for both backend and frontend (not npm)
 - Next.js version is `15.0.0-rc.1` (RC, not stable) - expecting v16 but using latest RC
 - React 19 installed (peer dependency warnings expected)
 
 ### API Architecture
+
 - **Next.js does NOT handle API routes** - all APIs are in NestJS backend
 - Frontend calls backend API at `http://localhost:3000/api` (configured in `.env.local`)
 - No `app/api/` directory in Next.js - only pages/routes for UI
 - All business logic, database access, webhooks handled by backend
 
 ### TypeScript Configuration
+
 - Backend uses path alias `@/*` for `src/*`
 - Frontend uses `@/*` for root directory
 - Strict mode disabled in both projects for faster development
@@ -430,17 +481,21 @@ modules/platforms/
 New users follow a three-step onboarding process after authentication:
 
 **Route Structure:**
+
 - `(onboarding)` layout group: `/create-organization`, `/connect-platforms`, `/invite-members`
 - Shared layout: Header with branding, centered content container
 - `OnboardingGuard` component enforces flow: authenticated users without organization are redirected to onboarding
 
 **Steps:**
+
 1. **Create Organization** (`create-organization/page.tsx`)
+
    - Hook: `useCreateOrganization()`
    - Component: `CreateOrganizationForm` (name, slug, description)
    - POST `/api/organizations` → sets organizationId in authStore
 
 2. **Connect Platforms** (`connect-platforms/page.tsx`)
+
    - Component: `ConnectPlatformsStep`
    - Shows available platforms (Facebook, Zalo, TikTok, Shopee)
    - Optional step - can skip to next
@@ -451,6 +506,7 @@ New users follow a three-step onboarding process after authentication:
    - POST `/api/organizations/{id}/members` → batch invite members
 
 **Progress Tracking:**
+
 - Hook: `useOnboardingProgress()` tracks current step
 - Component: `OnboardingProgress` displays step indicator
 - authStore integration for organizationId persistence
@@ -460,6 +516,7 @@ New users follow a three-step onboarding process after authentication:
 ## Current Development Phase
 
 **Phase 1 (Complete):** Foundation setup + Onboarding
+
 - NestJS modules scaffold
 - MongoDB schemas
 - JWT authentication
@@ -468,12 +525,14 @@ New users follow a three-step onboarding process after authentication:
 - Onboarding flow (create organization, connect platforms, invite members)
 
 **Phase 2 (Next):** WebSocket Infrastructure
+
 - Socket.IO Gateway implementation
 - Redis adapter for scaling
 - Kafka → WebSocket bridge
 - Frontend WebSocket integration
 
 **Phase 3:** Core Messaging
+
 - Kafka topics and consumers
 - Message normalization service
 - REST APIs for conversations/messages
