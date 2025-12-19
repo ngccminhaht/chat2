@@ -220,31 +220,6 @@ export class VisitorGateway
     }
   }
 
-  @SubscribeMessage('typing:start')
-  handleTypingStart(@ConnectedSocket() client: VisitorSocket) {
-    if (!client.sessionId || !client.organizationId) return;
-
-    // FIX: Use 'typing:indicator' event name that frontend listens to
-    this.server.to(`org:${client.organizationId}:agents`).emit('typing:indicator', {
-      sessionId: client.sessionId,
-      visitorName: client.visitorName,
-      isTyping: true,
-      senderType: 'visitor',
-    });
-  }
-
-  @SubscribeMessage('typing:stop')
-  handleTypingStop(@ConnectedSocket() client: VisitorSocket) {
-    if (!client.sessionId || !client.organizationId) return;
-
-    this.server.to(`org:${client.organizationId}:agents`).emit('typing:indicator', {
-      sessionId: client.sessionId,
-      visitorName: client.visitorName,
-      isTyping: false,
-      senderType: 'visitor',
-    });
-  }
-
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   @SubscribeMessage('pre-chat:submit')
   async handlePreChatSubmit(
