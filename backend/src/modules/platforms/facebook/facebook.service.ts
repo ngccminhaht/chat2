@@ -140,7 +140,8 @@ export class FacebookService {
               change,
               pageId,
               platformConnectionId,
-              new Date(entry.time)
+              new Date(entry.time),
+              connection
             );
           }
         }
@@ -248,6 +249,7 @@ export class FacebookService {
         platform: "facebook",
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
+        organizationId: connection.organizationId,
         platformAccountId: pageId, // Store Page ID for easy querying
         customerPlatformUserId: senderId,
         customerName: userProfile.name,
@@ -466,6 +468,7 @@ export class FacebookService {
         platform: "facebook",
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
+        organizationId: connection.organizationId,
         platformAccountId: pageId,
         customerPlatformUserId: senderId,
         customerName: `Facebook User ${senderId}`,
@@ -541,7 +544,8 @@ export class FacebookService {
     change: FacebookChange,
     pageId: string,
     platformConnectionId: string,
-    timestamp: Date
+    timestamp: Date,
+    connection: PlatformConnectionDocument
   ): Promise<void> {
     const changeValue = change.value;
 
@@ -598,6 +602,7 @@ export class FacebookService {
         platform: 'facebook',
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
+        organizationId: connection.organizationId,
         platformAccountId: pageId,
         customerPlatformUserId: commenterId,
         customerName: changeValue.sender_name || `Facebook User ${commenterId}`,

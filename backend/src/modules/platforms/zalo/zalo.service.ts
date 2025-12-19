@@ -288,6 +288,7 @@ export class ZaloService {
         platform: "zalo",
         platformConversationId: conversationKey, // Use composite key
         platformConnectionId: new Types.ObjectId(platformConnectionId),
+        organizationId: platformConnection?.organizationId,
         platformAccountId: oaId, // Store OA ID for easy querying
         customerPlatformUserId: senderId, // Global sender ID
         customerName: userProfile.displayName,

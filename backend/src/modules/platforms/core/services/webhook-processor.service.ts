@@ -310,6 +310,7 @@ export class WebhookProcessorService {
       platform,
       platformConversationId: conversationKey,
       platformConnectionId: connection._id,
+      organizationId: connection.organizationId,
       platformAccountId: connection.platformAccountId,
       customerPlatformUserId: normalized.senderId,
       customerName: userProfile.name,

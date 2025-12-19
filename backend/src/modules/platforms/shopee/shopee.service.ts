@@ -115,10 +115,7 @@ export class ShopeeService {
 
     // Handle message event
     if (payload.data.message_id) {
-      await this.handleIncomingMessage(
-        payload,
-        platformConnection._id.toString()
-      );
+      await this.handleIncomingMessage(payload, platformConnection);
     }
   }
 
@@ -127,8 +124,9 @@ export class ShopeeService {
    */
   private async handleIncomingMessage(
     payload: ShopeeWebhookDto,
-    platformConnectionId: string
+    platformConnection: PlatformConnectionDocument
   ): Promise<void> {
+    const platformConnectionId = platformConnection._id.toString();
     const data = payload.data;
     const shopId = payload.shop_id.toString();
     const customerId = data.from_id?.toString();
@@ -164,6 +162,7 @@ export class ShopeeService {
         platform: "shopee",
         platformConversationId: conversationKey,
         platformConnectionId: new Types.ObjectId(platformConnectionId),
+        organizationId: platformConnection.organizationId,
         platformAccountId: shopId,
         customerPlatformUserId: customerId,
         customerName: displayName,
