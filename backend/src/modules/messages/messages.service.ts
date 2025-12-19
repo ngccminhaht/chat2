@@ -37,6 +37,7 @@ import {
   MessagesReadPayload,
 } from '@/infra/kafka/types/webhook.types';
 import { VisitorMessageService } from '@/modules/websocket/visitor-message.service';
+import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 
 @Injectable()
 export class MessagesService {
@@ -52,6 +53,8 @@ export class MessagesService {
     private kafkaProducer: KafkaProducerService,
     @Inject(forwardRef(() => VisitorMessageService))
     private visitorMessageService: VisitorMessageService,
+    @Inject(forwardRef(() => WebsocketGateway))
+    private websocketGateway: WebsocketGateway,
   ) {}
 
   /**
@@ -385,6 +388,7 @@ export class MessagesService {
   /**
    * Publish pending message notification to WebSocket
    * This shows the message immediately in UI with 'pending' status
+   * Also broadcasts to all org agents so they see the message in real-time
    */
   private async publishPendingMessageNotification(
     userId: string,
@@ -392,21 +396,32 @@ export class MessagesService {
     message: MessageDocument,
   ): Promise<void> {
     try {
-      // Publish new message event (with pending status)
+      const messagePayload = {
+        _id: message._id.toString(),
+        conversationId: message.conversationId.toString(),
+        platform: message.platform,
+        direction: message.direction,
+        type: message.type,
+        content: message.content,
+        sender: message.sender,
+        status: message.status,
+        createdAt: new Date(),
+      };
+
+      // Broadcast to all org agents so everyone sees the new message
+      const organizationId = conversation.organizationId?.toString();
+      if (organizationId) {
+        this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', {
+          conversationId: conversation._id.toString(),
+          message: messagePayload,
+        });
+      }
+
+      // Also publish via Kafka to specific user (for backward compatibility)
       const newMessageEvent: WebSocketNotificationEvent = {
         type: 'message:new',
         userId,
-        payload: {
-          _id: message._id.toString(),
-          conversationId: message.conversationId.toString(),
-          platform: message.platform,
-          direction: message.direction,
-          type: message.type,
-          content: message.content,
-          sender: message.sender,
-          status: message.status,
-          createdAt: new Date(),
-        } as NewMessagePayload,
+        payload: messagePayload as NewMessagePayload,
         timestamp: Date.now(),
       };
 

@@ -31,6 +31,7 @@ import {
 } from '../types/webhook.types';
 import { EnvService } from '@/common/env';
 import { VisitorGateway } from '@/modules/websocket/visitor.gateway';
+import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 
 @Controller()
 export class MessageSenderConsumer {
@@ -45,6 +46,7 @@ export class MessageSenderConsumer {
     private readonly kafkaProducer: KafkaProducerService,
     private readonly envService: EnvService,
     private readonly visitorGateway: VisitorGateway,
+    private readonly websocketGateway: WebsocketGateway,
   ) {
     this.logger.log(`🚀 MessageSenderConsumer initialized, listening on: ${KAFKA_TOPICS.MESSAGES_OUTGOING}`);
   }
@@ -267,39 +269,49 @@ export class MessageSenderConsumer {
   }
 
   /**
-   * Publish status notification via Kafka
+   * Publish status notification via Kafka and broadcast to org agents
    */
   private async publishStatusNotification(
     event: OutgoingMessageEvent,
     status: MessageStatus,
   ): Promise<void> {
     try {
-      // Get userId from connection
+      // Get connection for userId and organizationId
       const connection = await this.platformConnectionModel
         .findById(event.platformConnectionId)
         .exec();
 
-      if (!connection?.connectedBy) {
+      if (!connection) {
         return;
       }
 
-      const userId = connection.connectedBy.toString();
-
-      const notification: WebSocketNotificationEvent = {
-        type: 'message:status',
-        userId,
-        payload: {
-          messageId: event.messageId,
-          conversationId: event.conversationId,
-          status,
-        } as MessageStatusPayload,
-        timestamp: Date.now(),
+      const statusPayload = {
+        messageId: event.messageId,
+        conversationId: event.conversationId,
+        status,
       };
 
-      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-        key: userId,
-        value: notification,
-      });
+      // Broadcast status update to all org agents
+      const organizationId = connection.organizationId?.toString();
+      if (organizationId) {
+        this.websocketGateway.emitToOrgAgents(organizationId, 'message:status', statusPayload);
+      }
+
+      // Also send via Kafka to connectedBy user (for backward compatibility)
+      if (connection.connectedBy) {
+        const userId = connection.connectedBy.toString();
+        const notification: WebSocketNotificationEvent = {
+          type: 'message:status',
+          userId,
+          payload: statusPayload as MessageStatusPayload,
+          timestamp: Date.now(),
+        };
+
+        await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+          key: userId,
+          value: notification,
+        });
+      }
     } catch (error) {
       this.logger.error(`Failed to publish status notification: ${error.message}`);
     }

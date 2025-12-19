@@ -15,8 +15,10 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const joinedOrgRef = useRef<string | null>(null);
   // Select accessToken directly - calling isAuthenticated() in selector is anti-pattern
   const accessToken = useAuthStore((state) => state.accessToken);
+  const organizationId = useAuthStore((state) => state.organizationId);
   const isAuthenticated = !!accessToken;
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
         socketRef.current = null;
         setSocket(null);
         setIsConnected(false);
+        joinedOrgRef.current = null;
       }
       return;
     }
@@ -49,11 +52,20 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       newSocket.on('connect', () => {
         console.log('[WebSocketProvider] Connected');
         setIsConnected(true);
+
+        // Auto-join org:agents room if organizationId is available
+        const orgId = useAuthStore.getState().organizationId;
+        if (orgId && joinedOrgRef.current !== orgId) {
+          newSocket.emit('join:org:agents', { organizationId: orgId });
+          joinedOrgRef.current = orgId;
+          console.log(`[WebSocketProvider] Joined org:${orgId}:agents room`);
+        }
       });
 
       newSocket.on('disconnect', (reason) => {
         console.log('[WebSocketProvider] Disconnected:', reason);
         setIsConnected(false);
+        joinedOrgRef.current = null;
       });
 
       newSocket.on('connect_error', (error) => {
@@ -64,6 +76,24 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       setSocket(newSocket);
     }
   }, [isAuthenticated]);
+
+  // Handle org switch - join new org room
+  useEffect(() => {
+    if (!socketRef.current || !isConnected || !organizationId) return;
+
+    // Leave old org room if different
+    if (joinedOrgRef.current && joinedOrgRef.current !== organizationId) {
+      socketRef.current.emit('leave:org:agents', { organizationId: joinedOrgRef.current });
+      console.log(`[WebSocketProvider] Left org:${joinedOrgRef.current}:agents room`);
+    }
+
+    // Join new org room
+    if (joinedOrgRef.current !== organizationId) {
+      socketRef.current.emit('join:org:agents', { organizationId });
+      joinedOrgRef.current = organizationId;
+      console.log(`[WebSocketProvider] Joined org:${organizationId}:agents room`);
+    }
+  }, [organizationId, isConnected]);
 
   return (
     <WebSocketContext.Provider value={{ socket, isConnected }}>

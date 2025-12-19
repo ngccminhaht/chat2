@@ -104,23 +104,29 @@ export class VisitorMessageService {
       $inc: { unreadCount: 1 },
     });
 
-    // Notify assigned agent (if any) or all org agents
+    // Prepare notification payloads
+    const messagePayload = {
+      conversationId: conversation._id,
+      message: message.toObject(),
+    };
+    const conversationUpdatePayload = {
+      _id: conversation._id,
+      lastMessage: {
+        text: text || '[Media]',
+        timestamp: new Date(),
+      },
+      unreadCount: conversation.unreadCount + 1,
+    };
+
+    // Always broadcast to org agents room (admin/owner/agents who joined)
+    this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', messagePayload);
+    this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', conversationUpdatePayload);
+
+    // Also notify assigned agent directly (in case they haven't joined org room)
     const agentId = conversation.assignedTo?.toString();
     if (agentId) {
-      this.websocketGateway.emitNewMessage(agentId, {
-        conversationId: conversation._id,
-        message: message.toObject(),
-      });
-
-      // Also emit conversation update
-      this.websocketGateway.emitConversationUpdated(agentId, {
-        _id: conversation._id,
-        lastMessage: {
-          text: text || '[Media]',
-          timestamp: new Date(),
-        },
-        unreadCount: conversation.unreadCount + 1,
-      });
+      this.websocketGateway.emitNewMessage(agentId, messagePayload);
+      this.websocketGateway.emitConversationUpdated(agentId, conversationUpdatePayload);
     }
 
     this.logger.log(
@@ -278,8 +284,7 @@ export class VisitorMessageService {
       `Agent ${agentId} sent message to visitor ${sessionId}: ${message._id}`,
     );
 
-    // Emit message to visitor via WebSocket
-    this.visitorGateway.emitToVisitor(sessionId, 'message:new', {
+    const messagePayload = {
       _id: message._id,
       conversationId: conversation._id,
       direction: MessageDirection.OUTBOUND,
@@ -288,9 +293,26 @@ export class VisitorMessageService {
       sender: message.sender,
       status: message.status,
       createdAt: (message as any).createdAt || new Date(),
-    });
+    };
 
+    // Emit message to visitor via WebSocket (widget listens to 'message:received')
+    this.visitorGateway.emitToVisitor(sessionId, 'message:received', { message: messagePayload });
     this.logger.log(`📤 Emitted message to visitor ${sessionId}`);
+
+    // Broadcast to org agents so other agents see the reply in real-time
+    const organizationId = conversation.organizationId.toString();
+    this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', {
+      conversationId: conversation._id,
+      message: message.toObject(),
+    });
+    this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', {
+      _id: conversation._id,
+      lastMessage: {
+        text: content.text || '[Media]',
+        timestamp: new Date(),
+      },
+      unreadCount: 0,
+    });
 
     // Return sessionId for any additional processing
     return {
