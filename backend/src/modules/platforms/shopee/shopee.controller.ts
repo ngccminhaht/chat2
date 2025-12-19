@@ -121,17 +121,18 @@ export class ShopeeController {
 
   /**
    * Step 1: Generate authorization URL and redirect user
-   * GET /api/shopee/authorize?userId=xxx
+   * GET /api/shopee/authorize?userId=xxx&organizationId=xxx
    */
   @Get("authorize")
   async authorize(@Query() dto: ShopeeAuthorizeDto, @Res() res: Response) {
-    this.logger.log("🔐 User authorizing Shopee:", { userId: dto.userId });
+    this.logger.log("🔐 User authorizing Shopee:", { userId: dto.userId, organizationId: dto.organizationId });
 
     const { url, state } = this.shopeeService.getAuthorizationUrl(dto.state);
 
     await this.oauthStateService.storeState(state, {
       state,
       userId: dto.userId,
+      organizationId: dto.organizationId,
       createdAt: Date.now(),
     });
 
@@ -158,6 +159,11 @@ export class ShopeeController {
     }
 
     const userId = storedStateData.userId;
+    const organizationId = storedStateData.organizationId;
+
+    if (!organizationId) {
+      throw new BadRequestException("Organization ID is required for Shopee connection");
+    }
 
     const tokenResponse = await this.shopeeService.exchangeCodeForToken(
       dto.code,
@@ -170,6 +176,7 @@ export class ShopeeController {
 
     const connection = await this.shopeeService.savePlatformConnection(
       userId,
+      organizationId,
       tokenResponse,
       shopInfo
     );
@@ -188,7 +195,7 @@ export class ShopeeController {
 
   /**
    * Get authorization URL as JSON
-   * GET /api/shopee/auth-url
+   * GET /api/shopee/auth-url?organizationId=xxx
    */
   @Get("auth-url")
   @UseGuards(JwtAuthGuard)
@@ -199,6 +206,7 @@ export class ShopeeController {
     await this.oauthStateService.storeState(state, {
       state,
       userId,
+      organizationId: dto.organizationId,
       createdAt: Date.now(),
     });
 
@@ -227,6 +235,11 @@ export class ShopeeController {
       throw new BadRequestException("OAuth state not found or expired");
     }
 
+    const organizationId = storedStateData.organizationId;
+    if (!organizationId) {
+      throw new BadRequestException("Organization ID is required for Shopee connection");
+    }
+
     const tokenResponse = await this.shopeeService.exchangeCodeForToken(
       dto.code,
       dto.shop_id
@@ -238,6 +251,7 @@ export class ShopeeController {
 
     const connection = await this.shopeeService.savePlatformConnection(
       userId,
+      organizationId,
       tokenResponse,
       shopInfo
     );

@@ -80,17 +80,18 @@ export class ZaloController {
 
   /**
    * Step 1: Generate authorization URL and redirect user
-   * GET /api/zalo/authorize?userId=xxx
+   * GET /api/zalo/authorize?userId=xxx&organizationId=xxx
    */
   @Get('authorize')
   async authorize(@Query() dto: ZaloAuthorizeDto, @Res() res: Response) {
-    this.logger.log('🔐 User authorizing Zalo:', { userId: dto.userId });
+    this.logger.log('🔐 User authorizing Zalo:', { userId: dto.userId, organizationId: dto.organizationId });
 
     const { url, codeVerifier, state } = this.zaloService.getAuthorizationUrl(dto.state);
 
     await this.oauthStateService.storeState(state, {
       state,
       userId: dto.userId,
+      organizationId: dto.organizationId,
       codeVerifier,
       createdAt: Date.now(),
     });
@@ -116,12 +117,17 @@ export class ZaloController {
     }
 
     const userId = storedStateData.userId;
+    const organizationId = storedStateData.organizationId;
     const codeVerifier = storedStateData.codeVerifier;
+
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required for Zalo connection');
+    }
 
     const tokenResponse = await this.zaloService.exchangeCodeForToken(dto.code, codeVerifier, dto.oa_id);
     const oaInfo = await this.zaloService.getOAInfo(tokenResponse.access_token);
 
-    const connection = await this.zaloService.savePlatformConnection(userId, tokenResponse, oaInfo);
+    const connection = await this.zaloService.savePlatformConnection(userId, organizationId, tokenResponse, oaInfo);
 
     this.zaloService
       .syncConversations(connection._id.toString())
@@ -137,7 +143,7 @@ export class ZaloController {
 
   /**
    * Get authorization URL as JSON
-   * GET /api/zalo/auth-url
+   * GET /api/zalo/auth-url?organizationId=xxx
    */
   @Get('auth-url')
   @UseGuards(JwtAuthGuard)
@@ -148,6 +154,7 @@ export class ZaloController {
     await this.oauthStateService.storeState(state, {
       state,
       userId,
+      organizationId: dto.organizationId,
       codeVerifier,
       createdAt: Date.now(),
     });
@@ -172,6 +179,11 @@ export class ZaloController {
       throw new BadRequestException('OAuth state not found or expired');
     }
 
+    const organizationId = storedStateData.organizationId;
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required for Zalo connection');
+    }
+
     const codeVerifier = dto.code_verifier || storedStateData.codeVerifier;
 
     const tokenResponse = await this.zaloService.exchangeCodeForToken(
@@ -181,7 +193,7 @@ export class ZaloController {
     );
     const oaInfo = await this.zaloService.getOAInfo(tokenResponse.access_token);
 
-    const connection = await this.zaloService.savePlatformConnection(userId, tokenResponse, oaInfo);
+    const connection = await this.zaloService.savePlatformConnection(userId, organizationId, tokenResponse, oaInfo);
 
     this.zaloService
       .syncConversations(connection._id.toString())

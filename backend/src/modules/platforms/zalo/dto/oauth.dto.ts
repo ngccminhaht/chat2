@@ -8,12 +8,20 @@ export class ZaloAuthUrlDto {
   @IsOptional()
   @IsString()
   userId?: string;
+
+  @IsNotEmpty()
+  @IsString()
+  organizationId: string;
 }
 
 export class ZaloAuthorizeDto {
   @IsNotEmpty()
   @IsString()
   userId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  organizationId: string;
 
   @IsOptional()
   @IsString()

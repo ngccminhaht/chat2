@@ -4,12 +4,20 @@ export class ShopeeAuthUrlDto {
   @IsOptional()
   @IsString()
   state?: string;
+
+  @IsNotEmpty()
+  @IsString()
+  organizationId: string;
 }
 
 export class ShopeeAuthorizeDto {
   @IsNotEmpty()
   @IsString()
   userId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  organizationId: string;
 
   @IsOptional()
   @IsString()

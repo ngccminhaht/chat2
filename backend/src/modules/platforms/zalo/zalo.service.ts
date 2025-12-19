@@ -755,14 +755,16 @@ export class ZaloService {
 
   async savePlatformConnection(
     userId: string,
+    organizationId: string,
     tokenResponse: ZaloTokenResponse,
     oaInfo: ZaloOAInfo
   ): Promise<any> {
     const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
 
+    // Find by organizationId (multi-tenant) instead of userId
     let existing = await this.platformConnectionModel
       .findOne({
-        userId: new Types.ObjectId(userId),
+        organizationId: new Types.ObjectId(organizationId),
         platform: "zalo",
         platformAccountId: oaInfo.oa_id,
       })
@@ -776,6 +778,7 @@ export class ZaloService {
         expiresAt,
       };
       existing.status = ConnectionStatus.ACTIVE;
+      existing.connectedBy = new Types.ObjectId(userId);
       existing.metadata = {
         ...existing.metadata,
         oaId: oaInfo.oa_id,
@@ -788,7 +791,8 @@ export class ZaloService {
     }
 
     return this.platformConnectionModel.create({
-      userId: new Types.ObjectId(userId),
+      organizationId: new Types.ObjectId(organizationId),
+      connectedBy: new Types.ObjectId(userId),
       platform: "zalo",
       platformAccountId: oaInfo.oa_id,
       platformAccountName: oaInfo.name,

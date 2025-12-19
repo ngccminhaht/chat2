@@ -912,6 +912,7 @@ export class FacebookService {
    */
   async savePlatformConnection(
     userId: string,
+    organizationId: string,
     pageInfo: FacebookPageInfo,
   ): Promise<PlatformConnectionDocument> {
     if (!pageInfo.access_token) {
@@ -926,12 +927,14 @@ export class FacebookService {
 
     this.logger.log('=== Saving Facebook page platform connection ===');
     this.logger.log(`User ID: ${userId}`);
+    this.logger.log(`Organization ID: ${organizationId}`);
     this.logger.log(`Page ID: ${pageInfo.id}`);
     this.logger.log(`Page Name: ${pageInfo.name}`);
 
+    // Find by organizationId (multi-tenant) instead of userId
     let existing = await this.platformConnectionModel
       .findOne({
-        userId: new Types.ObjectId(userId),
+        organizationId: new Types.ObjectId(organizationId),
         platform: 'facebook',
         platformAccountId: pageInfo.id,
       })
@@ -945,6 +948,7 @@ export class FacebookService {
         accessToken: pageInfo.access_token,
       };
       existing.status = ConnectionStatus.ACTIVE;
+      existing.connectedBy = new Types.ObjectId(userId);
       existing.metadata = {
         ...existing.metadata,
         pageId: pageInfo.id,
@@ -962,7 +966,8 @@ export class FacebookService {
     }
 
     const newConnection = await this.platformConnectionModel.create({
-      userId: new Types.ObjectId(userId),
+      organizationId: new Types.ObjectId(organizationId),
+      connectedBy: new Types.ObjectId(userId),
       platform: 'facebook',
       platformAccountId: pageInfo.id,
       platformAccountName: pageInfo.name,

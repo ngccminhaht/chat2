@@ -4,12 +4,20 @@ export class FacebookAuthUrlDto {
   @IsOptional()
   @IsString()
   state?: string;
+
+  @IsNotEmpty()
+  @IsString()
+  organizationId: string;
 }
 
 export class FacebookAuthorizeDto {
   @IsNotEmpty()
   @IsString()
   userId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  organizationId: string;
 
   @IsOptional()
   @IsString()

@@ -462,6 +462,7 @@ export class ShopeeService {
 
   async savePlatformConnection(
     userId: string,
+    organizationId: string,
     tokenResponse: ShopeeTokenResponse,
     shopInfo: ShopeeShopInfo
   ): Promise<any> {
@@ -473,9 +474,10 @@ export class ShopeeService {
 
     const expiresAt = new Date(Date.now() + tokenResponse.expire_in * 1000);
 
+    // Find by organizationId (multi-tenant) instead of userId
     let existing = await this.platformConnectionModel
       .findOne({
-        userId: new Types.ObjectId(userId),
+        organizationId: new Types.ObjectId(organizationId),
         platform: "shopee",
         platformAccountId: shopInfo.shop_id.toString(),
       })
@@ -489,6 +491,7 @@ export class ShopeeService {
         expiresAt,
       };
       existing.status = ConnectionStatus.ACTIVE;
+      existing.connectedBy = new Types.ObjectId(userId);
       existing.metadata = {
         ...existing.metadata,
         shopId: shopInfo.shop_id.toString(),
@@ -501,7 +504,8 @@ export class ShopeeService {
     }
 
     return this.platformConnectionModel.create({
-      userId: new Types.ObjectId(userId),
+      organizationId: new Types.ObjectId(organizationId),
+      connectedBy: new Types.ObjectId(userId),
       platform: "shopee",
       platformAccountId: shopInfo.shop_id.toString(),
       platformAccountName: shopInfo.shop_name,

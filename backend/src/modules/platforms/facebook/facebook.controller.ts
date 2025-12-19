@@ -117,17 +117,18 @@ export class FacebookController {
 
   /**
    * Step 1: Generate authorization URL and redirect user
-   * GET /api/facebook/authorize?userId=xxx
+   * GET /api/facebook/authorize?userId=xxx&organizationId=xxx
    */
   @Get('authorize')
   async authorize(@Query() dto: FacebookAuthorizeDto, @Res() res: Response) {
-    this.logger.log('🔐 User authorizing Facebook:', { userId: dto.userId });
+    this.logger.log('🔐 User authorizing Facebook:', { userId: dto.userId, organizationId: dto.organizationId });
 
     const { url, state } = this.facebookService.getAuthorizationUrl(dto.state);
 
     await this.oauthStateService.storeState(state, {
       state,
       userId: dto.userId,
+      organizationId: dto.organizationId,
       createdAt: Date.now(),
     });
 
@@ -150,6 +151,11 @@ export class FacebookController {
       throw new BadRequestException('OAuth state not found or expired');
     }
 
+    const organizationId = storedStateData.organizationId;
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required for Facebook connection');
+    }
+
     this.logger.log('✅ State verified, exchanging code for token');
 
     const tokenResponse = await this.facebookService.exchangeCodeForToken(dto.code);
@@ -168,7 +174,7 @@ export class FacebookController {
     const connections = [];
     for (const page of pages) {
       try {
-        const connection = await this.facebookService.savePlatformConnection(userId, page);
+        const connection = await this.facebookService.savePlatformConnection(userId, organizationId, page);
 
         connections.push({
           id: connection._id,
@@ -196,7 +202,7 @@ export class FacebookController {
 
   /**
    * Get authorization URL as JSON
-   * GET /api/facebook/auth-url
+   * GET /api/facebook/auth-url?organizationId=xxx
    */
   @Get('auth-url')
   @UseGuards(JwtAuthGuard)
@@ -206,12 +212,14 @@ export class FacebookController {
 
     this.logger.log('📝 Generating auth URL and storing state for user:', {
       userId,
+      organizationId: dto.organizationId,
       state,
     });
 
     await this.oauthStateService.storeState(state, {
       state,
       userId,
+      organizationId: dto.organizationId,
       createdAt: Date.now(),
     });
 
@@ -235,6 +243,11 @@ export class FacebookController {
       throw new BadRequestException('OAuth state not found or expired');
     }
 
+    const organizationId = storedStateData.organizationId;
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required for Facebook connection');
+    }
+
     const tokenResponse = await this.facebookService.exchangeCodeForToken(dto.code);
     const pages = await this.facebookService.getPages(tokenResponse.access_token);
 
@@ -246,7 +259,7 @@ export class FacebookController {
 
     for (const page of pages) {
       try {
-        const connection = await this.facebookService.savePlatformConnection(userId, page);
+        const connection = await this.facebookService.savePlatformConnection(userId, organizationId, page);
 
         connections.push({
           id: connection._id,
@@ -360,6 +373,11 @@ export class FacebookController {
       throw new BadRequestException('Unauthorized');
     }
 
+    const organizationId = pendingData.organizationId;
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required for Facebook connection');
+    }
+
     const allPages = pendingData.pages;
     const connections = [];
 
@@ -367,7 +385,7 @@ export class FacebookController {
       const page = allPages.find((p: any) => p.id === pageId);
       if (page) {
         try {
-          const connection = await this.facebookService.savePlatformConnection(userId, page);
+          const connection = await this.facebookService.savePlatformConnection(userId, organizationId, page);
 
           connections.push({
             id: connection._id,

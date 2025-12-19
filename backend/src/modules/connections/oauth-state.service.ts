@@ -5,6 +5,7 @@ export interface OAuthStateData {
   codeVerifier?: string; // Optional - used by Zalo (PKCE)
   state: string;
   userId?: string;
+  organizationId?: string; // Required for multi-tenant connections
   createdAt: number;
   // Shopee-specific temporary data
   tokenResponse?: any;
