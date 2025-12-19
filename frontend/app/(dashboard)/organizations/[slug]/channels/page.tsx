@@ -67,14 +67,20 @@ export default function ChannelsPage() {
     useState<PlatformConnection | null>(null);
 
   // OAuth connection hooks
-  const { connectFacebook, isLoading: isLoadingFacebook } =
+  const { connectFacebook, isLoading: isLoadingFacebook, error: errorFacebook } =
     useConnectFacebook();
-  const { connectZalo, isLoading: isLoadingZalo } = useConnectZalo();
-  const { connectShopee, isLoading: isLoadingShopee } = useConnectShopee();
+  const { connectZalo, isLoading: isLoadingZalo, error: errorZalo } = useConnectZalo();
+  const { connectShopee, isLoading: isLoadingShopee, error: errorShopee } = useConnectShopee();
 
   const currentPlatform = PLATFORMS[tab].id;
   const platformConnections =
     connections?.filter((c) => c.platform === currentPlatform) || [];
+
+  // Get current platform error
+  const connectionError =
+    currentPlatform === "facebook" ? errorFacebook :
+    currentPlatform === "zalo" ? errorZalo :
+    currentPlatform === "shopee" ? errorShopee : null;
 
   const handleConnect = () => {
     if (currentPlatform === "facebook") {
@@ -172,6 +178,9 @@ export default function ChannelsPage() {
 
         <Box sx={{ py: 3, px: 3 }}>
           <Stack spacing={3}>
+            {connectionError && (
+              <Alert severity="error">{connectionError}</Alert>
+            )}
             {isLoading ? (
               <Box display="flex" justifyContent="center" p={3}>
                 <CircularProgress />

@@ -13,11 +13,13 @@ export const useConnectZalo = () => {
   const organizationId = useAuthStore((state) => state.organizationId);
 
   const connectZalo = async () => {
+    console.log('[useConnectZalo] Starting, organizationId:', organizationId);
     try {
       setIsLoading(true);
       setError(null);
 
       if (!organizationId) {
+        console.error('[useConnectZalo] No organizationId!');
         throw new Error('Organization not selected');
       }
 
