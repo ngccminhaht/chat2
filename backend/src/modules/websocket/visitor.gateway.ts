@@ -8,7 +8,7 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Injectable, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Injectable, Logger, UsePipes, ValidationPipe, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -59,6 +59,7 @@ export class VisitorGateway
   constructor(
     @InjectModel(Organization.name)
     private organizationModel: Model<OrganizationDocument>,
+    @Inject(forwardRef(() => VisitorMessageService))
     private readonly visitorMessageService: VisitorMessageService,
     private readonly rateLimitService: VisitorRateLimitService,
   ) {}
