@@ -92,8 +92,16 @@ export class WidgetSocket {
   connect(visitorInfo?: VisitorInfo): void {
     if (this.socket?.connected) return;
 
-    // Parse base URL for socket connection
-    const wsUrl = this.apiUrl.replace('/api', '');
+    // Parse base URL for socket connection - remove /api suffix
+    // apiUrl could be: "https://domain.com/api" or "http://localhost:8300/api"
+    let wsUrl = this.apiUrl.replace(/\/api\/?$/, '');
+
+    // Handle edge case where apiUrl might just be a path like "/api"
+    if (!wsUrl || wsUrl === '' || !wsUrl.includes('://')) {
+      wsUrl = window.location.origin;
+    }
+
+    console.log('[MiAgent] Connecting to WebSocket:', `${wsUrl}/visitor`);
 
     this.socket = io(`${wsUrl}/visitor`, {
       auth: {
