@@ -305,6 +305,22 @@ export class Widget {
       .miagent-message.failed {
         opacity: 0.7;
         border: 1px dashed #f00;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .miagent-retry-btn {
+        background: #ff4444;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 11px;
+        cursor: pointer;
+        align-self: flex-end;
+      }
+      .miagent-retry-btn:hover {
+        background: #cc0000;
       }
       .miagent-system-message {
         text-align: center;
@@ -472,12 +488,53 @@ export class Widget {
     if (message.status === 'sending') msgEl.classList.add('sending');
     if (message.status === 'failed') msgEl.classList.add('failed');
     msgEl.setAttribute('data-id', message.id);
-    msgEl.textContent = message.content;
+    msgEl.setAttribute('data-content', message.content);
+
+    // Add content and retry button for failed messages
+    const contentSpan = document.createElement('span');
+    contentSpan.className = 'miagent-message-content';
+    contentSpan.textContent = message.content;
+    msgEl.appendChild(contentSpan);
+
+    if (message.status === 'failed') {
+      this.addRetryButton(msgEl, message.content);
+    }
 
     messagesEl.appendChild(msgEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     this.messages.push(message);
+  }
+
+  private addRetryButton(msgEl: Element, content: string): void {
+    // Remove existing retry button if any
+    const existingBtn = msgEl.querySelector('.miagent-retry-btn');
+    if (existingBtn) existingBtn.remove();
+
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'miagent-retry-btn';
+    retryBtn.innerHTML = '↻ Retry';
+    retryBtn.onclick = (e) => {
+      e.stopPropagation();
+      this.retryMessage(msgEl, content);
+    };
+    msgEl.appendChild(retryBtn);
+  }
+
+  private retryMessage(msgEl: Element, content: string): void {
+    const messageId = msgEl.getAttribute('data-id');
+    if (!messageId) return;
+
+    // Remove from messages array and DOM
+    this.messages = this.messages.filter((m) => m.id !== messageId);
+    msgEl.remove();
+
+    // Re-send message
+    const inputField = document.getElementById('miagent-input-field') as HTMLInputElement;
+    if (inputField) {
+      inputField.value = content;
+      this.sendMessage();
+    }
   }
 
   private updateMessageStatus(
@@ -487,7 +544,11 @@ export class Widget {
     const msgEl = document.querySelector(`[data-id="${messageId}"]`);
     if (msgEl) {
       msgEl.classList.remove('sending');
-      if (status === 'failed') msgEl.classList.add('failed');
+      if (status === 'failed') {
+        msgEl.classList.add('failed');
+        const content = msgEl.getAttribute('data-content') || '';
+        this.addRetryButton(msgEl, content);
+      }
     }
     const msg = this.messages.find((m) => m.id === messageId);
     if (msg) msg.status = status;

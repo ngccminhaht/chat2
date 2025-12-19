@@ -224,10 +224,12 @@ export class VisitorGateway
   handleTypingStart(@ConnectedSocket() client: VisitorSocket) {
     if (!client.sessionId || !client.organizationId) return;
 
-    // Emit to agents watching this org's conversations
-    this.server.to(`org:${client.organizationId}:agents`).emit('visitor:typing', {
+    // FIX: Use 'typing:indicator' event name that frontend listens to
+    this.server.to(`org:${client.organizationId}:agents`).emit('typing:indicator', {
       sessionId: client.sessionId,
+      visitorName: client.visitorName,
       isTyping: true,
+      senderType: 'visitor',
     });
   }
 
@@ -235,9 +237,11 @@ export class VisitorGateway
   handleTypingStop(@ConnectedSocket() client: VisitorSocket) {
     if (!client.sessionId || !client.organizationId) return;
 
-    this.server.to(`org:${client.organizationId}:agents`).emit('visitor:typing', {
+    this.server.to(`org:${client.organizationId}:agents`).emit('typing:indicator', {
       sessionId: client.sessionId,
+      visitorName: client.visitorName,
       isTyping: false,
+      senderType: 'visitor',
     });
   }
 

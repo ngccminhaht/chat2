@@ -420,6 +420,18 @@ export class MessageSenderConsumer {
 
       this.logger.log(`✅ Web message sent to visitor ${sessionId}: ${event.messageId}`);
 
+      // Broadcast message:new to ALL org agents for real-time sync
+      const organizationId = message.organizationId?.toString();
+      if (organizationId) {
+        this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', {
+          conversationId: message.conversationId?.toString(),
+          message: message.toObject(),
+        });
+        this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', {
+          conversationId: message.conversationId?.toString(),
+        });
+      }
+
       // Publish status notification
       await this.publishStatusNotification(event, MessageStatus.SENT);
     } catch (error) {

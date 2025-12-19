@@ -36,7 +36,12 @@ export class WebSocketBridgeConsumer {
 
       switch (type) {
         case 'message:new':
-          this.websocketGateway.emitNewMessage(userId, payload as NewMessagePayload);
+          // FIX: Wrap payload in {conversationId, message} format expected by frontend
+          const msgPayload = payload as NewMessagePayload;
+          this.websocketGateway.emitNewMessage(userId, {
+            conversationId: msgPayload.conversationId,
+            message: msgPayload,
+          });
           break;
 
         case 'message:status':

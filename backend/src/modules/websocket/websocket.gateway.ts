@@ -13,6 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
+  userName?: string;
 }
 
 @Injectable()
