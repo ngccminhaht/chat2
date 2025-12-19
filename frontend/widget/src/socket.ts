@@ -64,6 +64,7 @@ export class WidgetSocket {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private typingTimeout: ReturnType<typeof setTimeout> | null = null;
+  private isTyping = false;
 
   constructor(apiUrl: string, organizationId: string) {
     this.apiUrl = apiUrl;
@@ -193,14 +194,18 @@ export class WidgetSocket {
   startTyping(): void {
     if (!this.socket?.connected) return;
 
-    // Clear existing timeout
+    // Clear existing timeout to reset the auto-stop timer
     if (this.typingTimeout) {
       clearTimeout(this.typingTimeout);
     }
 
-    this.socket.emit('typing:start');
+    // Only emit if not already typing (debounce)
+    if (!this.isTyping) {
+      this.isTyping = true;
+      this.socket.emit('typing:start');
+    }
 
-    // Auto-stop after 3 seconds
+    // Auto-stop after 3 seconds of no typing
     this.typingTimeout = setTimeout(() => {
       this.stopTyping();
     }, 3000);
@@ -212,7 +217,10 @@ export class WidgetSocket {
       clearTimeout(this.typingTimeout);
       this.typingTimeout = null;
     }
-    this.socket.emit('typing:stop');
+    if (this.isTyping) {
+      this.isTyping = false;
+      this.socket.emit('typing:stop');
+    }
   }
 
   submitPreChatForm(info: VisitorInfo): void {
