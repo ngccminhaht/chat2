@@ -15,6 +15,7 @@ import TypingIndicator from '@/features/conversations/components/TypingIndicator
 import CustomerInfoPanel from '@/features/conversations/components/CustomerInfoPanel';
 
 const EMPTY_MESSAGES: any[] = [];
+const EMPTY_TYPING_USERS: string[] = [];
 
 export default function ConversationDetailPage() {
   const params = useParams();
@@ -49,9 +50,10 @@ export default function ConversationDetailPage() {
   const messagesFromStore = useConversationStore((state) => state.messages[conversationId]);
   const storeMessages = messagesFromStore || EMPTY_MESSAGES;
 
-  const typingUsers = useConversationStore(
-    (state) => state.typingUsers[conversationId] || []
+  const typingUsersFromStore = useConversationStore(
+    (state) => state.typingUsers[conversationId]
   );
+  const typingUsers = typingUsersFromStore || EMPTY_TYPING_USERS;
 
   const conversationFromStore = useConversationStore((state) =>
     state.conversations.find((c) => c._id === conversationId)
