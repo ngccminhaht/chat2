@@ -10,23 +10,21 @@ interface ZaloAuthUrlResponse {
 export const useConnectZalo = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const organizationId = useAuthStore((state) => state.organizationId);
+  const organization = useAuthStore((state) => state.organization);
 
   const connectZalo = async () => {
-    console.log('[useConnectZalo] Starting, organizationId:', organizationId);
     try {
       setIsLoading(true);
       setError(null);
 
-      if (!organizationId) {
-        console.error('[useConnectZalo] No organizationId!');
+      if (!organization?.id) {
         throw new Error('Organization not selected');
       }
 
       // Call backend to generate OAuth URL and store state in Redis
       const response = await apiClient.get<ZaloAuthUrlResponse>(
         '/zalo/auth-url',
-        { params: { organizationId } }
+        { params: { organizationId: organization.id } }
       );
 
       const { authUrl } = response.data;
