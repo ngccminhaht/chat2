@@ -63,9 +63,20 @@ export default function ConversationDetailPage() {
 
   useEffect(() => {
     if (apiMessages.length > 0 && conversationId) {
-      const currentMessages = useConversationStore.getState().messages[conversationId];
-      if (!currentMessages || currentMessages.length === 0) {
+      const currentMessages = useConversationStore.getState().messages[conversationId] || [];
+
+      if (currentMessages.length === 0) {
+        // Store empty - set API messages directly
         useConversationStore.getState().setMessages(conversationId, apiMessages);
+      } else {
+        // Store has messages (from WebSocket) - merge with API messages
+        // API messages are older history, WebSocket messages are newer real-time updates
+        const apiMessageIds = new Set(apiMessages.map((m) => m._id));
+        const newMessagesFromWebSocket = currentMessages.filter((m) => !apiMessageIds.has(m._id));
+
+        // Combine: API messages (sorted history) + new WebSocket messages
+        const mergedMessages = [...apiMessages, ...newMessagesFromWebSocket];
+        useConversationStore.getState().setMessages(conversationId, mergedMessages);
       }
     }
   }, [apiMessages, conversationId]);

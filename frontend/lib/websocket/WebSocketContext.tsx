@@ -15,7 +15,9 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
+  // Select accessToken directly - calling isAuthenticated() in selector is anti-pattern
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const isAuthenticated = !!accessToken;
 
   useEffect(() => {
     if (!isAuthenticated) {

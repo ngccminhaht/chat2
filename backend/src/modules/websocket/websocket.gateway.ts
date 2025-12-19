@@ -166,4 +166,14 @@ export class WebsocketGateway
       messageIds,
     });
   }
+
+  /**
+   * Emit to all agents in an organization
+   * Used for broadcasting new conversations/messages from visitors
+   */
+  emitToOrgAgents(organizationId: string, event: string, data: any) {
+    const room = `org:${organizationId}:agents`;
+    this.server.to(room).emit(event, data);
+    this.logger.log(`📤 Emitted ${event} to org:${organizationId}:agents`);
+  }
 }
