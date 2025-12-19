@@ -30,6 +30,7 @@ import {
   MessageStatusPayload,
 } from '../types/webhook.types';
 import { EnvService } from '@/common/env';
+import { VisitorGateway } from '@/modules/websocket/visitor.gateway';
 
 @Controller()
 export class MessageSenderConsumer {
@@ -43,6 +44,7 @@ export class MessageSenderConsumer {
     private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
     private readonly kafkaProducer: KafkaProducerService,
     private readonly envService: EnvService,
+    private readonly visitorGateway: VisitorGateway,
   ) {
     this.logger.log(`🚀 MessageSenderConsumer initialized, listening on: ${KAFKA_TOPICS.MESSAGES_OUTGOING}`);
   }
@@ -63,6 +65,12 @@ export class MessageSenderConsumer {
     });
 
     try {
+      // Handle Web platform separately - emit directly via WebSocket
+      if (event.platform === Platform.WEB) {
+        await this.handleWebPlatformMessage(event);
+        return;
+      }
+
       // 1. Get platform adapter
       const adapter = this.platformRegistry.get(event.platform);
       this.logger.log(`✅ Got adapter for platform: ${event.platform}`);
@@ -364,6 +372,47 @@ export class MessageSenderConsumer {
     } catch (error) {
       this.logger.error(`❌ Failed to refresh Zalo token: ${error.response?.data || error.message}`);
       return null;
+    }
+  }
+
+  /**
+   * Handle web platform messages by emitting directly to visitor via WebSocket
+   * Web messages don't go through external APIs - they're delivered via our WebSocket gateway
+   */
+  private async handleWebPlatformMessage(event: OutgoingMessageEvent): Promise<void> {
+    try {
+      // recipientId is the sessionId (format: web_{orgId}_{sessionId}, we extract sessionId)
+      // Actually recipientId is customerPlatformUserId which IS the sessionId
+      const sessionId = event.recipientId;
+
+      // Get the message from database to include full details
+      const message = await this.messageModel.findById(event.messageId).exec();
+      if (!message) {
+        this.logger.error(`Message not found: ${event.messageId}`);
+        return;
+      }
+
+      // Emit message to visitor via WebSocket
+      this.visitorGateway.emitToVisitor(sessionId, 'message:received', {
+        message: {
+          _id: message._id.toString(),
+          content: message.content,
+          sender: message.sender,
+          direction: message.direction,
+          createdAt: (message as any).createdAt || new Date(),
+        },
+      });
+
+      // Update message status to sent
+      await this.updateMessageStatus(event.messageId, MessageStatus.SENT);
+
+      this.logger.log(`✅ Web message sent to visitor ${sessionId}: ${event.messageId}`);
+
+      // Publish status notification
+      await this.publishStatusNotification(event, MessageStatus.SENT);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send web message: ${error.message}`);
+      await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, error.message);
     }
   }
 }

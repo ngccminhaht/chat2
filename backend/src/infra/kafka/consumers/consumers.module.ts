@@ -14,6 +14,7 @@ import {
   PlatformConnectionSchema,
 } from '@/common/database/schemas/platform-connection.schema';
 import { MessageSenderConsumer } from './message-sender.consumer';
+import { WebsocketModule } from '@/modules/websocket/websocket.module';
 
 /**
  * Consumers Module
@@ -32,6 +33,7 @@ import { MessageSenderConsumer } from './message-sender.consumer';
       { name: Message.name, schema: MessageSchema },
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
+    WebsocketModule,
   ],
   controllers: [MessageSenderConsumer],
 })

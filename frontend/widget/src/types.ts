@@ -41,6 +41,9 @@ export interface Message {
   content: string;
   sender: 'user' | 'bot' | 'agent';
   timestamp: Date;
+  mediaUrl?: string;
+  agentName?: string;
+  status?: 'sending' | 'sent' | 'failed';
 }
 
 export interface VisitorInfo {
