@@ -337,6 +337,7 @@ export class WebhookProcessorService {
     try {
       return await this.messageModel.create({
         conversationId: conversation._id,
+        organizationId: conversation.organizationId,
         platform: conversation.platform,
         platformMessageId: normalized.platformMessageId,
         direction: normalized.direction,

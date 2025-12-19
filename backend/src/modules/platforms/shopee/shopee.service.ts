@@ -201,6 +201,7 @@ export class ShopeeService {
     try {
       message = await this.messageModel.create({
         conversationId: conversation._id,
+        organizationId: conversation.organizationId,
         platform: "shopee",
         platformMessageId,
         direction: "inbound",

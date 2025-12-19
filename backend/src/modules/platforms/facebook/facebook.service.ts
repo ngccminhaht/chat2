@@ -322,6 +322,7 @@ export class FacebookService {
     try {
       newMessage = await this.messageModel.create({
         conversationId: conversation._id,
+        organizationId: conversation.organizationId,
         platform: "facebook",
         platformMessageId: messageId,
         direction: "inbound",
@@ -497,6 +498,7 @@ export class FacebookService {
     try {
       newMessage = await this.messageModel.create({
         conversationId: conversation._id,
+        organizationId: conversation.organizationId,
         platform: "facebook",
         platformMessageId: postbackMessageId,
         direction: "inbound",
@@ -639,6 +641,7 @@ export class FacebookService {
     try {
       newMessage = await this.messageModel.create({
         conversationId: conversation._id,
+        organizationId: conversation.organizationId,
         platform: 'facebook',
         platformMessageId: commentMessageId,
         direction: 'inbound',

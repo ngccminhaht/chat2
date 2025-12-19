@@ -93,6 +93,7 @@ export class MessageSenderService {
       // 4. Create pending message in database
       const message = await this.messageModel.create({
         conversationId: conversation._id,
+        organizationId: conversation.organizationId,
         platform: conversation.platform,
         platformMessageId: `pending_${Date.now()}`,
         direction: MessageDirection.OUTBOUND,
