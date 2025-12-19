@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useCallback, useState } from 'react';
+import { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Paper, Typography, Chip, Stack, Avatar, IconButton, useMediaQuery, useTheme } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
@@ -23,6 +23,7 @@ export default function ConversationDetailPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [showInfoPanel, setShowInfoPanel] = useState(!isMobile);
+  const markedAsReadRef = useRef<string | null>(null);
 
   const {
     data,
@@ -74,16 +75,25 @@ export default function ConversationDetailPage() {
   }, [conversationData]);
 
   useEffect(() => {
+    // Skip if already marked as read for this conversation
+    if (markedAsReadRef.current === conversationId) return;
+
     if (conversationId && storeMessages.length > 0) {
       const hasUnreadMessages = storeMessages.some(
         (msg) => msg.direction === 'inbound' && msg.status !== 'read'
       );
       if (hasUnreadMessages) {
+        markedAsReadRef.current = conversationId;
         markAsRead({ conversationId });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, storeMessages.length]);
+
+  // Reset ref when conversation changes
+  useEffect(() => {
+    markedAsReadRef.current = null;
+  }, [conversationId]);
 
   return (
     <Box sx={{ height: 'calc(100vh - 112px)' }}>
