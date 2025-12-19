@@ -118,7 +118,7 @@ describe('ZaloController', () => {
       });
       mockOAuthStateService.storeState.mockResolvedValue(undefined);
 
-      const result = await controller.getAuthUrl({ state: 'custom-state' }, mockReq);
+      const result = await controller.getAuthUrl({ state: 'custom-state', organizationId: 'org123' }, mockReq);
 
       expect(result).toEqual({
         authUrl: 'https://oauth.zaloapp.com/v4/oa/permission',
@@ -142,6 +142,7 @@ describe('ZaloController', () => {
       mockOAuthStateService.getAndDeleteState.mockResolvedValue({
         state: 'state123',
         userId: 'user123',
+        organizationId: 'org123',
         codeVerifier: 'verifier123',
         createdAt: Date.now(),
       });

@@ -140,7 +140,7 @@ describe('ShopeeController', () => {
       });
       mockOAuthStateService.storeState.mockResolvedValue(undefined);
 
-      const result = await controller.getAuthUrl({ state: 'custom-state' }, mockReq);
+      const result = await controller.getAuthUrl({ state: 'custom-state', organizationId: 'org123' }, mockReq);
 
       expect(result).toEqual({
         authUrl: 'https://partner.shopeemobile.com/api/v2/shop/auth_partner',
@@ -157,6 +157,7 @@ describe('ShopeeController', () => {
       mockOAuthStateService.getAndDeleteState.mockResolvedValue({
         state: 'state123',
         userId: 'user123',
+        organizationId: 'org123',
         createdAt: Date.now(),
       });
       mockShopeeService.exchangeCodeForToken.mockResolvedValue({

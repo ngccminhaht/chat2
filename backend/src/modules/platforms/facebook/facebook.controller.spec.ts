@@ -152,7 +152,7 @@ describe('FacebookController', () => {
       });
       mockOAuthStateService.storeState.mockResolvedValue(undefined);
 
-      const result = await controller.getAuthUrl({ state: 'custom-state' }, mockReq);
+      const result = await controller.getAuthUrl({ state: 'custom-state', organizationId: 'org123' }, mockReq);
 
       expect(result).toEqual({
         authUrl: 'https://facebook.com/oauth',
@@ -169,6 +169,7 @@ describe('FacebookController', () => {
       mockOAuthStateService.getAndDeleteState.mockResolvedValue({
         state: 'state123',
         userId: 'user123',
+        organizationId: 'org123',
         createdAt: Date.now(),
       });
       mockFacebookService.exchangeCodeForToken.mockResolvedValue({
