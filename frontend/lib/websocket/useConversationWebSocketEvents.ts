@@ -26,10 +26,13 @@ export function useConversationWebSocketEvents() {
   const setTypingUsers = useConversationStore((state) => state.setTypingUsers);
 
   // Handle new messages
-  useWebSocketEvent<Message>('message:new', (message) => {
-    console.log('[WS] New message:', message);
-    addMessage(message.conversationId, message);
-    // No need to invalidate - Zustand store is source of truth for real-time updates
+  // Payload format: { conversationId, message } from org broadcast
+  useWebSocketEvent<{ conversationId: string; message: Message }>('message:new', (data) => {
+    console.log('[WS] New message:', data);
+    const message = data.message;
+    if (message) {
+      addMessage(data.conversationId, message);
+    }
   });
 
   // Handle message status updates
