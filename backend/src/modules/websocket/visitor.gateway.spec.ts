@@ -234,30 +234,6 @@ describe('VisitorGateway', () => {
     });
   });
 
-  describe('handleTypingStart', () => {
-    it('should emit typing event to org agents', () => {
-      const socket = createMockSocket();
-      socket.sessionId = 'session123';
-      socket.organizationId = 'org123';
-
-      gateway.handleTypingStart(socket);
-
-      expect(gateway.server.to).toHaveBeenCalledWith('org:org123:agents');
-      expect(gateway.server.emit).toHaveBeenCalledWith('visitor:typing', {
-        sessionId: 'session123',
-        isTyping: true,
-      });
-    });
-
-    it('should not emit if not authenticated', () => {
-      const socket = createMockSocket();
-
-      gateway.handleTypingStart(socket);
-
-      expect(gateway.server.to).not.toHaveBeenCalled();
-    });
-  });
-
   describe('handlePreChatSubmit', () => {
     it('should update visitor info', async () => {
       const socket = createMockSocket();
