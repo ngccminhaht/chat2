@@ -9,7 +9,7 @@ describe('ConnectionsController', () => {
   let connectionsService: jest.Mocked<ConnectionsService>;
 
   const mockConnectionsService = {
-    findAllByUser: jest.fn(),
+    findAllByOrganization: jest.fn(),
     findOne: jest.fn(),
     updateStatus: jest.fn(),
     delete: jest.fn(),
@@ -30,20 +30,22 @@ describe('ConnectionsController', () => {
   });
 
   describe('findAll', () => {
-    const mockReq = { user: { userId: 'user123' } };
-
-    it('should return all connections for user', async () => {
+    it('should return all connections for organization', async () => {
       const mockConnections = [
         { _id: 'conn1', platform: 'facebook', platformAccountName: 'Page 1' },
         { _id: 'conn2', platform: 'zalo', platformAccountName: 'OA 1' },
       ];
 
-      mockConnectionsService.findAllByUser.mockResolvedValue(mockConnections);
+      mockConnectionsService.findAllByOrganization.mockResolvedValue(mockConnections);
 
-      const result = await controller.findAll(mockReq);
+      const result = await controller.findAll('org123');
 
       expect(result).toEqual(mockConnections);
-      expect(mockConnectionsService.findAllByUser).toHaveBeenCalledWith('user123');
+      expect(mockConnectionsService.findAllByOrganization).toHaveBeenCalledWith('org123');
+    });
+
+    it('should throw BadRequestException when organizationId is missing', async () => {
+      await expect(controller.findAll('')).rejects.toThrow(BadRequestException);
     });
   });
 

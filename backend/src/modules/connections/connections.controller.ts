@@ -5,8 +5,8 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   UseGuards,
-  Request,
   BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
@@ -21,13 +21,15 @@ export class ConnectionsController {
   ) {}
 
   /**
-   * Get all platform connections for current user
-   * GET /api/connections
+   * Get all platform connections for organization
+   * GET /api/connections?organizationId=xxx
    */
   @Get()
-  findAll(@Request() req) {
-    const userId = req.user.userId;
-    return this.connectionsService.findAllByUser(userId);
+  findAll(@Query('organizationId') organizationId: string) {
+    if (!organizationId) {
+      throw new BadRequestException('organizationId is required');
+    }
+    return this.connectionsService.findAllByOrganization(organizationId);
   }
 
   /**

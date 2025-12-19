@@ -2,16 +2,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
 import { PlatformConnection } from '../types/platform-connection.types';
 import { ConnectionStatus } from '@/lib/constants';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 export const usePlatformConnections = () => {
+  const organizationId = useAuthStore((state) => state.organization?.id);
+
   return useQuery({
-    queryKey: ['connections'],
+    queryKey: ['connections', organizationId],
     queryFn: async () => {
       const response = await apiClient.get<PlatformConnection[]>(
-        '/connections'
+        '/connections',
+        { params: { organizationId } }
       );
       return response.data;
     },
+    enabled: !!organizationId,
   });
 };
 

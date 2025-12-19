@@ -18,6 +18,7 @@ import {
 import { ConnectionsModule } from '@/modules/connections/connections.module';
 import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
+import { OrganizationsModule } from '@/modules/organizations/organizations.module';
 
 /**
  * Facebook Module
@@ -37,6 +38,7 @@ import { WebsocketModule } from '@/modules/websocket/websocket.module';
     ConnectionsModule, // For FacebookOAuthService
     WebhooksModule, // For WebhookPublisherService
     WebsocketModule, // For WebsocketGateway
+    OrganizationsModule, // For organization slug lookup
   ],
   controllers: [FacebookController, FacebookConsumer],
   providers: [FacebookService],

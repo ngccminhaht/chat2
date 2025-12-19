@@ -30,9 +30,9 @@ export class ConnectionsService {
     private websocketGateway: WebsocketGateway,
   ) {}
 
-  async findAllByUser(userId: string): Promise<any> {
+  async findAllByOrganization(organizationId: string): Promise<any> {
     const connections = await this.platformConnectionModel
-      .find({ userId: new Types.ObjectId(userId) })
+      .find({ organizationId: new Types.ObjectId(organizationId) })
       .sort({ createdAt: -1 })
       .exec();
 

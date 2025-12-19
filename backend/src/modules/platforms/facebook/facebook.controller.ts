@@ -27,6 +27,7 @@ import { FacebookService } from './facebook.service';
 import { WebhookPublisherService } from '@/modules/webhooks/webhook-publisher.service';
 import { OAuthStateService } from '@/modules/connections/oauth-state.service';
 import { EnvService } from '@/common/env';
+import { OrganizationsService } from '@/modules/organizations/organizations.service';
 
 interface RawBodyRequest<T> extends Request {
   rawBody?: Buffer;
@@ -48,6 +49,7 @@ export class FacebookController {
     private readonly webhookPublisher: WebhookPublisherService,
     private readonly envService: EnvService,
     private readonly oauthStateService: OAuthStateService,
+    private readonly organizationsService: OrganizationsService,
   ) {}
 
   /**
@@ -161,15 +163,16 @@ export class FacebookController {
     const tokenResponse = await this.facebookService.exchangeCodeForToken(dto.code);
     const pages = await this.facebookService.getPages(tokenResponse.access_token);
 
+    const org = await this.organizationsService.findById(organizationId);
+    const frontendUrl = this.envService.get('FRONTEND_URL');
+
     if (pages.length === 0) {
-      const frontendUrl = this.envService.get('FRONTEND_URL');
       return res.redirect(
-        `${frontendUrl}/connections?status=error&platform=facebook&message=${encodeURIComponent('No Facebook pages found')}`,
+        `${frontendUrl}/organizations/${org.slug}/channels?platform=facebook&error=${encodeURIComponent('No Facebook pages found')}`,
       );
     }
 
     const userId = storedStateData.userId;
-    const isSyncMode = storedStateData.syncMode || false;
 
     const connections = [];
     for (const page of pages) {
@@ -193,10 +196,10 @@ export class FacebookController {
       }
     }
 
-    const frontendUrl = this.envService.get('FRONTEND_URL');
-    const actionText = isSyncMode ? 'synced' : 'connected';
+    // Redirect with first connection ID for highlight
+    const newId = connections.length > 0 ? connections[0].id : '';
     return res.redirect(
-      `${frontendUrl}/connections?status=success&platform=facebook&account=${connections.length} page${connections.length > 1 ? 's' : ''}&action=${actionText}`,
+      `${frontendUrl}/organizations/${org.slug}/channels?platform=facebook&new=${newId}`,
     );
   }
 

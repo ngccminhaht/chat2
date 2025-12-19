@@ -18,6 +18,7 @@ import {
 import { ConnectionsModule } from '@/modules/connections/connections.module';
 import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
+import { OrganizationsModule } from '@/modules/organizations/organizations.module';
 
 /**
  * Shopee Module
@@ -37,6 +38,7 @@ import { WebsocketModule } from '@/modules/websocket/websocket.module';
     ConnectionsModule, // For ShopeeOAuthService
     WebhooksModule, // For WebhookPublisherService
     WebsocketModule, // For WebsocketGateway
+    OrganizationsModule, // For organization slug lookup
   ],
   controllers: [ShopeeController, ShopeeConsumer],
   providers: [ShopeeService],

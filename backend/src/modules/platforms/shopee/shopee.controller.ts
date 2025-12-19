@@ -25,6 +25,7 @@ import { ShopeeService } from "./shopee.service";
 import { WebhookPublisherService } from "@/modules/webhooks/webhook-publisher.service";
 import { OAuthStateService } from "@/modules/connections/oauth-state.service";
 import { EnvService } from "@/common/env";
+import { OrganizationsService } from "@/modules/organizations/organizations.service";
 
 interface RawBodyRequest<T> extends Request {
   rawBody?: Buffer;
@@ -45,7 +46,8 @@ export class ShopeeController {
     private readonly shopeeService: ShopeeService,
     private readonly webhookPublisher: WebhookPublisherService,
     private readonly envService: EnvService,
-    private readonly oauthStateService: OAuthStateService
+    private readonly oauthStateService: OAuthStateService,
+    private readonly organizationsService: OrganizationsService,
   ) {}
 
   /**
@@ -187,9 +189,10 @@ export class ShopeeController {
         this.logger.error("Failed to sync conversations:", error);
       });
 
+    const org = await this.organizationsService.findById(organizationId);
     const frontendUrl = this.envService.get("FRONTEND_URL");
     return res.redirect(
-      `${frontendUrl}/connections?status=success&platform=shopee&account=${shopInfo.shop_name}`
+      `${frontendUrl}/organizations/${org.slug}/channels?platform=shopee&new=${connection._id}`
     );
   }
 

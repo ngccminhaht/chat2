@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Box,
   Paper,
@@ -23,9 +24,6 @@ import {
   DialogActions,
 } from "@mui/material";
 import {
-  Facebook as FacebookIcon,
-  Chat as ZaloIcon,
-  ShoppingBag as ShopeeIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Add as AddIcon,
@@ -42,22 +40,24 @@ import { PlatformConnection } from "@/features/connections/types/platform-connec
 import { ConnectionStatus } from "@/lib/constants/statuses";
 
 const PLATFORMS = [
-  {
-    id: "facebook",
-    name: "Facebook",
-    icon: <FacebookIcon sx={{ color: "#1877F2" }} />,
-  },
-  { id: "zalo", name: "Zalo OA", icon: <ZaloIcon sx={{ color: "#0068ff" }} /> },
-  {
-    id: "shopee",
-    name: "Shopee",
-    icon: <ShopeeIcon sx={{ color: "#ee4d2d" }} />,
-  },
-  { id: "tiktok", name: "TikTok", icon: <ShopeeIcon sx={{ color: "#000" }} /> },
+  { id: "facebook", name: "Facebook" },
+  { id: "zalo", name: "Zalo OA" },
+  { id: "shopee", name: "Shopee" },
+  { id: "tiktok", name: "TikTok" },
 ];
 
 export default function ChannelsPage() {
-  const [tab, setTab] = useState(0);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Get initial tab from query param
+  const platformParam = searchParams.get("platform");
+  const highlightId = searchParams.get("new");
+  const initialTab = platformParam
+    ? PLATFORMS.findIndex(p => p.id === platformParam)
+    : 0;
+
+  const [tab, setTab] = useState(initialTab >= 0 ? initialTab : 0);
   const { data: connections, isLoading } = usePlatformConnections();
   const deleteConnection = useDeletePlatformConnection();
   const updateStatus = useUpdatePlatformConnectionStatus();
@@ -81,6 +81,23 @@ export default function ChannelsPage() {
     currentPlatform === "facebook" ? errorFacebook :
     currentPlatform === "zalo" ? errorZalo :
     currentPlatform === "shopee" ? errorShopee : null;
+
+  // Update URL query when tab changes
+  const handleTabChange = (newTab: number) => {
+    setTab(newTab);
+    const platform = PLATFORMS[newTab].id;
+    router.replace(`?platform=${platform}`, { scroll: false });
+  };
+
+  // Clear highlight param after showing
+  useEffect(() => {
+    if (highlightId) {
+      const timer = setTimeout(() => {
+        router.replace(`?platform=${currentPlatform}`, { scroll: false });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightId, currentPlatform, router]);
 
   const handleConnect = () => {
     if (currentPlatform === "facebook") {
@@ -148,14 +165,9 @@ export default function ChannelsPage() {
             alignItems="center"
             sx={{ pr: 2 }}
           >
-            <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+            <Tabs value={tab} onChange={(_, v) => handleTabChange(v)}>
               {PLATFORMS.map((platform) => (
-                <Tab
-                  key={platform.id}
-                  icon={platform.icon}
-                  label={platform.name}
-                  iconPosition="start"
-                />
+                <Tab key={platform.id} label={platform.name} />
               ))}
             </Tabs>
             <Button
@@ -188,7 +200,19 @@ export default function ChannelsPage() {
             ) : platformConnections.length > 0 ? (
               <Stack spacing={2}>
                 {platformConnections.map((connection) => (
-                  <Card key={connection.id} variant="outlined">
+                  <Card
+                    key={connection.id}
+                    variant="outlined"
+                    sx={highlightId === connection.id ? {
+                      borderColor: "success.main",
+                      borderWidth: 2,
+                      animation: "pulse 1s ease-in-out 3",
+                      "@keyframes pulse": {
+                        "0%, 100%": { opacity: 1 },
+                        "50%": { opacity: 0.7 },
+                      },
+                    } : undefined}
+                  >
                     <CardContent>
                       <Stack
                         direction="row"
@@ -196,7 +220,7 @@ export default function ChannelsPage() {
                         alignItems="flex-start"
                       >
                         <Avatar sx={{ bgcolor: "background.default" }}>
-                          {PLATFORMS[tab].icon}
+                          {PLATFORMS[tab].name.charAt(0)}
                         </Avatar>
                         <Box sx={{ flexGrow: 1 }}>
                           <Stack
