@@ -44,6 +44,7 @@ import { AiAgentsModule } from './modules/ai-agents/ai-agents.module';
         connection: {
           host: envService.get('REDIS_HOST'),
           port: envService.get('REDIS_PORT'),
+          password: envService.get('REDIS_PASSWORD'),
         },
       }),
     }),
