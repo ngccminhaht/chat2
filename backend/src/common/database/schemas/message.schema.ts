@@ -80,3 +80,11 @@ MessageSchema.index(
   { unique: true },
 ); // Dedup per org
 MessageSchema.index({ 'content.text': 'text' }); // Text search (global, filtered in app)
+
+// Phase 2: Additional indexes from message-flow architecture
+MessageSchema.index({ conversationId: 1, status: 1 }); // AI batching: pending messages per conversation
+MessageSchema.index({ platformConnectionId: 1, createdAt: -1 }); // Platform connection queries
+MessageSchema.index(
+  { status: 1, createdAt: 1 },
+  { partialFilterExpression: { status: 'PENDING' } },
+); // Retry queue (partial - only PENDING messages)
