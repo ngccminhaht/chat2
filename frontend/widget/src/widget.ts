@@ -402,11 +402,16 @@ export class Widget {
     this.isOpen = !this.isOpen;
     const window = document.getElementById('miagent-widget-window');
     window?.classList.toggle('open', this.isOpen);
+    if (this.isOpen) {
+      // Scroll to bottom when opening
+      setTimeout(() => this.scrollToBottom(), 0);
+    }
   }
 
   open(): void {
     this.isOpen = true;
     document.getElementById('miagent-widget-window')?.classList.add('open');
+    setTimeout(() => this.scrollToBottom(), 0);
   }
 
   close(): void {
@@ -534,6 +539,16 @@ export class Widget {
     messages.forEach((msg) => {
       this.addMessageToUI(msg);
     });
+
+    // Scroll to bottom after restoring
+    this.scrollToBottom();
+  }
+
+  private scrollToBottom(): void {
+    const messagesEl = document.getElementById('miagent-widget-messages');
+    if (messagesEl) {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
   }
 
   private showSystemMessage(text: string): void {
