@@ -14,7 +14,6 @@ import { Message, Conversation } from '@/features/conversations/types/conversati
  * - message:status - Message status update
  * - conversation:updated - Conversation updated
  * - message:read - Messages marked as read
- * - typing:indicator - Typing indicator
  */
 export function useConversationWebSocketEvents() {
   const queryClient = useQueryClient();
@@ -23,7 +22,6 @@ export function useConversationWebSocketEvents() {
   const updateConversation = useConversationStore((state) => state.updateConversation);
   const addConversation = useConversationStore((state) => state.addConversation);
   const markMessagesAsRead = useConversationStore((state) => state.markMessagesAsRead);
-  const setTypingUsers = useConversationStore((state) => state.setTypingUsers);
 
   // Handle new messages
   // Payload format: { conversationId, message } from org broadcast
@@ -69,29 +67,6 @@ export function useConversationWebSocketEvents() {
     (data) => {
       console.log('[WS] Messages read:', data);
       markMessagesAsRead(data.conversationId, data.messageIds);
-    }
-  );
-
-  // Handle typing indicators
-  useWebSocketEvent<{ conversationId: string; userId: string; isTyping: boolean }>(
-    'typing:indicator',
-    (data) => {
-      console.log('[WS] Typing indicator:', data);
-
-      const typingUsers = useConversationStore.getState().typingUsers[data.conversationId] || [];
-
-      if (data.isTyping) {
-        // Add user to typing list if not already there
-        if (!typingUsers.includes(data.userId)) {
-          setTypingUsers(data.conversationId, [...typingUsers, data.userId]);
-        }
-      } else {
-        // Remove user from typing list
-        setTypingUsers(
-          data.conversationId,
-          typingUsers.filter((id) => id !== data.userId)
-        );
-      }
     }
   );
 }

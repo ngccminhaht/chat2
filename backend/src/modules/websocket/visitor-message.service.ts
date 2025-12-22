@@ -297,20 +297,17 @@ export class VisitorMessageService {
       `Agent ${agentId} sent message to visitor ${sessionId}: ${message._id}`,
     );
 
-    const messagePayload = {
-      _id: message._id,
-      conversationId: conversation._id,
-      direction: MessageDirection.OUTBOUND,
-      type: message.type,
-      content: message.content,
-      sender: message.sender,
-      status: message.status,
-      createdAt: (message as any).createdAt || new Date(),
+    // Payload for widget (expects flat object with messageId, text, mediaUrl, timestamp)
+    const widgetPayload = {
+      messageId: message._id.toString(),
+      text: content.text,
+      mediaUrl: content.mediaUrl,
+      timestamp: (message as any).createdAt?.getTime() || Date.now(),
     };
 
-    // Emit message to visitor via WebSocket (widget listens to 'message:received')
-    this.visitorGateway.emitToVisitor(sessionId, 'message:received', { message: messagePayload });
-    this.logger.log(`📤 Emitted message to visitor ${sessionId}`);
+    // Emit message to visitor via WebSocket (widget listens to 'message:new')
+    this.visitorGateway.emitToVisitor(sessionId, 'message:new', widgetPayload);
+    this.logger.log(`📤 Emitted message:new to visitor ${sessionId}`);
 
     // Broadcast to org agents so other agents see the reply in real-time
     const organizationId = conversation.organizationId.toString();

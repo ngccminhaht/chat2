@@ -67,11 +67,6 @@ export class WebSocketBridgeConsumer {
           );
           break;
 
-        case 'typing:indicator':
-          // Typing indicators are handled directly by WebSocket (not via Kafka)
-          this.logger.debug('Typing indicator event - skipping (handled directly)');
-          break;
-
         default:
           this.logger.warn(`Unknown notification type: ${type}`);
       }

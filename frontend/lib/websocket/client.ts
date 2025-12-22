@@ -106,24 +106,6 @@ class WebSocketClient {
   }
 
   /**
-   * Send typing indicator
-   */
-  sendTypingStart(conversationId: string) {
-    if (this.socket?.connected) {
-      this.socket.emit('typing:start', { conversationId });
-    }
-  }
-
-  /**
-   * Stop typing indicator
-   */
-  sendTypingStop(conversationId: string) {
-    if (this.socket?.connected) {
-      this.socket.emit('typing:stop', { conversationId });
-    }
-  }
-
-  /**
    * Check if socket is connected
    */
   get connected(): boolean {

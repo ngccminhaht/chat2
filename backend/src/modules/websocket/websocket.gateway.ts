@@ -87,32 +87,6 @@ export class WebsocketGateway
     );
   }
 
-  @SubscribeMessage('typing:start')
-  handleTypingStart(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { conversationId: string },
-  ) {
-    const { conversationId } = data;
-    client.to(`conversation:${conversationId}`).emit('typing:indicator', {
-      conversationId,
-      userId: client.userId,
-      isTyping: true,
-    });
-  }
-
-  @SubscribeMessage('typing:stop')
-  handleTypingStop(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { conversationId: string },
-  ) {
-    const { conversationId } = data;
-    client.to(`conversation:${conversationId}`).emit('typing:indicator', {
-      conversationId,
-      userId: client.userId,
-      isTyping: false,
-    });
-  }
-
   /**
    * Join agent to org's agent room
    * Called when agent opens conversations list to receive visitor events
@@ -172,9 +146,10 @@ export class WebsocketGateway
    * Emit to all agents in an organization
    * Used for broadcasting new conversations/messages from visitors
    */
-  emitToOrgAgents(organizationId: string, event: string, data: any) {
+  async emitToOrgAgents(organizationId: string, event: string, data: any) {
     const room = `org:${organizationId}:agents`;
+    const sockets = await this.server.in(room).fetchSockets();
+    this.logger.log(`📤 Emitting ${event} to ${room} (${sockets.length} clients)`);
     this.server.to(room).emit(event, data);
-    this.logger.log(`📤 Emitted ${event} to org:${organizationId}:agents`);
   }
 }

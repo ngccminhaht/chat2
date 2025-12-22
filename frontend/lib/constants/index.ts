@@ -40,14 +40,11 @@ export const WS_EVENTS = {
   NEW_MESSAGE: 'message:new',
   MESSAGE_STATUS_UPDATED: 'message:status_updated',
   CONVERSATION_UPDATED: 'conversation:updated',
-  TYPING_START: 'typing:start',
-  TYPING_STOP: 'typing:stop',
   USER_PRESENCE: 'user:presence',
 
   // Client → Server
   JOIN_CONVERSATION: 'conversation:join',
   LEAVE_CONVERSATION: 'conversation:leave',
-  SEND_TYPING: 'typing:send',
   MARK_READ: 'message:mark_read',
 } as const;
 

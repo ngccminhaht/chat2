@@ -5,7 +5,6 @@ interface ConversationState {
   activeConversationId: string | null;
   conversations: Conversation[];
   messages: Record<string, Message[]>;
-  typingUsers: Record<string, string[]>;
 
   setActiveConversation: (id: string | null) => void;
   setConversations: (conversations: Conversation[]) => void;
@@ -15,14 +14,12 @@ interface ConversationState {
   addMessage: (conversationId: string, message: Message) => void;
   updateMessageStatus: (conversationId: string, messageId: string, status: string) => void;
   markMessagesAsRead: (conversationId: string, messageIds: string[]) => void;
-  setTypingUsers: (conversationId: string, userIds: string[]) => void;
 }
 
 export const useConversationStore = create<ConversationState>((set) => ({
   activeConversationId: null,
   conversations: [],
   messages: {},
-  typingUsers: {},
 
   setActiveConversation: (id) => set({ activeConversationId: id }),
 
@@ -103,10 +100,5 @@ export const useConversationStore = create<ConversationState>((set) => ({
           messageIds.includes(msg._id) ? { ...msg, status: 'read' } : msg
         ),
       },
-    })),
-
-  setTypingUsers: (conversationId, userIds) =>
-    set((state) => ({
-      typingUsers: { ...state.typingUsers, [conversationId]: userIds },
     })),
 }));
