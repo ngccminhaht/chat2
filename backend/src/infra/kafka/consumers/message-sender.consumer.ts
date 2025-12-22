@@ -174,7 +174,15 @@ export class MessageSenderConsumer {
           fileName: event.message.fileName,
         },
       };
+
+      this.logger.log(`📋 Outbound message:`, {
+        type: outboundMessage.type,
+        mediaUrl: outboundMessage.content.mediaUrl,
+        mediaType: outboundMessage.content.mediaType,
+      });
+
       const platformPayload = adapter.formatOutbound(outboundMessage);
+      this.logger.log(`📋 Platform payload:`, JSON.stringify(platformPayload, null, 2));
 
       // 5. Send message via adapter
       let result = await adapter.send(

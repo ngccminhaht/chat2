@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # MongoDB
@@ -16,7 +16,19 @@ services:
     networks:
       - omnichat-network
     healthcheck:
-      test: ["CMD", "mongosh", "-u", "omnichat_admin", "-p", "${MONGO_PASSWORD:-GKaAKhdwCncUPbcNmBi0}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "-u",
+          "omnichat_admin",
+          "-p",
+          "${MONGO_PASSWORD:-GKaAKhdwCncUPbcNmBi0}",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,6 +54,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # 👉 INIT service: set bucket omnichat = public
+  minio-init:
+    image: minio/mc
+    container_name: omnichat-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - omnichat-network
+    entrypoint: >
+      sh -c "
+      mc alias set myminio http://minio:9000 omnichat_minio AToiDp2nGnoScVrcRxnR &&
+      mc mb --ignore-existing myminio/omnichat &&
+      mc anonymous set public myminio/omnichat &&
+      mc anonymous get myminio/omnichat
+      "
+    restart: "no"
+
   # Kafka (KRaft mode - no Zookeeper needed)
   kafka:
     image: confluentinc/cp-kafka:7.6.0
@@ -51,35 +81,32 @@ services:
       - "8311:9092"
       - "8312:9093"
     environment:
-      # KRaft mode configuration
       KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: 'broker,controller'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-
-      # Listener configuration
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:8311
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
-      # Cluster configuration
-      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
-
-      # Topic configuration
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-
-      # Log directories
-      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
     volumes:
       - kafka_data:/tmp/kraft-combined-logs
     networks:
       - omnichat-network
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+        ]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -95,7 +122,14 @@ services:
     networks:
       - omnichat-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-7Q7UlHQxhzFOZcvqTad8}", "ping"]
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "-a",
+          "${REDIS_PASSWORD:-7Q7UlHQxhzFOZcvqTad8}",
+          "ping",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
