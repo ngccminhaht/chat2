@@ -7,6 +7,20 @@
  */
 
 /**
+ * Type definition for Kafka message payload (matches kafkajs EachMessagePayload)
+ */
+interface EachMessagePayload {
+  topic: string;
+  partition: number;
+  message: {
+    key: Buffer | null;
+    value: Buffer | null;
+    timestamp: string;
+    offset: string;
+  };
+}
+
+/**
  * In-memory Kafka mock that properly simulates producer/consumer behavior
  */
 class InMemoryKafkaMock {
