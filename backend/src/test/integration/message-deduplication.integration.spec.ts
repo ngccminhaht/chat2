@@ -38,6 +38,7 @@ import { VisitorGateway } from '@/modules/websocket/visitor.gateway';
 import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 import { IPlatformAdapter, MessageEvent, NormalizedMessage } from '@/modules/platforms/core/interfaces';
 import { OutgoingMessageEvent } from '@/infra/kafka/types/webhook.types';
+import { AIBatchingService } from '@/modules/ai-batching/ai-batching.service';
 
 describe('Message Deduplication Integration Tests', () => {
   let mongoServer: MongoMemoryServer;
@@ -88,6 +89,12 @@ describe('Message Deduplication Integration Tests', () => {
       emitToOrgAgents: jest.fn(),
     };
 
+    const mockAIBatchingService = {
+      onVisitorMessage: jest.fn().mockResolvedValue(undefined),
+      cancelBatch: jest.fn().mockResolvedValue(false),
+      updateAIState: jest.fn().mockResolvedValue(undefined),
+    };
+
     const mockConfigService = {
       get: jest.fn((key: string) => {
         const envVars: Record<string, any> = {
@@ -126,6 +133,7 @@ describe('Message Deduplication Integration Tests', () => {
         { provide: ConfigService, useValue: mockConfigService },
         { provide: VisitorGateway, useValue: mockVisitorGateway },
         { provide: WebsocketGateway, useValue: mockWebsocketGateway },
+        { provide: AIBatchingService, useValue: mockAIBatchingService },
       ],
     }).compile();
 

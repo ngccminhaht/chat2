@@ -42,6 +42,7 @@ import {
   NormalizedMessage,
   UserProfile,
 } from '../interfaces';
+import { AIBatchingService } from '@/modules/ai-batching/ai-batching.service';
 
 export interface WebhookProcessResult {
   success: boolean;
@@ -60,6 +61,7 @@ export class WebhookProcessorService {
     @InjectModel(PlatformConnection.name)
     private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
     private readonly kafkaProducer: KafkaProducerService,
+    private readonly aiBatchingService: AIBatchingService,
   ) {}
 
   /**
@@ -186,6 +188,11 @@ export class WebhookProcessorService {
 
     // 6. Publish WebSocket notification
     await this.publishNotification(connection, conversation, message);
+
+    // 7. Trigger AI batching for inbound messages
+    if (normalized.direction === MessageDirection.INBOUND) {
+      await this.aiBatchingService.onVisitorMessage(message, conversation);
+    }
 
     return true;
   }

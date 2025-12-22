@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { BullModule } from '@nestjs/bullmq';
 import { EnvModule, EnvService } from './common/env';
 import { RedisModule } from './infra/redis';
 import { KafkaModule } from './infra/kafka/kafka.module';
@@ -35,6 +36,17 @@ import { AiAgentsModule } from './modules/ai-agents/ai-agents.module';
 
     // Kafka infrastructure (Global)
     KafkaModule,
+
+    // BullMQ for job queues (AI batching, etc.)
+    BullModule.forRootAsync({
+      inject: [EnvService],
+      useFactory: (envService: EnvService) => ({
+        connection: {
+          host: envService.get('REDIS_HOST'),
+          port: envService.get('REDIS_PORT'),
+        },
+      }),
+    }),
 
     // Feature modules
     AuthModule,

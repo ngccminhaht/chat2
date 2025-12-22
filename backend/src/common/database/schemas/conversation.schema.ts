@@ -67,6 +67,17 @@ export class Conversation {
 
   @Prop({ type: Object, default: {} })
   metadata: Record<string, any>;
+
+  // AI Message Batching State Machine
+  @Prop({
+    type: String,
+    enum: ['AI_ACTIVE', 'BATCHING', 'AI_RESPONDING', 'HUMAN_TAKEOVER'],
+    default: 'AI_ACTIVE',
+  })
+  aiState: string;
+
+  @Prop({ type: Date })
+  humanTakeoverAt?: Date;
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

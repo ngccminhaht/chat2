@@ -38,6 +38,7 @@ import {
 } from '@/infra/kafka/types/webhook.types';
 import { VisitorMessageService } from '@/modules/websocket/visitor-message.service';
 import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
+import { AIBatchingService } from '@/modules/ai-batching/ai-batching.service';
 
 @Injectable()
 export class MessagesService {
@@ -55,6 +56,7 @@ export class MessagesService {
     private visitorMessageService: VisitorMessageService,
     @Inject(forwardRef(() => WebsocketGateway))
     private websocketGateway: WebsocketGateway,
+    private aiBatchingService: AIBatchingService,
   ) {}
 
   /**
@@ -141,6 +143,16 @@ export class MessagesService {
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
+    }
+
+    // Agent reply triggers human takeover - cancel any pending AI batch
+    if (conversation.aiState !== 'HUMAN_TAKEOVER') {
+      await this.aiBatchingService.cancelBatch(conversationId);
+      await this.conversationModel.findByIdAndUpdate(conversationId, {
+        aiState: 'HUMAN_TAKEOVER',
+        humanTakeoverAt: new Date(),
+      });
+      this.logger.log(`👤 Human takeover activated for conversation ${conversationId}`);
     }
 
     // Handle web chat conversations differently - they don't have platform connections

@@ -26,6 +26,7 @@ import { WebhookProcessorService } from './services/webhook-processor.service';
 import { MessageSenderService } from './services/message-sender.service';
 import { MessageSenderConsumer } from '@/infra/kafka/consumers/message-sender.consumer';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
+import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
 
 @Global()
 @Module({
@@ -36,6 +37,7 @@ import { WebsocketModule } from '@/modules/websocket/websocket.module';
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
     WebsocketModule,
+    AIBatchingModule,
   ],
   controllers: [MessageSenderConsumer],
   providers: [
