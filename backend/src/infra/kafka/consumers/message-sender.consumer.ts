@@ -11,6 +11,12 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import axios from 'axios';
 import { KAFKA_TOPICS } from '../kafka.config';
 import { OutgoingMessageEvent } from '../types/webhook.types';
+import {
+  DEFAULT_RETRY_CONFIG,
+  calculateBackoff,
+  isRetryableStatus,
+  extractStatusCode,
+} from './retry.config';
 import { Platform, MessageStatus, MessageType } from '@/common/constants';
 import { PlatformRegistry } from '@/modules/platforms/core/services/platform.registry';
 import { ZaloAdapter } from '@/modules/platforms/adapters/zalo.adapter';
@@ -33,6 +39,14 @@ import { EnvService } from '@/common/env';
 import { VisitorGateway } from '@/modules/websocket/visitor.gateway';
 import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 
+/**
+ * Extended event type with retry metadata
+ */
+interface OutgoingEventWithRetry extends OutgoingMessageEvent {
+  retryCount?: number;
+  lastError?: string;
+}
+
 @Controller()
 export class MessageSenderConsumer {
   private readonly logger = new Logger(MessageSenderConsumer.name);
@@ -52,9 +66,12 @@ export class MessageSenderConsumer {
   }
 
   @MessagePattern(KAFKA_TOPICS.MESSAGES_OUTGOING)
-  async handleOutgoingMessage(@Payload() event: OutgoingMessageEvent): Promise<void> {
+  async handleOutgoingMessage(@Payload() event: OutgoingEventWithRetry): Promise<void> {
+    const retryCount = event.retryCount || 0;
+
     this.logger.log(
-      `📤 Processing outgoing message: ${event.messageId} to ${event.platform}`,
+      `📤 Processing outgoing message: ${event.messageId} to ${event.platform}` +
+        (retryCount > 0 ? ` (retry ${retryCount}/${DEFAULT_RETRY_CONFIG.maxRetries})` : ''),
     );
     this.logger.log(`📋 Event details:`, {
       messageId: event.messageId,
@@ -64,6 +81,7 @@ export class MessageSenderConsumer {
       recipientId: event.recipientId,
       messageType: event.message?.type,
       messageText: event.message?.text?.substring(0, 50),
+      retryCount,
     });
 
     try {
@@ -182,7 +200,7 @@ export class MessageSenderConsumer {
         }
       }
 
-      // 6. Update message status
+      // 6. Update message status with retry logic
       if (result.success) {
         await this.updateMessageStatus(
           event.messageId,
@@ -193,24 +211,60 @@ export class MessageSenderConsumer {
         this.logger.log(
           `✅ Message sent: ${event.messageId} -> ${result.platformMessageId}`,
         );
+        await this.publishStatusNotification(event, MessageStatus.SENT);
       } else {
-        await this.updateMessageStatus(
-          event.messageId,
-          MessageStatus.FAILED,
-          result.error,
-        );
-        this.logger.error(`❌ Failed to send message: ${result.error}`);
-      }
+        // Handle retry logic for failed sends
+        const statusCode = extractStatusCode(result.error);
 
-      // 7. Publish status notification
-      await this.publishStatusNotification(event, result.success ? MessageStatus.SENT : MessageStatus.FAILED);
+        if (isRetryableStatus(statusCode) && retryCount < DEFAULT_RETRY_CONFIG.maxRetries) {
+          // Schedule retry with exponential backoff
+          const delay = calculateBackoff(retryCount);
+          this.logger.warn(
+            `⏳ Scheduling retry ${retryCount + 1}/${DEFAULT_RETRY_CONFIG.maxRetries} ` +
+              `for message ${event.messageId} in ${delay}ms (status: ${statusCode})`,
+          );
+          await this.scheduleRetry(event, retryCount + 1, delay, result.error);
+          return; // Don't update status yet - will retry
+        }
+
+        // Max retries reached or non-retryable error → fail permanently
+        if (retryCount >= DEFAULT_RETRY_CONFIG.maxRetries) {
+          this.logger.error(
+            `💀 Max retries (${DEFAULT_RETRY_CONFIG.maxRetries}) reached for ${event.messageId}, sending to DLQ`,
+          );
+          await this.sendToDLQ(event, result.error);
+        }
+
+        await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, result.error);
+        this.logger.error(`❌ Failed to send message: ${result.error}`);
+        await this.publishStatusNotification(event, MessageStatus.FAILED);
+      }
 
     } catch (error) {
       this.logger.error(
         `❌ Error processing outgoing message: ${error.message}`,
         error.stack,
       );
+
+      // Handle retry for unexpected errors (likely network/server issues)
+      const statusCode = extractStatusCode(error);
+
+      if (isRetryableStatus(statusCode) && retryCount < DEFAULT_RETRY_CONFIG.maxRetries) {
+        const delay = calculateBackoff(retryCount);
+        this.logger.warn(
+          `⏳ Scheduling retry ${retryCount + 1}/${DEFAULT_RETRY_CONFIG.maxRetries} ` +
+            `for message ${event.messageId} after exception in ${delay}ms`,
+        );
+        await this.scheduleRetry(event, retryCount + 1, delay, error.message);
+        return;
+      }
+
+      if (retryCount >= DEFAULT_RETRY_CONFIG.maxRetries) {
+        await this.sendToDLQ(event, error.message);
+      }
+
       await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, error.message);
+      await this.publishStatusNotification(event, MessageStatus.FAILED);
     }
   }
 
@@ -437,6 +491,62 @@ export class MessageSenderConsumer {
     } catch (error) {
       this.logger.error(`❌ Failed to send web message: ${error.message}`);
       await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, error.message);
+    }
+  }
+
+  /**
+   * Schedule a retry by re-publishing to the same topic after a delay
+   * Uses setTimeout for simplicity; production may use BullMQ for persistence
+   */
+  private async scheduleRetry(
+    event: OutgoingEventWithRetry,
+    retryCount: number,
+    delayMs: number,
+    lastError: string,
+  ): Promise<void> {
+    setTimeout(async () => {
+      try {
+        await this.kafkaProducer.publish(KAFKA_TOPICS.MESSAGES_OUTGOING, {
+          key: event.conversationId,
+          value: {
+            ...event,
+            retryCount,
+            lastError,
+          },
+        });
+        this.logger.log(
+          `🔄 Retry ${retryCount} scheduled for message ${event.messageId}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `❌ Failed to schedule retry for ${event.messageId}: ${error.message}`,
+        );
+      }
+    }, delayMs);
+  }
+
+  /**
+   * Send failed message to Dead Letter Queue for manual inspection
+   */
+  private async sendToDLQ(
+    event: OutgoingEventWithRetry,
+    error: string,
+  ): Promise<void> {
+    try {
+      await this.kafkaProducer.publish(KAFKA_TOPICS.MESSAGES_OUTGOING_DLQ, {
+        key: event.messageId,
+        value: {
+          ...event,
+          error,
+          failedAt: Date.now(),
+          retriesAttempted: event.retryCount || 0,
+        },
+      });
+      this.logger.log(`📨 Message ${event.messageId} sent to DLQ`);
+    } catch (dlqError) {
+      this.logger.error(
+        `❌ Failed to send message ${event.messageId} to DLQ: ${dlqError.message}`,
+      );
     }
   }
 }

@@ -21,6 +21,12 @@ export const KAFKA_TOPICS = {
 
   // Real-time events for frontend (partitioned by userId)
   WEBSOCKET_NOTIFICATIONS: "websocket.notifications",
+
+  // Dead letter queue for failed outgoing messages
+  MESSAGES_OUTGOING_DLQ: "messages.outgoing.dlq",
+
+  // Delivery status updates
+  DELIVERY_STATUS: "delivery-status",
 } as const;
 
 /**
