@@ -19,6 +19,7 @@ import {
   Message,
   MessageSchema,
 } from '@/common/database/schemas/message.schema';
+import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import {
       { name: Conversation.name, schema: ConversationSchema },
       { name: Message.name, schema: MessageSchema },
     ]),
+    AIBatchingModule,
   ],
   controllers: [WebSocketBridgeConsumer],
   providers: [

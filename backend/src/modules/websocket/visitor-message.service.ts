@@ -19,6 +19,7 @@ import {
 import { WebsocketGateway } from './websocket.gateway';
 import { VisitorGateway } from './visitor.gateway';
 import { nanoid } from 'nanoid';
+import { AIBatchingService } from '@/modules/ai-batching/ai-batching.service';
 
 interface VisitorMessagePayload {
   sessionId: string;
@@ -50,6 +51,7 @@ export class VisitorMessageService {
     private readonly websocketGateway: WebsocketGateway,
     @Inject(forwardRef(() => VisitorGateway))
     private readonly visitorGateway: VisitorGateway,
+    private readonly aiBatchingService: AIBatchingService,
   ) {}
 
   /**
@@ -132,6 +134,9 @@ export class VisitorMessageService {
     this.logger.log(
       `Processed visitor message: ${message._id} in conversation ${conversation._id}`,
     );
+
+    // Trigger AI batching for inbound visitor messages
+    await this.aiBatchingService.onVisitorMessage(message, conversation);
 
     return {
       messageId: message._id,
