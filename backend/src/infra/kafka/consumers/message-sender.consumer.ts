@@ -164,7 +164,63 @@ export class MessageSenderConsumer {
         return;
       }
 
-      // 4. Format outbound message using adapter (for non-file messages)
+      // 3b. Handle Zalo image upload (Zalo requires uploading images to their server first)
+      if (
+        event.platform === Platform.ZALO &&
+        event.message.type === MessageType.IMAGE &&
+        event.message.mediaUrl
+      ) {
+        const zaloAdapter = adapter as ZaloAdapter;
+        const uploadResult = await zaloAdapter.uploadImage(
+          connection.credentials.accessToken,
+          event.message.mediaUrl,
+        );
+
+        if (!uploadResult) {
+          this.logger.error(`❌ Failed to upload image to Zalo`);
+          await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, 'Failed to upload image to Zalo');
+          return;
+        }
+
+        // Send image message with attachment_id
+        let result = await zaloAdapter.sendImageWithAttachmentId(
+          connection,
+          event.recipientId,
+          uploadResult.attachmentId,
+        );
+
+        // Handle token refresh if needed
+        if (!result.success && result.needsTokenRefresh) {
+          const refreshedConnection = await this.refreshZaloToken(connection);
+          if (refreshedConnection) {
+            // Re-upload with new token
+            const reuploadResult = await zaloAdapter.uploadImage(
+              refreshedConnection.credentials.accessToken,
+              event.message.mediaUrl,
+            );
+            if (reuploadResult) {
+              result = await zaloAdapter.sendImageWithAttachmentId(
+                refreshedConnection,
+                event.recipientId,
+                reuploadResult.attachmentId,
+              );
+            }
+          }
+        }
+
+        if (result.success) {
+          await this.updateMessageStatus(event.messageId, MessageStatus.SENT, undefined, result.platformMessageId);
+          this.logger.log(`✅ Image sent: ${event.messageId} -> ${result.platformMessageId}`);
+        } else {
+          await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, result.error);
+          this.logger.error(`❌ Failed to send image: ${result.error}`);
+        }
+
+        await this.publishStatusNotification(event, result.success ? MessageStatus.SENT : MessageStatus.FAILED);
+        return;
+      }
+
+      // 4. Format outbound message using adapter (for non-file/image messages)
       const outboundMessage = {
         type: event.message.type,
         content: {

@@ -349,7 +349,147 @@ export class ZaloAdapter extends BasePlatformAdapter {
     }
   }
 
-  // ==================== File Upload ====================
+  // ==================== Media Upload ====================
+
+  /**
+   * Upload image to Zalo server and get attachment_id
+   * Required for sending image attachments via CS message API
+   * @param accessToken OA access token
+   * @param imageUrl URL of the image to upload
+   * @returns attachment_id to use in message
+   */
+  async uploadImage(
+    accessToken: string,
+    imageUrl: string,
+  ): Promise<{ attachmentId: string } | null> {
+    try {
+      this.logger.log(`📤 Uploading image to Zalo: ${imageUrl}`);
+
+      // Download image from URL
+      const imageResponse = await axios.get(imageUrl, {
+        responseType: 'arraybuffer',
+      });
+
+      const imageBuffer = Buffer.from(imageResponse.data);
+      const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', imageBuffer, {
+        filename: 'image.jpg',
+        contentType,
+      });
+
+      // Upload to Zalo image endpoint
+      const response = await axios.post(
+        'https://openapi.zalo.me/v2.0/oa/upload/image',
+        formData,
+        {
+          headers: {
+            ...formData.getHeaders(),
+            access_token: accessToken,
+          },
+        },
+      );
+
+      this.logger.log(`📥 Zalo image upload response:`, response.data);
+
+      if (response.data.error !== 0) {
+        this.logger.error(`❌ Zalo image upload error:`, response.data);
+        return null;
+      }
+
+      const attachmentId = response.data.data?.attachment_id;
+      if (!attachmentId) {
+        this.logger.error(`❌ No attachment_id in Zalo upload response`);
+        return null;
+      }
+
+      this.logger.log(`✅ Image uploaded to Zalo, attachment_id: ${attachmentId}`);
+      return { attachmentId };
+    } catch (error) {
+      this.logger.error(`❌ Failed to upload image to Zalo:`, error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Send image message using attachment_id
+   */
+  async sendImageWithAttachmentId(
+    connection: PlatformConnectionDocument,
+    recipientId: string,
+    attachmentId: string,
+  ): Promise<SendResult> {
+    try {
+      const accessToken = connection.credentials.accessToken;
+
+      const requestBody = {
+        recipient: {
+          user_id: recipientId,
+        },
+        message: {
+          attachment: {
+            type: 'template',
+            payload: {
+              template_type: 'media',
+              elements: [
+                {
+                  media_type: 'image',
+                  attachment_id: attachmentId,
+                },
+              ],
+            },
+          },
+        },
+      };
+
+      this.logger.log(`📤 Sending Zalo image message with attachment_id to ${recipientId}`);
+
+      const response = await axios.post(
+        'https://openapi.zalo.me/v3.0/oa/message/cs',
+        requestBody,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: accessToken,
+          },
+        },
+      );
+
+      this.logger.log(`📨 Zalo image send response:`, response.data);
+
+      if (response.data.error !== 0) {
+        const errorCode = response.data.error;
+        const errorMessage = response.data.message || `Zalo error: ${errorCode}`;
+
+        // Check if token expired
+        if (ZALO_TOKEN_EXPIRED_ERRORS.includes(errorCode)) {
+          return {
+            success: false,
+            error: errorMessage,
+            needsTokenRefresh: true,
+          };
+        }
+
+        return {
+          success: false,
+          error: errorMessage,
+        };
+      }
+
+      return {
+        success: true,
+        platformMessageId: response.data.data?.message_id,
+      };
+    } catch (error) {
+      this.logger.error('❌ Zalo image send failed:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+      };
+    }
+  }
 
   /**
    * Upload file to Zalo server and get file token
