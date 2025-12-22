@@ -92,13 +92,14 @@ export class WebsocketGateway
    * Called when agent opens conversations list to receive visitor events
    */
   @SubscribeMessage('join:org:agents')
-  handleJoinOrgAgents(
+  async handleJoinOrgAgents(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { organizationId: string },
   ) {
     const { organizationId } = data;
     client.join(`org:${organizationId}:agents`);
-    this.logger.log(`Agent ${client.userId} joined org:${organizationId}:agents`);
+    const sockets = await this.server.in(`org:${organizationId}:agents`).fetchSockets();
+    this.logger.log(`✅ Agent ${client.userId} joined org:${organizationId}:agents (total: ${sockets.length} clients)`);
   }
 
   @SubscribeMessage('leave:org:agents')
@@ -149,7 +150,10 @@ export class WebsocketGateway
   async emitToOrgAgents(organizationId: string, event: string, data: any) {
     const room = `org:${organizationId}:agents`;
     const sockets = await this.server.in(room).fetchSockets();
-    this.logger.log(`📤 Emitting ${event} to ${room} (${sockets.length} clients)`);
+    this.logger.log(`📤 Emitting ${event} to ${room} (${sockets.length} clients), orgId: "${organizationId}"`);
+    if (sockets.length === 0) {
+      this.logger.warn(`⚠️ No clients in room ${room} - check if FE joined with correct orgId`);
+    }
     this.server.to(room).emit(event, data);
   }
 }

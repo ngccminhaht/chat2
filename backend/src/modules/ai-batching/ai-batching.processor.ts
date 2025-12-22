@@ -4,16 +4,26 @@
  */
 
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, forwardRef } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { AIBatchingService, AI_BATCH_QUEUE } from './ai-batching.service';
-import { BatchJobData, DEFAULT_AI_SETTINGS } from './dto/batch-job.dto';
+import { AIResponseService } from './ai-response.service';
+import { BatchJobData } from './dto/batch-job.dto';
+import { VisitorGateway } from '@/modules/websocket/visitor.gateway';
+import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 
 @Processor(AI_BATCH_QUEUE)
 export class AIBatchingProcessor extends WorkerHost {
   private readonly logger = new Logger(AIBatchingProcessor.name);
 
-  constructor(private readonly batchingService: AIBatchingService) {
+  constructor(
+    private readonly batchingService: AIBatchingService,
+    private readonly aiResponseService: AIResponseService,
+    @Inject(forwardRef(() => VisitorGateway))
+    private readonly visitorGateway: VisitorGateway,
+    @Inject(forwardRef(() => WebsocketGateway))
+    private readonly websocketGateway: WebsocketGateway,
+  ) {
     super();
   }
 
@@ -45,18 +55,61 @@ export class AIBatchingProcessor extends WorkerHost {
 
       this.logger.debug(`Batched content for AI: ${batchedContent.substring(0, 100)}...`);
 
-      // TODO: Call AI service here
-      // const aiResponse = await this.aiService.generateResponse({
-      //   conversationId,
-      //   organizationId,
-      //   messages: batchedContent,
-      //   timeout: DEFAULT_AI_SETTINGS.aiTimeoutMs,
-      // });
-
-      // For now, just log and reset state
-      this.logger.log(
-        `AI batch ready for ${conversationId}: ${messageIds.length} messages batched`,
+      // Call AI service to generate response
+      const aiResponse = await this.aiResponseService.generateResponse(
+        conversationId,
+        organizationId,
+        batchedContent,
       );
+
+      if (aiResponse?.answer) {
+        // Save AI response as message
+        const { message, sessionId, organizationId: orgId } =
+          await this.aiResponseService.saveAIMessage(
+            conversationId,
+            aiResponse.answer,
+          );
+
+        this.logger.log(
+          `AI response saved for ${conversationId}: message ${message._id}`,
+        );
+
+        // Emit AI message to visitor via WebSocket
+        const widgetPayload = {
+          message: {
+            _id: message._id.toString(),
+            content: {
+              text: aiResponse.answer,
+            },
+            sender: {
+              name: 'AI Agent',
+              platformUserId: 'ai-agent',
+            },
+            direction: 'outbound' as const,
+            createdAt: (message as any).createdAt?.toISOString() || new Date().toISOString(),
+          },
+        };
+
+        this.visitorGateway.emitToVisitor(sessionId, 'message:received', widgetPayload);
+        this.logger.log(`📤 Emitted AI message to visitor ${sessionId}`);
+
+        // Broadcast to org agents so they see the AI reply
+        const serializedMsg = JSON.parse(JSON.stringify(message.toObject()));
+        this.websocketGateway.emitToOrgAgents(orgId, 'message:new', {
+          conversationId,
+          message: serializedMsg,
+        });
+        this.websocketGateway.emitToOrgAgents(orgId, 'conversation:updated', {
+          _id: conversationId,
+          lastMessage: {
+            text: aiResponse.answer,
+            timestamp: new Date(),
+          },
+          unreadCount: 0,
+        });
+      } else {
+        this.logger.warn(`No AI response generated for ${conversationId}`);
+      }
 
       // Reset to AI_ACTIVE after processing
       await this.batchingService.updateAIState(conversationId, 'AI_ACTIVE');

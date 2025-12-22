@@ -28,7 +28,7 @@ export const useConversationStore = create<ConversationState>((set) => ({
   updateConversation: (conversation) =>
     set((state) => ({
       conversations: state.conversations.map((c) =>
-        c._id === conversation._id ? conversation : c
+        c._id === conversation._id ? { ...c, ...conversation } : c
       ),
     })),
 
@@ -37,10 +37,10 @@ export const useConversationStore = create<ConversationState>((set) => ({
       // Check if conversation already exists
       const exists = state.conversations.some((c) => c._id === conversation._id);
       if (exists) {
-        // Update existing conversation instead
+        // Merge with existing conversation instead of replacing
         return {
           conversations: state.conversations.map((c) =>
-            c._id === conversation._id ? conversation : c
+            c._id === conversation._id ? { ...c, ...conversation } : c
           ),
         };
       }

@@ -210,23 +210,19 @@ export class MessageSenderService {
   }
 
   /**
-   * Publish WebSocket notifications
+   * Publish WebSocket notifications (broadcast to all org agents)
    */
   private async publishNotifications(
     connection: PlatformConnectionDocument,
     conversation: ConversationDocument,
     message: MessageDocument,
   ): Promise<void> {
-    if (!connection.connectedBy) {
-      return;
-    }
+    const organizationId = conversation.organizationId.toString();
 
-    const userId = connection.connectedBy.toString();
-
-    // Publish new message event
+    // Publish new message event (broadcast to org)
     const messageEvent: WebSocketNotificationEvent = {
       type: 'message:new',
-      userId,
+      organizationId,
       payload: {
         _id: message._id.toString(),
         conversationId: message.conversationId.toString(),
@@ -242,7 +238,7 @@ export class MessageSenderService {
     };
 
     await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-      key: userId,
+      key: organizationId,
       value: messageEvent,
     });
   }

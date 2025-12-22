@@ -16,6 +16,7 @@ import ChatIcon from "@mui/icons-material/Chat";
 import HubIcon from "@mui/icons-material/Hub";
 import GroupsIcon from "@mui/icons-material/Groups";
 import WidgetsIcon from "@mui/icons-material/Widgets";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
 import SettingsIcon from "@mui/icons-material/Settings";
 
 const drawerWidth = 240;
@@ -38,6 +39,7 @@ const getMenuSections = (orgSlug: string): MenuSection[] => [
       { text: "Conversations", icon: <ChatIcon />, path: `/organizations/${orgSlug}/conversations` },
       { text: "Channels", icon: <HubIcon />, path: `/organizations/${orgSlug}/channels` },
       { text: "Widget", icon: <WidgetsIcon />, path: `/organizations/${orgSlug}/widget` },
+      { text: "AI Agent", icon: <SmartToyIcon />, path: `/organizations/${orgSlug}/ai-agent` },
       { text: "Members", icon: <GroupsIcon />, path: `/organizations/${orgSlug}/team` },
     ],
   },

@@ -85,14 +85,15 @@ export class AuthService {
       },
       organization: activeOrg
         ? {
-            id: activeOrg._id,
+            id: activeOrg._id.toString(),
             name: activeOrg.name,
             slug: activeOrg.slug,
-            role: userRole,
+            plan: activeOrg.plan || 'free',
           }
         : null,
+      organizationId: activeOrgId,
       organizations: userOrgs.map((o) => ({
-        id: o.organization._id,
+        id: o.organization._id.toString(),
         name: o.organization.name,
         slug: o.organization.slug,
         role: o.role,

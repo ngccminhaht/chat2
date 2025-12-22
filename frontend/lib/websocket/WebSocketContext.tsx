@@ -50,15 +50,18 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
       // Connection event handlers
       newSocket.on('connect', () => {
-        console.log('[WebSocketProvider] Connected');
+        console.log(`[WebSocketProvider] Connected, socket id: ${newSocket.id}`);
         setIsConnected(true);
 
         // Auto-join org:agents room if organizationId is available
         const orgId = useAuthStore.getState().organizationId;
+        console.log(`[WebSocketProvider] organizationId from store: ${orgId}`);
         if (orgId && joinedOrgRef.current !== orgId) {
           newSocket.emit('join:org:agents', { organizationId: orgId });
           joinedOrgRef.current = orgId;
-          console.log(`[WebSocketProvider] Joined org:${orgId}:agents room`);
+          console.log(`[WebSocketProvider] Emitted join:org:agents for org: ${orgId}`);
+        } else {
+          console.log(`[WebSocketProvider] Not joining org room - orgId: ${orgId}, joinedOrgRef: ${joinedOrgRef.current}`);
         }
       });
 
@@ -70,6 +73,11 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
       newSocket.on('connect_error', (error) => {
         console.error('[WebSocketProvider] Connection error:', error.message);
+      });
+
+      // Debug: Log all incoming events
+      newSocket.onAny((eventName, ...args) => {
+        console.log(`[WebSocketProvider] 📥 Event received: ${eventName}`, args);
       });
 
       socketRef.current = newSocket;

@@ -693,31 +693,19 @@ export class FacebookService {
 
   /**
    * Publish WebSocket notification to Kafka
-   * Kafka consumer will emit to Socket.IO clients
+   * Kafka consumer will emit to Socket.IO clients (org-wide broadcast)
    */
   private async publishWebSocketNotification(
     conversation: ConversationDocument,
     message: MessageDocument
   ): Promise<void> {
     try {
-      // Get userId from platform connection
-      const platformConnection = await this.platformConnectionModel
-        .findById(conversation.platformConnectionId)
-        .exec();
+      const organizationId = conversation.organizationId.toString();
 
-      if (!platformConnection?.connectedBy) {
-        this.logger.warn(
-          `Cannot publish notification: no connectedBy for conversation ${conversation._id}`
-        );
-        return;
-      }
-
-      const userId = platformConnection.connectedBy.toString();
-
-      // Publish new message event to Kafka
+      // Publish new message event to Kafka (broadcast to all org agents)
       const newMessageEvent: WebSocketNotificationEvent = {
         type: 'message:new',
-        userId,
+        organizationId,
         payload: {
           _id: message._id.toString(),
           conversationId: message.conversationId.toString(),
@@ -733,16 +721,16 @@ export class FacebookService {
       };
 
       await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-        key: userId, // Partition by userId
+        key: organizationId, // Partition by organizationId
         value: newMessageEvent,
       });
 
       // Publish conversation updated event to Kafka
       const conversationEvent: WebSocketNotificationEvent = {
         type: 'conversation:updated',
-        userId,
+        organizationId,
         payload: {
-          _id: conversation._id,
+          _id: conversation._id.toString(),
           platform: conversation.platform,
           platformConversationId: conversation.platformConversationId,
           unreadCount: conversation.unreadCount,
@@ -752,12 +740,12 @@ export class FacebookService {
       };
 
       await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-        key: userId, // Partition by userId
+        key: organizationId, // Partition by organizationId
         value: conversationEvent,
       });
 
       this.logger.log(
-        `📤 Published Kafka events for user ${userId} (conversation ${conversation._id})`
+        `📤 Published Kafka events for org ${organizationId} (conversation ${conversation._id})`
       );
     } catch (error) {
       this.logger.error("Failed to publish Kafka notification:", error);

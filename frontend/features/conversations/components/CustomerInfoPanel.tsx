@@ -179,7 +179,7 @@ export default function CustomerInfoPanel({ conversation, onClose }: CustomerInf
             </Typography>
             <FormControl fullWidth size="small">
               <Select
-                value={conversation.status}
+                value={conversation.status || 'open'}
                 onChange={(e) => handleStatusChange(e.target.value as any)}
                 disabled={isPending}
               >

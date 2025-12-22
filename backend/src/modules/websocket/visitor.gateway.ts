@@ -213,7 +213,7 @@ export class VisitorGateway
 
       // Message to agent handled by visitorMessageService via WebsocketGateway
     } catch (error) {
-      this.logger.error('Message send error:', error.message);
+      this.logger.error('Message send error:', error.message, error.stack);
       client.emit('message:error', {
         error: 'Failed to send message',
       });

@@ -29,49 +29,63 @@ export class WebSocketBridgeConsumer {
 
   @MessagePattern(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS)
   async handleNotification(@Payload() event: WebSocketNotificationEvent): Promise<void> {
-    this.logger.log(`📨 Kafka → WebSocket: ${event.type} for user ${event.userId}`);
+    const target = event.organizationId ? `org ${event.organizationId}` : `user ${event.userId}`;
+    this.logger.log(`📨 Kafka → WebSocket: ${event.type} for ${target}`);
 
     try {
-      const { type, userId, payload } = event;
+      const { type, userId, organizationId, payload } = event;
 
       switch (type) {
         case 'message:new':
-          // FIX: Wrap payload in {conversationId, message} format expected by frontend
           const msgPayload = payload as NewMessagePayload;
-          this.websocketGateway.emitNewMessage(userId, {
+          const messageData = {
             conversationId: msgPayload.conversationId,
             message: msgPayload,
-          });
+          };
+          // Broadcast to org agents if organizationId provided, otherwise to specific user
+          if (organizationId) {
+            this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', messageData);
+          } else if (userId) {
+            this.websocketGateway.emitNewMessage(userId, messageData);
+          }
           break;
 
         case 'message:status':
           const statusPayload = payload as MessageStatusPayload;
-          this.websocketGateway.emitMessageStatus(
-            userId,
-            statusPayload.conversationId,
-            statusPayload.messageId,
-            statusPayload.status,
-          );
+          if (userId) {
+            this.websocketGateway.emitMessageStatus(
+              userId,
+              statusPayload.conversationId,
+              statusPayload.messageId,
+              statusPayload.status,
+            );
+          }
           break;
 
         case 'conversation:updated':
-          this.websocketGateway.emitConversationUpdated(userId, payload as ConversationUpdatedPayload);
+          if (organizationId) {
+            this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', payload);
+          } else if (userId) {
+            this.websocketGateway.emitConversationUpdated(userId, payload as ConversationUpdatedPayload);
+          }
           break;
 
         case 'message:read':
           const readPayload = payload as MessagesReadPayload;
-          this.websocketGateway.emitMessagesRead(
-            userId,
-            readPayload.conversationId,
-            readPayload.messageIds,
-          );
+          if (userId) {
+            this.websocketGateway.emitMessagesRead(
+              userId,
+              readPayload.conversationId,
+              readPayload.messageIds,
+            );
+          }
           break;
 
         default:
           this.logger.warn(`Unknown notification type: ${type}`);
       }
 
-      this.logger.log(`✅ Emitted ${type} to user ${userId}`);
+      this.logger.log(`✅ Emitted ${type} to ${target}`);
     } catch (error) {
       this.logger.error(`❌ Failed to emit WebSocket notification:`, error);
     }

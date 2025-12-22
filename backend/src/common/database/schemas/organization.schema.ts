@@ -21,6 +21,14 @@ export interface OrganizationSettings {
   defaultLanguage?: string;
 }
 
+// AI Agent settings
+export interface AIAgentSettings {
+  enabled: boolean;
+  apiKey?: string; // API key for MiAgent
+  endpoint?: string; // API endpoint (default: https://api.miagent.io/v1/chat-messages)
+  batchDelayMs?: number; // Delay before AI responds (default: 3000ms)
+}
+
 // Chat widget customization settings
 export interface WidgetSettings {
   // Appearance
@@ -86,6 +94,9 @@ export class Organization {
 
   @Prop({ type: Object, default: {} })
   widgetSettings: WidgetSettings;
+
+  @Prop({ type: Object, default: { enabled: false } })
+  aiAgentSettings: AIAgentSettings;
 
   @Prop({ default: true })
   isActive: boolean;

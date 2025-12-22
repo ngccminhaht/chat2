@@ -36,7 +36,9 @@ export default function ConversationDetailPage() {
 
   const apiMessages = useMemo(() => {
     if (!data?.pages) return [];
-    return data.pages.flatMap((page) => page.data).reverse();
+    // Pages: [page1(newest), page2(older)...], each page already reversed by backend (oldest→newest)
+    // Reverse pages order then flatMap to get chronological order
+    return [...data.pages].reverse().flatMap((page) => page.data);
   }, [data?.pages]);
 
   const handleLoadMore = useCallback(() => {

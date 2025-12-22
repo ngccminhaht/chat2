@@ -100,14 +100,17 @@ export interface MessageStatusEvent {
 
 /**
  * WebSocket notification published to websocket.notifications
- * All notifications are sent to user-specific rooms based on userId
+ * Notifications are sent to user-specific rooms or org-wide rooms
  */
 export interface WebSocketNotificationEvent {
   /** Notification type */
-  type: 'message:new' | 'message:status' | 'conversation:updated' | 'message:read' | 'typing:indicator';
+  type: 'message:new' | 'message:status' | 'conversation:updated' | 'message:read';
 
-  /** User ID to send notification to (REQUIRED - for partitioning by userId) */
-  userId: string;
+  /** User ID to send notification to (for user-specific events) */
+  userId?: string;
+
+  /** Organization ID to broadcast to all agents (for org-wide events) */
+  organizationId?: string;
 
   /** Event payload */
   payload: any;

@@ -17,7 +17,9 @@ import {
   CreateOrganizationDto,
   UpdateOrganizationDto,
   InviteMemberDto,
+  UpdateAIAgentDto,
 } from './dto';
+import { AIAgentSettings } from '@/common/database/schemas/organization.schema';
 
 @Injectable()
 export class OrganizationsService {
@@ -298,5 +300,41 @@ export class OrganizationsService {
     }
 
     return member;
+  }
+
+  /**
+   * Get AI agent settings for an organization
+   */
+  async getAIAgentSettings(id: string): Promise<AIAgentSettings> {
+    const org = await this.findById(id);
+    return org.aiAgentSettings || { enabled: false };
+  }
+
+  /**
+   * Update AI agent settings for an organization (merge partial updates)
+   */
+  async updateAIAgentSettings(
+    id: string,
+    dto: UpdateAIAgentDto,
+  ): Promise<AIAgentSettings> {
+    // Build update object with dot notation for partial merge
+    const updateFields: Record<string, any> = {};
+    for (const [key, value] of Object.entries(dto)) {
+      if (value !== undefined) {
+        updateFields[`aiAgentSettings.${key}`] = value;
+      }
+    }
+
+    const org = await this.organizationModel.findByIdAndUpdate(
+      id,
+      { $set: updateFields },
+      { new: true },
+    );
+
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return org.aiAgentSettings;
   }
 }

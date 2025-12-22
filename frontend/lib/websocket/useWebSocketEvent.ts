@@ -25,10 +25,16 @@ export function useWebSocketEvent<T = any>(
   handlerRef.current = handler;
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      console.log(`[useWebSocketEvent] No socket for event: ${event}`);
+      return;
+    }
+
+    console.log(`[useWebSocketEvent] Registering listener for: ${event}, socket connected: ${socket.connected}`);
 
     // Stable wrapper function that calls the latest handler from ref
     const eventHandler = (data: T) => {
+      console.log(`[useWebSocketEvent] Received event: ${event}`, data);
       handlerRef.current(data);
     };
 
@@ -36,6 +42,7 @@ export function useWebSocketEvent<T = any>(
 
     // Cleanup: remove listener when event name changes or component unmounts
     return () => {
+      console.log(`[useWebSocketEvent] Unregistering listener for: ${event}`);
       socket.off(event, eventHandler);
     };
   }, [socket, event]); // Socket is now stable from WebSocketContext

@@ -110,13 +110,16 @@ export class VisitorMessageService {
       { timestamps: true },
     );
 
-    // Prepare notification payloads
+    // Prepare notification payloads (convert ObjectId to string for serialization)
+    const conversationIdStr = conversation._id.toString();
+    // Use JSON serialization to convert all ObjectIds to strings
+    const serializedMessage = JSON.parse(JSON.stringify(message.toObject()));
     const messagePayload = {
-      conversationId: conversation._id,
-      message: message.toObject(),
+      conversationId: conversationIdStr,
+      message: serializedMessage,
     };
     const conversationUpdatePayload = {
-      _id: conversation._id,
+      _id: conversationIdStr,
       lastMessage: {
         text: text || '[Media]',
         timestamp: new Date(),
@@ -139,12 +142,17 @@ export class VisitorMessageService {
       `Processed visitor message: ${message._id} in conversation ${conversation._id}`,
     );
 
-    // Trigger AI batching for inbound visitor messages
-    await this.aiBatchingService.onVisitorMessage(message, conversation);
+    // Trigger AI batching for inbound visitor messages (non-blocking)
+    // Wrap in try-catch to not fail message delivery if AI batching fails
+    try {
+      await this.aiBatchingService.onVisitorMessage(message, conversation);
+    } catch (aiError) {
+      this.logger.error('AI batching failed (non-blocking):', aiError.message);
+    }
 
     return {
-      messageId: message._id,
-      conversationId: conversation._id,
+      messageId: message._id.toString(),
+      conversationId: conversation._id.toString(),
       timestamp: (message as any).createdAt || new Date(),
     };
   }
@@ -297,26 +305,37 @@ export class VisitorMessageService {
       `Agent ${agentId} sent message to visitor ${sessionId}: ${message._id}`,
     );
 
-    // Payload for widget (expects flat object with messageId, text, mediaUrl, timestamp)
+    // Payload for widget (expects { message: ServerMessage } format)
     const widgetPayload = {
-      messageId: message._id.toString(),
-      text: content.text,
-      mediaUrl: content.mediaUrl,
-      timestamp: (message as any).createdAt?.getTime() || Date.now(),
+      message: {
+        _id: message._id.toString(),
+        content: {
+          text: content.text,
+          mediaUrl: content.mediaUrl,
+        },
+        sender: {
+          name: agentName,
+          platformUserId: agentId,
+        },
+        direction: 'outbound' as const,
+        createdAt: (message as any).createdAt?.toISOString() || new Date().toISOString(),
+      },
     };
 
-    // Emit message to visitor via WebSocket (widget listens to 'message:new')
-    this.visitorGateway.emitToVisitor(sessionId, 'message:new', widgetPayload);
-    this.logger.log(`📤 Emitted message:new to visitor ${sessionId}`);
+    // Emit message to visitor via WebSocket (widget listens to 'message:received')
+    this.visitorGateway.emitToVisitor(sessionId, 'message:received', widgetPayload);
+    this.logger.log(`📤 Emitted message:received to visitor ${sessionId}`);
 
     // Broadcast to org agents so other agents see the reply in real-time
     const organizationId = conversation.organizationId.toString();
+    const convIdStr = conversation._id.toString();
+    const serializedMsg = JSON.parse(JSON.stringify(message.toObject()));
     this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', {
-      conversationId: conversation._id,
-      message: message.toObject(),
+      conversationId: convIdStr,
+      message: serializedMsg,
     });
     this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', {
-      _id: conversation._id,
+      _id: convIdStr,
       lastMessage: {
         text: content.text || '[Media]',
         timestamp: new Date(),

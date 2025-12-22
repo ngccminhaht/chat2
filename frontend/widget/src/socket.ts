@@ -16,7 +16,6 @@ interface ServerToClientEvents {
   'message:received': (data: { message: ServerMessage }) => void;
   'message:error': (data: { error: string }) => void;
   'pre-chat:saved': () => void;
-  'agent:typing': (data: { isTyping: boolean; agentName?: string }) => void;
   error: (data: { code: string; message: string }) => void;
 }
 
@@ -28,8 +27,6 @@ interface ClientToServerEvents {
     mediaUrl?: string;
     fileName?: string;
   }) => void;
-  'typing:start': () => void;
-  'typing:stop': () => void;
   'pre-chat:submit': (data: VisitorInfo) => void;
 }
 
@@ -46,10 +43,9 @@ export type SocketEventCallback = {
   onConnected?: () => void;
   onDisconnected?: () => void;
   onMessage?: (message: Message) => void;
-  onMessageSent?: (messageId: string) => void;
+  onMessageSent?: () => void;
   onMessageError?: (error: string) => void;
   onConversationRestored?: (messages: Message[]) => void;
-  onAgentTyping?: (isTyping: boolean, agentName?: string) => void;
   onPreChatSaved?: () => void;
   onError?: (code: string, message: string) => void;
 };
@@ -63,8 +59,6 @@ export class WidgetSocket {
   private callbacks: SocketEventCallback = {};
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private typingTimeout: ReturnType<typeof setTimeout> | null = null;
-  private isTyping = false;
 
   constructor(apiUrl: string, organizationId: string) {
     this.apiUrl = apiUrl;
@@ -144,8 +138,8 @@ export class WidgetSocket {
       this.callbacks.onConversationRestored?.(messages);
     });
 
-    this.socket.on('message:sent', (data) => {
-      this.callbacks.onMessageSent?.(data.messageId);
+    this.socket.on('message:sent', () => {
+      this.callbacks.onMessageSent?.();
     });
 
     this.socket.on('message:received', (data) => {
@@ -155,10 +149,6 @@ export class WidgetSocket {
 
     this.socket.on('message:error', (data) => {
       this.callbacks.onMessageError?.(data.error);
-    });
-
-    this.socket.on('agent:typing', (data) => {
-      this.callbacks.onAgentTyping?.(data.isTyping, data.agentName);
     });
 
     this.socket.on('pre-chat:saved', () => {
@@ -191,47 +181,12 @@ export class WidgetSocket {
     this.socket.emit('message:send', { text, mediaUrl, fileName });
   }
 
-  startTyping(): void {
-    if (!this.socket?.connected) return;
-
-    // Clear existing timeout to reset the auto-stop timer
-    if (this.typingTimeout) {
-      clearTimeout(this.typingTimeout);
-    }
-
-    // Only emit if not already typing (debounce)
-    if (!this.isTyping) {
-      this.isTyping = true;
-      this.socket.emit('typing:start');
-    }
-
-    // Auto-stop after 3 seconds of no typing
-    this.typingTimeout = setTimeout(() => {
-      this.stopTyping();
-    }, 3000);
-  }
-
-  stopTyping(): void {
-    if (!this.socket?.connected) return;
-    if (this.typingTimeout) {
-      clearTimeout(this.typingTimeout);
-      this.typingTimeout = null;
-    }
-    if (this.isTyping) {
-      this.isTyping = false;
-      this.socket.emit('typing:stop');
-    }
-  }
-
   submitPreChatForm(info: VisitorInfo): void {
     if (!this.socket?.connected) return;
     this.socket.emit('pre-chat:submit', info);
   }
 
   disconnect(): void {
-    if (this.typingTimeout) {
-      clearTimeout(this.typingTimeout);
-    }
     this.socket?.disconnect();
     this.socket = null;
   }

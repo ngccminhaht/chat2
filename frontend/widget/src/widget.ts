@@ -17,7 +17,7 @@ export class Widget {
   private visitorInfo: VisitorInfo = {};
   private preChatCompleted = false;
   private isConnected = false;
-  private typingIndicatorEl: HTMLElement | null = null;
+  private pendingMessageId: string | null = null;
 
   constructor(config: Partial<WidgetConfig>) {
     if (!config.orgSlug) {
@@ -80,17 +80,23 @@ export class Widget {
       onMessage: (message) => {
         this.addMessageToUI(message);
       },
-      onMessageSent: (messageId) => {
-        this.updateMessageStatus(messageId, 'sent');
+      onMessageSent: () => {
+        // Update the pending message that was just sent
+        if (this.pendingMessageId) {
+          this.updateMessageStatus(this.pendingMessageId, 'sent');
+          this.pendingMessageId = null;
+        }
       },
       onMessageError: (error) => {
         console.error('[MiAgent] Message error:', error);
+        // Mark pending message as failed
+        if (this.pendingMessageId) {
+          this.updateMessageStatus(this.pendingMessageId, 'failed');
+          this.pendingMessageId = null;
+        }
       },
       onConversationRestored: (messages) => {
         this.restoreMessages(messages);
-      },
-      onAgentTyping: (isTyping, agentName) => {
-        this.showTypingIndicator(isTyping, agentName);
       },
       onPreChatSaved: () => {
         this.preChatCompleted = true;
@@ -273,34 +279,6 @@ export class Widget {
       #miagent-prechat-form-element button:hover {
         opacity: 0.9;
       }
-      .miagent-typing-indicator {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 16px;
-        background: #f0f0f0;
-        border-radius: 16px;
-        border-bottom-left-radius: 4px;
-        max-width: 80%;
-        align-self: flex-start;
-      }
-      .miagent-typing-dots {
-        display: flex;
-        gap: 4px;
-      }
-      .miagent-typing-dots span {
-        width: 6px;
-        height: 6px;
-        background: #888;
-        border-radius: 50%;
-        animation: miagent-bounce 1.4s infinite;
-      }
-      .miagent-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-      .miagent-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-      @keyframes miagent-bounce {
-        0%, 60%, 100% { transform: translateY(0); }
-        30% { transform: translateY(-4px); }
-      }
       .miagent-message.sending { opacity: 0.7; }
       .miagent-message.failed {
         opacity: 0.7;
@@ -377,9 +355,6 @@ export class Widget {
       inputField.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') this.sendMessage();
       });
-      inputField.addEventListener('input', () => {
-        this.socket?.startTyping();
-      });
     }
   }
 
@@ -420,9 +395,6 @@ export class Widget {
       inputField.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') this.sendMessage();
       });
-      inputField.addEventListener('input', () => {
-        this.socket?.startTyping();
-      });
     }
   }
 
@@ -449,9 +421,6 @@ export class Widget {
     const text = inputField?.value.trim();
     if (!text) return;
 
-    // Stop typing indicator
-    this.socket?.stopTyping();
-
     // Generate temp ID for optimistic update
     const tempId = 'temp_' + Date.now();
 
@@ -466,11 +435,15 @@ export class Widget {
     this.addMessageToUI(message);
     inputField.value = '';
 
+    // Track pending message for status update
+    this.pendingMessageId = tempId;
+
     // Send via socket
     if (this.socket && this.isConnected) {
       this.socket.sendMessage(text);
     } else {
       // Queue or show error
+      this.pendingMessageId = null;
       this.updateMessageStatus(tempId, 'failed');
       this.showSystemMessage('Unable to send. Please check your connection.');
     }
@@ -479,9 +452,6 @@ export class Widget {
   private addMessageToUI(message: Message): void {
     const messagesEl = document.getElementById('miagent-widget-messages');
     if (!messagesEl) return;
-
-    // Remove typing indicator if present
-    this.hideTypingIndicator();
 
     const msgEl = document.createElement('div');
     msgEl.className = `miagent-message ${message.sender}`;
@@ -564,35 +534,6 @@ export class Widget {
     messages.forEach((msg) => {
       this.addMessageToUI(msg);
     });
-  }
-
-  private showTypingIndicator(isTyping: boolean, agentName?: string): void {
-    const messagesEl = document.getElementById('miagent-widget-messages');
-    if (!messagesEl) return;
-
-    if (isTyping) {
-      if (!this.typingIndicatorEl) {
-        this.typingIndicatorEl = document.createElement('div');
-        this.typingIndicatorEl.className = 'miagent-typing-indicator';
-        this.typingIndicatorEl.innerHTML = `
-          <div class="miagent-typing-dots">
-            <span></span><span></span><span></span>
-          </div>
-          <span>${agentName || 'Agent'} is typing...</span>
-        `;
-        messagesEl.appendChild(this.typingIndicatorEl);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }
-    } else {
-      this.hideTypingIndicator();
-    }
-  }
-
-  private hideTypingIndicator(): void {
-    if (this.typingIndicatorEl) {
-      this.typingIndicatorEl.remove();
-      this.typingIndicatorEl = null;
-    }
   }
 
   private showSystemMessage(text: string): void {

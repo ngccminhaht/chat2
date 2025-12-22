@@ -435,20 +435,22 @@ export class MessagesService {
         });
       }
 
-      // Also publish via Kafka to specific user (for backward compatibility)
-      const newMessageEvent: WebSocketNotificationEvent = {
-        type: 'message:new',
-        userId,
-        payload: messagePayload as NewMessagePayload,
-        timestamp: Date.now(),
-      };
+      // Also publish via Kafka for horizontal scaling (broadcast to org)
+      if (organizationId) {
+        const newMessageEvent: WebSocketNotificationEvent = {
+          type: 'message:new',
+          organizationId,
+          payload: messagePayload as NewMessagePayload,
+          timestamp: Date.now(),
+        };
 
-      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-        key: userId,
-        value: newMessageEvent,
-      });
+        await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+          key: organizationId,
+          value: newMessageEvent,
+        });
 
-      this.logger.log(`📤 Published pending message notification for user ${userId}`);
+        this.logger.log(`📤 Published pending message notification for org ${organizationId}`);
+      }
     } catch (error) {
       this.logger.error('Failed to publish pending message notification:', error);
     }

@@ -3,7 +3,7 @@
  * Provides message batching with BullMQ debounce for AI responses
  */
 
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
@@ -14,8 +14,14 @@ import {
   Message,
   MessageSchema,
 } from '@/common/database/schemas/message.schema';
+import {
+  Organization,
+  OrganizationSchema,
+} from '@/common/database/schemas/organization.schema';
 import { AIBatchingService, AI_BATCH_QUEUE } from './ai-batching.service';
 import { AIBatchingProcessor } from './ai-batching.processor';
+import { AIResponseService } from './ai-response.service';
+import { WebsocketModule } from '@/modules/websocket/websocket.module';
 
 @Module({
   imports: [
@@ -30,9 +36,11 @@ import { AIBatchingProcessor } from './ai-batching.processor';
     MongooseModule.forFeature([
       { name: Conversation.name, schema: ConversationSchema },
       { name: Message.name, schema: MessageSchema },
+      { name: Organization.name, schema: OrganizationSchema },
     ]),
+    forwardRef(() => WebsocketModule),
   ],
-  providers: [AIBatchingService, AIBatchingProcessor],
-  exports: [AIBatchingService],
+  providers: [AIBatchingService, AIBatchingProcessor, AIResponseService],
+  exports: [AIBatchingService, AIResponseService],
 })
 export class AIBatchingModule {}

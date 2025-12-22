@@ -401,19 +401,15 @@ export class WebhookProcessorService {
     conversation: ConversationDocument,
     message: MessageDocument,
   ): Promise<void> {
-    if (!connection.connectedBy) {
-      return;
-    }
-
-    const userId = connection.connectedBy.toString();
+    const organizationId = conversation.organizationId.toString();
 
     // Reload conversation to get updated unreadCount
     const updatedConversation = await this.conversationModel.findById(conversation._id).exec();
 
-    // Publish new message event
+    // Publish new message event (broadcast to all org agents)
     const messageEvent: WebSocketNotificationEvent = {
       type: 'message:new',
-      userId,
+      organizationId,
       payload: {
         _id: message._id.toString(),
         conversationId: message.conversationId.toString(),
@@ -429,14 +425,14 @@ export class WebhookProcessorService {
     };
 
     await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-      key: userId,
+      key: organizationId,
       value: messageEvent,
     });
 
     // Publish conversation updated event
     const conversationEvent: WebSocketNotificationEvent = {
       type: 'conversation:updated',
-      userId,
+      organizationId,
       payload: {
         _id: updatedConversation._id.toString(),
         platform: updatedConversation.platform,
@@ -448,7 +444,7 @@ export class WebhookProcessorService {
     };
 
     await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-      key: userId,
+      key: organizationId,
       value: conversationEvent,
     });
   }
