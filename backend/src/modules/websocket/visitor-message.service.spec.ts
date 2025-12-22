@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { VisitorMessageService } from './visitor-message.service';
 import { WebsocketGateway } from './websocket.gateway';
+import { VisitorGateway } from './visitor.gateway';
 import {
   Conversation,
   ConversationDocument,
@@ -65,6 +66,12 @@ describe('VisitorMessageService', () => {
     const mockWebsocketGateway = {
       emitNewMessage: jest.fn(),
       emitConversationUpdated: jest.fn(),
+      emitToOrgAgents: jest.fn(),
+    };
+
+    const mockVisitorGateway = {
+      emitToVisitor: jest.fn(),
+      emitToOrgVisitors: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -73,6 +80,7 @@ describe('VisitorMessageService', () => {
         { provide: getModelToken(Conversation.name), useValue: mockConversationModel },
         { provide: getModelToken(Message.name), useValue: mockMessageModel },
         { provide: WebsocketGateway, useValue: mockWebsocketGateway },
+        { provide: VisitorGateway, useValue: mockVisitorGateway },
       ],
     }).compile();
 
