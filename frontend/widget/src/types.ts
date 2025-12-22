@@ -51,3 +51,21 @@ export interface VisitorInfo {
   email?: string;
   phone?: string;
 }
+
+/**
+ * Device metadata collected from browser
+ */
+export interface DeviceMetadata {
+  browser?: string;
+  browserVersion?: string;
+  os?: string;
+  osVersion?: string;
+  device?: 'desktop' | 'mobile' | 'tablet';
+  screenWidth?: number;
+  screenHeight?: number;
+  language?: string;
+  timezone?: string;
+  domain?: string;
+  referrer?: string;
+  landingPage?: string;
+}

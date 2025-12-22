@@ -18,12 +18,29 @@ import {
 import { VisitorMessageService } from './visitor-message.service';
 import { VisitorRateLimitService } from './visitor-rate-limit.service';
 import { SendVisitorMessageDto, PreChatFormDto } from './dto';
+import { CustomersService } from '@/modules/customers/customers.service';
+
+export interface DeviceMetadata {
+  browser?: string;
+  browserVersion?: string;
+  os?: string;
+  osVersion?: string;
+  device?: 'desktop' | 'mobile' | 'tablet';
+  screenWidth?: number;
+  screenHeight?: number;
+  language?: string;
+  timezone?: string;
+  domain?: string;
+  referrer?: string;
+  landingPage?: string;
+}
 
 export interface VisitorSocket extends Socket {
   sessionId?: string;
   organizationId?: string;
   visitorName?: string;
   visitorEmail?: string;
+  customerId?: string;
 }
 
 interface VisitorHandshake {
@@ -31,6 +48,7 @@ interface VisitorHandshake {
   organizationId: string;
   name?: string;
   email?: string;
+  deviceMetadata?: DeviceMetadata;
 }
 
 @Injectable()
@@ -62,6 +80,7 @@ export class VisitorGateway
     @Inject(forwardRef(() => VisitorMessageService))
     private readonly visitorMessageService: VisitorMessageService,
     private readonly rateLimitService: VisitorRateLimitService,
+    private readonly customersService: CustomersService,
   ) {}
 
   async handleConnection(client: VisitorSocket) {
@@ -113,16 +132,35 @@ export class VisitorGateway
         return;
       }
 
-      // Origin validation (CSWSH prevention)
-      // In production, validate against org's allowed domains
-      // For now, log the origin for monitoring
-      this.logger.log(`Visitor connection from origin: ${origin}`);
+      // Create or update customer with device metadata
+      const customer = await this.customersService.findOrCreateBySession({
+        organizationId: auth.organizationId,
+        widgetSessionId: auth.sessionId,
+        name: auth.name,
+        email: auth.email,
+        deviceInfo: auth.deviceMetadata ? {
+          browser: auth.deviceMetadata.browser,
+          browserVersion: auth.deviceMetadata.browserVersion,
+          os: auth.deviceMetadata.os,
+          osVersion: auth.deviceMetadata.osVersion,
+          device: auth.deviceMetadata.device,
+          screenWidth: auth.deviceMetadata.screenWidth,
+          screenHeight: auth.deviceMetadata.screenHeight,
+          language: auth.deviceMetadata.language,
+          timezone: auth.deviceMetadata.timezone,
+        } : undefined,
+        domain: auth.deviceMetadata?.domain,
+        referrer: auth.deviceMetadata?.referrer,
+        landingPage: auth.deviceMetadata?.landingPage,
+        ipAddress: ip,
+      });
 
       // Attach metadata to socket
       client.sessionId = auth.sessionId;
       client.organizationId = auth.organizationId;
       client.visitorName = auth.name || 'Visitor';
       client.visitorEmail = auth.email;
+      client.customerId = customer._id.toString();
 
       // Join rooms
       client.join(`visitor:${auth.sessionId}`);

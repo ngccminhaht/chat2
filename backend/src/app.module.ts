@@ -17,6 +17,7 @@ import { PlatformsModule } from './modules/platforms/platforms.module';
 import { WidgetModule } from './modules/widget/widget.module';
 import { QuickRepliesModule } from './modules/quick-replies/quick-replies.module';
 import { AiAgentsModule } from './modules/ai-agents/ai-agents.module';
+import { CustomersModule } from './modules/customers/customers.module';
 
 @Module({
   imports: [
@@ -71,6 +72,9 @@ import { AiAgentsModule } from './modules/ai-agents/ai-agents.module';
 
     // AI agents for automated responses
     AiAgentsModule,
+
+    // Customer management (CRM)
+    CustomersModule,
   ],
 })
 export class AppModule {}

@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { Message, VisitorInfo } from './types';
+import { collectDeviceMetadata } from './device-detector';
 
 // Events emitted by server
 interface ServerToClientEvents {
@@ -87,32 +88,48 @@ export class WidgetSocket {
   connect(visitorInfo?: VisitorInfo): void {
     if (this.socket?.connected) return;
 
-    // Parse base URL for socket connection - remove /api suffix
-    // apiUrl could be: "https://domain.com/api" or "http://localhost:8300/api"
-    let wsUrl = this.apiUrl.replace(/\/api\/?$/, '');
+    try {
+      // Parse base URL for socket connection - remove /api suffix
+      // apiUrl could be: "https://domain.com/api" or "http://localhost:8300/api"
+      let wsUrl = this.apiUrl.replace(/\/api\/?$/, '');
 
-    // Handle edge case where apiUrl might just be a path like "/api"
-    if (!wsUrl || wsUrl === '' || !wsUrl.includes('://')) {
-      wsUrl = window.location.origin;
+      // Handle edge case where apiUrl might just be a path like "/api"
+      if (!wsUrl || wsUrl === '' || !wsUrl.includes('://')) {
+        wsUrl = window.location.origin;
+      }
+
+      console.log('[MiAgent] Connecting to WebSocket:', `${wsUrl}/visitor`);
+
+      // Collect device metadata with error handling
+      let deviceMetadata;
+      try {
+        deviceMetadata = collectDeviceMetadata();
+      } catch (e) {
+        console.warn('[MiAgent] Failed to collect device metadata:', e);
+        deviceMetadata = {};
+      }
+
+      this.socket = io(`${wsUrl}/visitor`, {
+        auth: {
+          sessionId: this.sessionId,
+          organizationId: this.organizationId,
+          name: visitorInfo?.name,
+          email: visitorInfo?.email,
+          // Device metadata for customer tracking
+          deviceMetadata,
+        },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+      });
+
+      this.setupListeners();
+    } catch (error) {
+      console.error('[MiAgent] Connection setup error:', error);
+      this.callbacks.onError?.('CONNECTION_FAILED', 'Failed to connect');
     }
-
-    console.log('[MiAgent] Connecting to WebSocket:', `${wsUrl}/visitor`);
-
-    this.socket = io(`${wsUrl}/visitor`, {
-      auth: {
-        sessionId: this.sessionId,
-        organizationId: this.organizationId,
-        name: visitorInfo?.name,
-        email: visitorInfo?.email,
-      },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: this.maxReconnectAttempts,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-    });
-
-    this.setupListeners();
   }
 
   private setupListeners(): void {

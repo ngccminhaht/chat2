@@ -20,6 +20,7 @@ import {
   MessageSchema,
 } from '@/common/database/schemas/message.schema';
 import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
+import { CustomersModule } from '@/modules/customers/customers.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
       { name: Message.name, schema: MessageSchema },
     ]),
     AIBatchingModule,
+    CustomersModule,
   ],
   controllers: [WebSocketBridgeConsumer],
   providers: [

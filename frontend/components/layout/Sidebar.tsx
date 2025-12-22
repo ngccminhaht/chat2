@@ -13,6 +13,7 @@ import {
   Divider,
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
+import PeopleIcon from "@mui/icons-material/People";
 import HubIcon from "@mui/icons-material/Hub";
 import GroupsIcon from "@mui/icons-material/Groups";
 import WidgetsIcon from "@mui/icons-material/Widgets";
@@ -37,6 +38,7 @@ const getMenuSections = (orgSlug: string): MenuSection[] => [
   {
     items: [
       { text: "Conversations", icon: <ChatIcon />, path: `/organizations/${orgSlug}/conversations` },
+      { text: "Customers", icon: <PeopleIcon />, path: `/organizations/${orgSlug}/customers` },
       { text: "Channels", icon: <HubIcon />, path: `/organizations/${orgSlug}/channels` },
       { text: "Widget", icon: <WidgetsIcon />, path: `/organizations/${orgSlug}/widget` },
       { text: "AI Agent", icon: <SmartToyIcon />, path: `/organizations/${orgSlug}/ai-agent` },
