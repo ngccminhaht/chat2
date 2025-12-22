@@ -173,28 +173,18 @@ export class WebhookProcessorService {
       userProfile,
     );
 
-    // 4. Check for duplicate message (query check)
-    const existingMessage = await this.messageModel.findOne({
-      platform: adapter.platform,
-      platformMessageId: normalized.platformMessageId,
-    }).exec();
+    // 4. Save message with atomic upsert (handles dedup + race conditions)
+    const message = await this.saveMessageWithUpsert(normalized, conversation, userProfile);
 
-    if (existingMessage) {
-      return false;
-    }
-
-    // 5. Save message (with E11000 handling for race conditions)
-    const message = await this.saveMessage(normalized, conversation, userProfile);
-
-    // If null, message was a duplicate (E11000 caught)
+    // If null, message was a duplicate
     if (!message) {
       return false;
     }
 
-    // 6. Update conversation last message
+    // 5. Update conversation last message
     await this.updateConversationLastMessage(conversation, message, normalized);
 
-    // 7. Publish WebSocket notification
+    // 6. Publish WebSocket notification
     await this.publishNotification(connection, conversation, message);
 
     return true;
@@ -326,38 +316,49 @@ export class WebhookProcessorService {
   }
 
   /**
-   * Save message to database
-   * Handles E11000 duplicate key error gracefully
+   * Save message using atomic upsert pattern
+   * Handles deduplication and race conditions in a single operation
+   * Returns null if message already exists (duplicate)
    */
-  private async saveMessage(
+  private async saveMessageWithUpsert(
     normalized: NormalizedMessage,
     conversation: ConversationDocument,
     userProfile: UserProfile,
   ): Promise<MessageDocument | null> {
-    try {
-      return await this.messageModel.create({
-        conversationId: conversation._id,
+    const messageData = {
+      conversationId: conversation._id,
+      organizationId: conversation.organizationId,
+      platform: conversation.platform,
+      platformMessageId: normalized.platformMessageId,
+      direction: normalized.direction,
+      type: normalized.type,
+      content: normalized.content,
+      sender: {
+        platformUserId: normalized.senderId,
+        name: userProfile.name,
+        avatar: userProfile.avatar,
+      },
+      status: MessageStatus.SENT,
+      metadata: normalized.metadata,
+    };
+
+    const result = await this.messageModel.findOneAndUpdate(
+      {
         organizationId: conversation.organizationId,
         platform: conversation.platform,
         platformMessageId: normalized.platformMessageId,
-        direction: normalized.direction,
-        type: normalized.type,
-        content: normalized.content,
-        sender: {
-          platformUserId: normalized.senderId,
-          name: userProfile.name,
-          avatar: userProfile.avatar,
-        },
-        status: MessageStatus.SENT,
-        metadata: normalized.metadata,
-      });
-    } catch (error) {
-      // E11000 duplicate key error - message already exists
-      if (error.code === 11000) {
-        return null;
-      }
-      throw error;
+      },
+      { $setOnInsert: messageData },
+      { upsert: true, new: true, includeResultMetadata: true },
+    ).exec();
+
+    // Return null if document already existed (duplicate)
+    // When upsert matches existing doc, updatedExisting is true
+    if (result.lastErrorObject?.updatedExisting) {
+      return null;
     }
+
+    return result.value;
   }
 
   /**

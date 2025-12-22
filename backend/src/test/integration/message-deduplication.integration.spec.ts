@@ -6,6 +6,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MongooseModule, getModelToken } from '@nestjs/mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Model, Types } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 import {
   Platform,
   MessageStatus,
@@ -32,6 +33,9 @@ import { WebhookProcessorService } from '@/modules/platforms/core/services/webho
 import { PlatformRegistry } from '@/modules/platforms/core/services/platform.registry';
 import { MessageSenderConsumer } from '@/infra/kafka/consumers/message-sender.consumer';
 import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
+import { EnvService } from '@/common/env';
+import { VisitorGateway } from '@/modules/websocket/visitor.gateway';
+import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
 import { IPlatformAdapter, MessageEvent, NormalizedMessage } from '@/modules/platforms/core/interfaces';
 import { OutgoingMessageEvent } from '@/infra/kafka/types/webhook.types';
 
@@ -76,6 +80,34 @@ describe('Message Deduplication Integration Tests', () => {
       register: jest.fn(),
     };
 
+    const mockVisitorGateway = {
+      emitToVisitor: jest.fn(),
+    };
+
+    const mockWebsocketGateway = {
+      emitToOrgAgents: jest.fn(),
+    };
+
+    const mockConfigService = {
+      get: jest.fn((key: string) => {
+        const envVars: Record<string, any> = {
+          ZALO_APP_ID: 'test_app_id',
+          ZALO_APP_SECRET: 'test_app_secret',
+        };
+        return envVars[key];
+      }),
+    };
+
+    const mockEnvService = {
+      get: jest.fn((key: string) => {
+        const envVars: Record<string, any> = {
+          ZALO_APP_ID: 'test_app_id',
+          ZALO_APP_SECRET: 'test_app_secret',
+        };
+        return envVars[key];
+      }),
+    };
+
     module = await Test.createTestingModule({
       imports: [
         MongooseModule.forRoot(mongoUri),
@@ -90,6 +122,10 @@ describe('Message Deduplication Integration Tests', () => {
         MessageSenderConsumer,
         { provide: PlatformRegistry, useValue: mockPlatformRegistry },
         { provide: KafkaProducerService, useValue: mockKafkaProducer },
+        { provide: EnvService, useValue: mockEnvService },
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: VisitorGateway, useValue: mockVisitorGateway },
+        { provide: WebsocketGateway, useValue: mockWebsocketGateway },
       ],
     }).compile();
 
@@ -118,8 +154,10 @@ describe('Message Deduplication Integration Tests', () => {
     it('should prevent duplicate when same webhook is processed multiple times', async () => {
       // Setup
       const userId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
       await platformConnectionModel.create({
         userId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -167,8 +205,10 @@ describe('Message Deduplication Integration Tests', () => {
     it('should prevent duplicate when webhook is processed concurrently (race condition)', async () => {
       // Setup
       const userId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
       const connection = await platformConnectionModel.create({
         userId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -178,6 +218,7 @@ describe('Message Deduplication Integration Tests', () => {
 
       // Pre-create conversation to speed up test
       await conversationModel.create({
+        organizationId,
         platform: Platform.FACEBOOK,
         platformConversationId: 'user_456_page_123',
         platformConnectionId: connection._id,
@@ -232,8 +273,10 @@ describe('Message Deduplication Integration Tests', () => {
     it('should handle multiple different messages correctly', async () => {
       // Setup
       const userId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
       await platformConnectionModel.create({
         userId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -285,8 +328,10 @@ describe('Message Deduplication Integration Tests', () => {
     it('should delete pending message when webhook already created real message', async () => {
       // Setup
       const userId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
       const connection = await platformConnectionModel.create({
         userId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -297,6 +342,7 @@ describe('Message Deduplication Integration Tests', () => {
       const conversationId = new Types.ObjectId();
       await conversationModel.create({
         _id: conversationId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformConversationId: 'user_456_page_123',
         platformConnectionId: connection._id,
@@ -310,6 +356,7 @@ describe('Message Deduplication Integration Tests', () => {
       // 1. Create pending message (simulating user sending from web)
       const pendingMessage = await messageModel.create({
         conversationId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformMessageId: `pending_${Date.now()}_abc123`,
         direction: MessageDirection.OUTBOUND,
@@ -322,6 +369,7 @@ describe('Message Deduplication Integration Tests', () => {
       // 2. Simulate webhook creating message with real ID (echo from platform)
       const webhookMessage = await messageModel.create({
         conversationId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformMessageId: 'm_real_platform_id', // Real ID from Facebook
         direction: MessageDirection.OUTBOUND,
@@ -366,8 +414,10 @@ describe('Message Deduplication Integration Tests', () => {
     it('should update pending message when no race condition occurs', async () => {
       // Setup
       const userId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
       const connection = await platformConnectionModel.create({
         userId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -378,6 +428,7 @@ describe('Message Deduplication Integration Tests', () => {
       const conversationId = new Types.ObjectId();
       await conversationModel.create({
         _id: conversationId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformConversationId: 'user_456_page_123',
         platformConnectionId: connection._id,
@@ -391,6 +442,7 @@ describe('Message Deduplication Integration Tests', () => {
       // Create pending message
       const pendingMessage = await messageModel.create({
         conversationId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformMessageId: `pending_${Date.now()}_xyz789`,
         direction: MessageDirection.OUTBOUND,
@@ -431,8 +483,10 @@ describe('Message Deduplication Integration Tests', () => {
     it('should handle interleaved web and platform messages correctly', async () => {
       // Setup
       const userId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
       const connection = await platformConnectionModel.create({
         userId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -443,6 +497,7 @@ describe('Message Deduplication Integration Tests', () => {
       const conversationId = new Types.ObjectId();
       await conversationModel.create({
         _id: conversationId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformConversationId: 'user_456_page_123',
         platformConnectionId: connection._id,
@@ -485,6 +540,7 @@ describe('Message Deduplication Integration Tests', () => {
       // 2. Outbound message from web
       const pendingMessage = await messageModel.create({
         conversationId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformMessageId: `pending_${Date.now()}_reply`,
         direction: MessageDirection.OUTBOUND,
@@ -560,10 +616,12 @@ describe('Message Deduplication Integration Tests', () => {
   describe('Database Unique Index Enforcement', () => {
     it('should enforce unique constraint at database level', async () => {
       const conversationId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
 
       // Create first message
       await messageModel.create({
         conversationId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformMessageId: 'm_unique_test',
         direction: MessageDirection.INBOUND,
@@ -578,6 +636,7 @@ describe('Message Deduplication Integration Tests', () => {
       try {
         await messageModel.create({
           conversationId,
+          organizationId,
           platform: Platform.FACEBOOK,
           platformMessageId: 'm_unique_test', // Same ID
           direction: MessageDirection.INBOUND,
@@ -600,10 +659,12 @@ describe('Message Deduplication Integration Tests', () => {
 
     it('should allow same platformMessageId for different platforms', async () => {
       const conversationId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
 
       // Create message for Facebook
       await messageModel.create({
         conversationId,
+        organizationId,
         platform: Platform.FACEBOOK,
         platformMessageId: 'm_cross_platform',
         direction: MessageDirection.INBOUND,
@@ -616,6 +677,7 @@ describe('Message Deduplication Integration Tests', () => {
       // Create message for Zalo with same platformMessageId - should succeed
       await messageModel.create({
         conversationId,
+        organizationId,
         platform: Platform.ZALO,
         platformMessageId: 'm_cross_platform', // Same ID, different platform
         direction: MessageDirection.INBOUND,
