@@ -378,15 +378,19 @@ export class WebhookProcessorService {
   ): Promise<void> {
     const text = normalized.content.text || `[${normalized.type}]`;
 
-    await this.conversationModel.findByIdAndUpdate(conversation._id, {
-      lastMessage: {
-        text: text.substring(0, 100), // Truncate for preview
-        timestamp: normalized.timestamp,
-        senderId: normalized.senderId,
-        messageId: message._id,
+    await this.conversationModel.findByIdAndUpdate(
+      conversation._id,
+      {
+        lastMessage: {
+          text: text.substring(0, 100), // Truncate for preview
+          timestamp: normalized.timestamp,
+          senderId: normalized.senderId,
+          messageId: message._id,
+        },
+        $inc: { unreadCount: 1 },
       },
-      $inc: { unreadCount: 1 },
-    });
+      { timestamps: true },
+    );
   }
 
   /**

@@ -97,14 +97,18 @@ export class VisitorMessageService {
       status: MessageStatus.DELIVERED,
     });
 
-    // Update conversation lastMessage
-    await this.conversationModel.findByIdAndUpdate(conversation._id, {
-      'lastMessage.text': text || '[Media]',
-      'lastMessage.timestamp': new Date(),
-      'lastMessage.senderId': sessionId,
-      'lastMessage.messageId': message._id,
-      $inc: { unreadCount: 1 },
-    });
+    // Update conversation lastMessage (timestamps: true ensures updatedAt is updated for sorting)
+    await this.conversationModel.findByIdAndUpdate(
+      conversation._id,
+      {
+        'lastMessage.text': text || '[Media]',
+        'lastMessage.timestamp': new Date(),
+        'lastMessage.senderId': sessionId,
+        'lastMessage.messageId': message._id,
+        $inc: { unreadCount: 1 },
+      },
+      { timestamps: true },
+    );
 
     // Prepare notification payloads
     const messagePayload = {
@@ -276,14 +280,18 @@ export class VisitorMessageService {
       status: MessageStatus.SENT,
     });
 
-    // Update conversation
-    await this.conversationModel.findByIdAndUpdate(conversationId, {
-      'lastMessage.text': content.text || '[Media]',
-      'lastMessage.timestamp': new Date(),
-      'lastMessage.senderId': agentId,
-      'lastMessage.messageId': message._id,
-      unreadCount: 0, // Reset unread when agent replies
-    });
+    // Update conversation (timestamps: true ensures updatedAt is updated for sorting)
+    await this.conversationModel.findByIdAndUpdate(
+      conversationId,
+      {
+        'lastMessage.text': content.text || '[Media]',
+        'lastMessage.timestamp': new Date(),
+        'lastMessage.senderId': agentId,
+        'lastMessage.messageId': message._id,
+        unreadCount: 0, // Reset unread when agent replies
+      },
+      { timestamps: true },
+    );
 
     this.logger.log(
       `Agent ${agentId} sent message to visitor ${sessionId}: ${message._id}`,

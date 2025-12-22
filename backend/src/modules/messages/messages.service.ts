@@ -148,10 +148,14 @@ export class MessagesService {
     // Agent reply triggers human takeover - cancel any pending AI batch
     if (conversation.aiState !== 'HUMAN_TAKEOVER') {
       await this.aiBatchingService.cancelBatch(conversationId);
-      await this.conversationModel.findByIdAndUpdate(conversationId, {
-        aiState: 'HUMAN_TAKEOVER',
-        humanTakeoverAt: new Date(),
-      });
+      await this.conversationModel.findByIdAndUpdate(
+        conversationId,
+        {
+          aiState: 'HUMAN_TAKEOVER',
+          humanTakeoverAt: new Date(),
+        },
+        { timestamps: true },
+      );
       this.logger.log(`👤 Human takeover activated for conversation ${conversationId}`);
     }
 
@@ -344,9 +348,11 @@ export class MessagesService {
     this.logger.log(`Marked ${updatedMessages.length} messages as read in conversation ${conversationId}`);
 
     // Reset conversation unread count to 0
-    await this.conversationModel.findByIdAndUpdate(conversationId, {
-      unreadCount: 0,
-    }).exec();
+    await this.conversationModel.findByIdAndUpdate(
+      conversationId,
+      { unreadCount: 0 },
+      { timestamps: true },
+    ).exec();
 
     // Get updated conversation
     const updatedConversation = await this.conversationModel
