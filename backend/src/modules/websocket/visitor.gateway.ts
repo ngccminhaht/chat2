@@ -249,7 +249,18 @@ export class VisitorGateway
    * Called when agent sends reply
    */
   emitToVisitor(sessionId: string, event: string, data: any) {
-    this.server.to(`visitor:${sessionId}`).emit(event, data);
+    const room = `visitor:${sessionId}`;
+    const sockets = this.server.sockets;
+
+    // Debug: Check if room has any sockets
+    this.server.in(room).fetchSockets().then((socketsInRoom) => {
+      this.logger.debug(
+        `emitToVisitor: room=${room}, socketsInRoom=${socketsInRoom.length}, event=${event}`,
+      );
+    });
+
+    this.server.to(room).emit(event, data);
+    this.logger.log(`📤 Emitted ${event} to visitor room ${room}`);
   }
 
   /**

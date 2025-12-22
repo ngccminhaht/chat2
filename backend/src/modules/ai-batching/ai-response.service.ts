@@ -161,8 +161,9 @@ export class AIResponseService {
     }
 
     // Extract sessionId from platformConversationId (format: web_{orgId}_{sessionId})
+    // Note: sessionId may contain underscores (e.g., v_xxx), so we join remaining parts
     const parts = conversation.platformConversationId.split('_');
-    const sessionId = parts[2];
+    const sessionId = parts.slice(2).join('_');
 
     // Create AI message as outbound (from bot)
     const messageId = nanoid();

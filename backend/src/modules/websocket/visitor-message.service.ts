@@ -265,8 +265,9 @@ export class VisitorMessageService {
 
     // Extract sessionId from platformConversationId
     // Format: web_{orgId}_{sessionId}
+    // Note: sessionId may contain underscores (e.g., v_xxx), so we join remaining parts
     const parts = conversation.platformConversationId.split('_');
-    const sessionId = parts[2];
+    const sessionId = parts.slice(2).join('_');
 
     // Create message
     const messageId = nanoid();
