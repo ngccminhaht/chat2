@@ -22,6 +22,12 @@ import {
 } from '@/common/database/schemas/conversation.schema';
 import { Platform, MessageDirection, MessageType, MessageStatus } from '@/common/constants';
 import { nanoid } from 'nanoid';
+import axios from 'axios';
+import {
+  Customer,
+  CustomerDocument,
+} from '@/common/database/schemas/customer.schema';
+import { MessageCombiner } from '@/modules/ai-agents/utils/message-combiner';
 
 export interface AIResponseResult {
   answer: string;
@@ -29,12 +35,13 @@ export interface AIResponseResult {
   conversationId?: string;
 }
 
-interface MiAgentChatRequest {
+export interface AIRequestData {
   query: string;
   inputs?: Record<string, any>;
   response_mode: 'blocking' | 'streaming';
   user: string;
   conversation_id?: string;
+  files?: Array<{ type: string; url: string }>;
 }
 
 interface MiAgentChatResponse {
@@ -62,15 +69,19 @@ export class AIResponseService {
     private readonly messageModel: Model<MessageDocument>,
     @InjectModel(Conversation.name)
     private readonly conversationModel: Model<ConversationDocument>,
+    @InjectModel(Customer.name)
+    private readonly customerModel: Model<CustomerDocument>,
   ) {}
 
   /**
    * Generate AI response using MiAgent API
+   * Supports streaming and conversation continuity
    */
   async generateResponse(
     conversationId: string,
     organizationId: string,
-    query: string,
+    messages: MessageDocument[],
+    customer?: CustomerDocument | null,
   ): Promise<AIResponseResult | null> {
     // Get organization AI settings
     const org = await this.organizationModel.findById(organizationId).lean();
@@ -98,48 +109,97 @@ export class AIResponseService {
     // Build API endpoint - default to MiAgent if not custom
     const apiEndpoint = endpoint || 'https://api.miagent.io/v1/chat-messages';
 
-    try {
-      const requestBody: MiAgentChatRequest = {
-        query,
-        inputs: {},
-        response_mode: 'blocking',
-        user: userId,
-        // Note: We could track AI conversation_id separately if we want continuity
-      };
+    // Combine messages with MessageCombiner
+    const combinedData = MessageCombiner.combineMessages(
+      messages.map((msg) => ({
+        conversation,
+        message: msg,
+      })),
+    );
 
+    // Load chat history if not sent before (for messaging, not comments)
+    const isCommentType = conversation.metadata?.type === 'post_comments';
+    if (!isCommentType && !conversation.aiChatHistorySent) {
+      await this.loadChatHistory(combinedData, conversation);
+    }
+
+    // Create AI request with customer info and files
+    const requestData = MessageCombiner.createAIRequest(
+      combinedData,
+      {
+        username: customer?.name || conversation.customerName,
+        _id: customer?._id?.toString() || userId,
+      },
+      customer || null,
+    );
+
+    // Add conversation continuity
+    const sharedAiConversationId = await this.getSharedAIConversationId(conversation);
+    if (sharedAiConversationId) {
+      requestData.conversation_id = sharedAiConversationId;
+    }
+
+    // Use streaming for better UX
+    requestData.response_mode = 'streaming';
+
+    try {
       this.logger.debug(
-        `Calling AI API for conversation ${conversationId}: ${query.substring(0, 50)}...`,
+        `Calling AI API for conversation ${conversationId}: ${requestData.query.substring(0, 50)}...`,
       );
 
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
+      const response = await axios.post(apiEndpoint, requestData, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        responseType: 'text', // Handle streaming response
+        timeout: 30000,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        this.logger.error(
-          `AI API error ${response.status}: ${errorText}`,
-        );
-        return null;
+      // Parse streaming response
+      const rawData = response.data;
+      const lines = rawData.split('\n');
+      const chunks: any[] = [];
+
+      for (const line of lines) {
+        if (line.startsWith('data:')) {
+          const jsonStr = line.substring(5).trim();
+          if (jsonStr) {
+            try {
+              const parsed = JSON.parse(jsonStr);
+              chunks.push(parsed);
+            } catch (e) {
+              // Ignore JSON parse errors
+            }
+          }
+        }
       }
 
-      const data: MiAgentChatResponse = await response.json();
+      // Extract conversation ID
+      const conversationChunk = chunks.find((item) => item.conversation_id);
+      const aiConversationId = conversationChunk?.conversation_id || null;
+
+      // Extract agent messages
+      const agentMessages = chunks.filter((item) => item.event === 'agent_message');
+      const assembled = agentMessages.reduce((acc, cur) => acc + (cur.answer || ''), '');
+
+      // Update conversation with AI conversation ID
+      if (aiConversationId && !conversation.aiConversationId) {
+        await this.conversationModel.findByIdAndUpdate(conversationId, {
+          aiConversationId,
+        });
+      }
 
       this.logger.log(
-        `AI response received for ${conversationId}: ${data.answer.substring(0, 50)}...`,
+        `AI response received for ${conversationId}: ${assembled.substring(0, 50)}...`,
       );
 
       return {
-        answer: data.answer,
-        messageId: data.message_id,
-        conversationId: data.conversation_id,
+        answer: assembled,
+        messageId: conversationChunk?.message_id,
+        conversationId: aiConversationId || undefined,
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to call AI API for ${conversationId}: ${error.message}`,
         error.stack,
@@ -149,28 +209,118 @@ export class AIResponseService {
   }
 
   /**
-   * Save AI response as outbound message and return session info for WebSocket
+   * Get shared AI conversation ID across conversations with same user
+   */
+  private async getSharedAIConversationId(
+    conversation: ConversationDocument,
+  ): Promise<string | null> {
+    if (conversation.aiConversationId) {
+      return conversation.aiConversationId;
+    }
+
+    try {
+      const existingConversation = await this.conversationModel
+        .findOne({
+          organizationId: conversation.organizationId,
+          platformAccountId: conversation.platformAccountId,
+          customerPlatformUserId: conversation.customerPlatformUserId,
+          aiConversationId: { $exists: true, $ne: null },
+        })
+        .sort({ createdAt: 1 })
+        .lean();
+
+      return existingConversation?.aiConversationId || null;
+    } catch (error) {
+      this.logger.error('Error finding shared AI conversation:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Load chat history and add to combined data
+   */
+  private async loadChatHistory(
+    combinedData: any,
+    conversation: ConversationDocument,
+  ): Promise<boolean> {
+    try {
+      const oldMessages = await this.messageModel
+        .find({
+          organizationId: conversation.organizationId,
+          conversationId: conversation._id,
+        })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
+
+      if (oldMessages && oldMessages.length > 0) {
+        const sortedMessages = oldMessages.reverse();
+
+        const currentMessageContent = combinedData.texts[0]?.content;
+        const historyMessages = sortedMessages.filter(
+          (msg: any) =>
+            msg.content?.text &&
+            msg.content.text.trim() &&
+            msg.content.text !== currentMessageContent,
+        );
+
+        if (historyMessages.length > 0) {
+          const chatHistory = historyMessages
+            .map((msg: any) => {
+              const sender =
+                msg.direction === MessageDirection.OUTBOUND
+                  ? 'Agent'
+                  : msg.sender?.name || 'Customer';
+              return `${sender}: ${msg.content.text}`;
+            })
+            .join('\n');
+
+          if (chatHistory && combinedData.texts.length > 0) {
+            combinedData.texts[0].content = `[Previous conversation history]\n${chatHistory}\n\n[Current message]\n${combinedData.texts[0].content}`;
+
+            // Mark as sent
+            await this.conversationModel.findByIdAndUpdate(conversation._id, {
+              aiChatHistorySent: true,
+            });
+
+            return true;
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error('Error loading chat history:', error);
+    }
+
+    return false;
+  }
+
+  /**
+   * Save AI response as outbound message
+   * Works for all platforms (web, Facebook, Zalo, etc.)
    */
   async saveAIMessage(
     conversationId: string,
     answer: string,
-  ): Promise<{ message: MessageDocument; sessionId: string; organizationId: string }> {
+  ): Promise<{ message: MessageDocument; sessionId?: string; organizationId: string }> {
     const conversation = await this.conversationModel.findById(conversationId);
     if (!conversation) {
       throw new Error(`Conversation ${conversationId} not found`);
     }
 
-    // Extract sessionId from platformConversationId (format: web_{orgId}_{sessionId})
-    // Note: sessionId may contain underscores (e.g., v_xxx), so we join remaining parts
-    const parts = conversation.platformConversationId.split('_');
-    const sessionId = parts.slice(2).join('_');
+    // Extract sessionId for web platform only
+    let sessionId: string | undefined;
+    if (conversation.platform === Platform.WEB) {
+      // Format: web_{orgId}_{sessionId}
+      const parts = conversation.platformConversationId.split('_');
+      sessionId = parts.slice(2).join('_');
+    }
 
     // Create AI message as outbound (from bot)
     const messageId = nanoid();
     const message = await this.messageModel.create({
       organizationId: conversation.organizationId,
       conversationId: conversation._id,
-      platform: Platform.WEB,
+      platform: conversation.platform, // Use conversation's platform
       platformMessageId: messageId,
       direction: MessageDirection.OUTBOUND,
       type: MessageType.TEXT,
@@ -178,9 +328,8 @@ export class AIResponseService {
       sender: {
         platformUserId: 'ai-agent',
         name: 'AI Agent',
-        type: 'bot',
       },
-      status: MessageStatus.SENT,
+      status: MessageStatus.PENDING, // Will be updated when actually sent
     });
 
     // Update conversation's lastMessage

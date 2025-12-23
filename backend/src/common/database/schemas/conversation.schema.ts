@@ -1,17 +1,17 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
-import { Platform, ConversationStatus } from '@/common/constants';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
+import { Platform, ConversationStatus } from "@/common/constants";
 
 export type ConversationDocument = Conversation & Document;
 
 @Schema({ timestamps: true })
 export class Conversation {
   // Multi-tenant: Organization reference (required for all queries)
-  @Prop({ type: Types.ObjectId, ref: 'Organization', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Organization", required: true })
   organizationId: Types.ObjectId;
 
   // CRM: Link to customer profile (optional, created on first message)
-  @Prop({ type: Types.ObjectId, ref: 'Customer' })
+  @Prop({ type: Types.ObjectId, ref: "Customer" })
   customerId?: Types.ObjectId;
 
   @Prop({
@@ -24,7 +24,7 @@ export class Conversation {
   @Prop({ required: true })
   platformConversationId: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'PlatformConnection', required: true })
+  @Prop({ type: Types.ObjectId, ref: "PlatformConnection", required: true })
   platformConnectionId: Types.ObjectId;
 
   @Prop()
@@ -48,7 +48,7 @@ export class Conversation {
   })
   status: ConversationStatus;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   assignedTo?: Types.ObjectId;
 
   @Prop({ type: [String], default: [] })
@@ -71,13 +71,23 @@ export class Conversation {
   // AI Message Batching State Machine
   @Prop({
     type: String,
-    enum: ['AI_ACTIVE', 'BATCHING', 'AI_RESPONDING', 'HUMAN_TAKEOVER'],
-    default: 'AI_ACTIVE',
+    enum: ["AI_ACTIVE", "BATCHING", "AI_RESPONDING", "HUMAN_TAKEOVER"],
+    default: "AI_ACTIVE",
   })
   aiState: string;
 
   @Prop({ type: Date })
   humanTakeoverAt?: Date;
+
+  // AI Conversation Continuity
+  @Prop()
+  aiConversationId?: string; // External AI platform conversation ID
+
+  @Prop({ type: Boolean, default: false })
+  aiChatHistorySent?: boolean; // Whether chat history has been sent to AI
+
+  @Prop()
+  aiLastSentPostId?: string; // Last post ID for which images were sent (Facebook comments)
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);
@@ -86,8 +96,12 @@ export const ConversationSchema = SchemaFactory.createForClass(Conversation);
 ConversationSchema.index({ organizationId: 1, status: 1, updatedAt: -1 }); // Main list query
 ConversationSchema.index(
   { organizationId: 1, platformConnectionId: 1, platformConversationId: 1 },
-  { unique: true },
+  { unique: true }
 ); // Unique per org
 ConversationSchema.index({ organizationId: 1, assignedTo: 1 }); // Agent's conversations
 ConversationSchema.index({ organizationId: 1, customerId: 1 }); // Customer's conversations
-ConversationSchema.index({ organizationId: 1, platform: 1, platformAccountId: 1 }); // By OA/Page
+ConversationSchema.index({
+  organizationId: 1,
+  platform: 1,
+  platformAccountId: 1,
+}); // By OA/Page

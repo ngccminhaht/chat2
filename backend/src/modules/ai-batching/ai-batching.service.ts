@@ -9,26 +9,34 @@
  * 4. Agent replies → cancelBatch() + HUMAN_TAKEOVER
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 import {
   Conversation,
   ConversationDocument,
-} from '@/common/database/schemas/conversation.schema';
+} from "@/common/database/schemas/conversation.schema";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
+} from "@/common/database/schemas/message.schema";
 import {
   Organization,
   OrganizationDocument,
-} from '@/common/database/schemas/organization.schema';
-import { BatchJobData, DEFAULT_AI_SETTINGS, AIState } from './dto/batch-job.dto';
+} from "@/common/database/schemas/organization.schema";
+import {
+  Customer,
+  CustomerDocument,
+} from "@/common/database/schemas/customer.schema";
+import {
+  BatchJobData,
+  DEFAULT_AI_SETTINGS,
+  AIState,
+} from "./dto/batch-job.dto";
 
-export const AI_BATCH_QUEUE = 'ai-batch';
+export const AI_BATCH_QUEUE = "ai-batch";
 
 @Injectable()
 export class AIBatchingService {
@@ -42,6 +50,8 @@ export class AIBatchingService {
     private readonly messageModel: Model<MessageDocument>,
     @InjectModel(Organization.name)
     private readonly organizationModel: Model<OrganizationDocument>,
+    @InjectModel(Customer.name)
+    private readonly customerModel: Model<CustomerDocument>
   ) {}
 
   /**
@@ -50,7 +60,7 @@ export class AIBatchingService {
    */
   async onVisitorMessage(
     message: MessageDocument,
-    conversation: ConversationDocument,
+    conversation: ConversationDocument
   ): Promise<void> {
     const conversationId = conversation._id.toString();
     const organizationId = conversation.organizationId.toString();
@@ -59,33 +69,34 @@ export class AIBatchingService {
     const org = await this.organizationModel.findById(organizationId).lean();
     if (!org?.aiAgentSettings?.enabled) {
       this.logger.debug(
-        `Skipping AI batch for ${conversationId}: AI agent disabled for org ${organizationId}`,
+        `Skipping AI batch for ${conversationId}: AI agent disabled for org ${organizationId}`
       );
       return;
     }
 
     // Skip if human has taken over
-    if (conversation.aiState === 'HUMAN_TAKEOVER') {
+    if (conversation.aiState === "HUMAN_TAKEOVER") {
       // Check if takeover has expired
       const takeoverExpired = await this.checkHumanTakeoverExpiry(conversation);
       if (!takeoverExpired) {
         this.logger.debug(
-          `Skipping AI batch for ${conversationId}: human takeover active`,
+          `Skipping AI batch for ${conversationId}: human takeover active`
         );
         return;
       }
     }
 
     // Skip if already responding
-    if (conversation.aiState === 'AI_RESPONDING') {
+    if (conversation.aiState === "AI_RESPONDING") {
       this.logger.debug(
-        `Skipping AI batch for ${conversationId}: AI currently responding`,
+        `Skipping AI batch for ${conversationId}: AI currently responding`
       );
       return;
     }
 
     // Get delay from org config or use default
-    const batchDelayMs = org.aiAgentSettings?.batchDelayMs || DEFAULT_AI_SETTINGS.batchDelayMs;
+    const batchDelayMs =
+      org.aiAgentSettings?.batchDelayMs || DEFAULT_AI_SETTINGS.batchDelayMs;
 
     const jobId = `batch_${conversationId}`;
     const existingJob = await this.batchQueue.getJob(jobId);
@@ -100,7 +111,7 @@ export class AIBatchingService {
       await this.createBatchJob(jobId, data, batchDelayMs);
 
       this.logger.debug(
-        `Extended batch ${jobId} with message ${message._id}, total: ${data.messageIds.length}`,
+        `Extended batch ${jobId} with message ${message._id}, total: ${data.messageIds.length}`
       );
     } else {
       // Create new batch
@@ -114,7 +125,7 @@ export class AIBatchingService {
       await this.createBatchJob(jobId, data, batchDelayMs);
 
       // Update conversation state
-      await this.updateAIState(conversationId, 'BATCHING');
+      await this.updateAIState(conversationId, "BATCHING");
 
       this.logger.log(`Created new batch ${jobId} for message ${message._id}`);
     }
@@ -138,14 +149,35 @@ export class AIBatchingService {
 
   /**
    * Get pending messages for a batch
+   * Ensures messages belong to the specified conversation
    */
-  async getPendingMessages(messageIds: string[]): Promise<MessageDocument[]> {
+  async getPendingMessages(
+    conversationId: string,
+    messageIds: string[]
+  ): Promise<MessageDocument[]> {
     return this.messageModel
       .find({
+        conversationId: new Types.ObjectId(conversationId),
         _id: { $in: messageIds.map((id) => new Types.ObjectId(id)) },
       })
       .sort({ createdAt: 1 })
       .exec();
+  }
+
+  /**
+   * Get conversation by ID
+   */
+  async getConversation(
+    conversationId: string
+  ): Promise<ConversationDocument | null> {
+    return this.conversationModel.findById(conversationId).exec();
+  }
+
+  /**
+   * Get customer by ID
+   */
+  async getCustomer(customerId: string): Promise<CustomerDocument | null> {
+    return this.customerModel.findById(customerId).exec();
   }
 
   /**
@@ -154,7 +186,7 @@ export class AIBatchingService {
   async updateAIState(
     conversationId: string,
     state: AIState,
-    humanTakeoverAt?: Date,
+    humanTakeoverAt?: Date
   ): Promise<void> {
     const update: any = { aiState: state };
     if (humanTakeoverAt) {
@@ -169,7 +201,7 @@ export class AIBatchingService {
    * Default: 30 minutes
    */
   private async checkHumanTakeoverExpiry(
-    conversation: ConversationDocument,
+    conversation: ConversationDocument
   ): Promise<boolean> {
     if (!conversation.humanTakeoverAt) return false;
 
@@ -178,9 +210,9 @@ export class AIBatchingService {
     const elapsed = Date.now() - conversation.humanTakeoverAt.getTime();
 
     if (elapsed >= expiryMs) {
-      await this.updateAIState(conversation._id.toString(), 'AI_ACTIVE');
+      await this.updateAIState(conversation._id.toString(), "AI_ACTIVE");
       this.logger.log(
-        `Human takeover expired for ${conversation._id}, resuming AI`,
+        `Human takeover expired for ${conversation._id}, resuming AI`
       );
       return true;
     }
@@ -194,9 +226,9 @@ export class AIBatchingService {
   private async createBatchJob(
     jobId: string,
     data: BatchJobData,
-    delayMs: number,
+    delayMs: number
   ): Promise<void> {
-    await this.batchQueue.add('process-batch', data, {
+    await this.batchQueue.add("process-batch", data, {
       jobId,
       delay: delayMs,
       removeOnComplete: true,

@@ -18,10 +18,15 @@ import {
   Organization,
   OrganizationSchema,
 } from '@/common/database/schemas/organization.schema';
+import {
+  Customer,
+  CustomerSchema,
+} from '@/common/database/schemas/customer.schema';
 import { AIBatchingService, AI_BATCH_QUEUE } from './ai-batching.service';
 import { AIBatchingProcessor } from './ai-batching.processor';
 import { AIResponseService } from './ai-response.service';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
+import { AiAgentsModule } from '@/modules/ai-agents/ai-agents.module';
 
 @Module({
   imports: [
@@ -37,8 +42,10 @@ import { WebsocketModule } from '@/modules/websocket/websocket.module';
       { name: Conversation.name, schema: ConversationSchema },
       { name: Message.name, schema: MessageSchema },
       { name: Organization.name, schema: OrganizationSchema },
+      { name: Customer.name, schema: CustomerSchema },
     ]),
     forwardRef(() => WebsocketModule),
+    AiAgentsModule,
   ],
   providers: [AIBatchingService, AIBatchingProcessor, AIResponseService],
   exports: [AIBatchingService, AIResponseService],
