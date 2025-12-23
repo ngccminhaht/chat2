@@ -41,14 +41,14 @@ import type { OrganizationRole, OrganizationMember } from '../types/organization
 const ROLE_LABELS: Record<OrganizationRole, string> = {
   owner: 'Owner',
   admin: 'Admin',
-  agent: 'Agent',
+  agent: 'Agent', // Legacy, not selectable in UI
   viewer: 'Viewer',
 };
 
 const ROLE_COLORS: Record<OrganizationRole, 'default' | 'primary' | 'secondary' | 'info'> = {
   owner: 'primary',
   admin: 'secondary',
-  agent: 'info',
+  agent: 'info', // Legacy
   viewer: 'default',
 };
 
@@ -69,7 +69,7 @@ export default function OrganizationMembers() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<OrganizationRole>('agent');
+  const [inviteRole, setInviteRole] = useState<OrganizationRole>('viewer');
 
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<OrganizationMember | null>(null);
@@ -80,7 +80,7 @@ export default function OrganizationMembers() {
       await inviteMember.mutateAsync({ email: inviteEmail.toLowerCase().trim(), role: inviteRole });
       setInviteOpen(false);
       setInviteEmail('');
-      setInviteRole('agent');
+      setInviteRole('viewer');
     } catch {
       // Error handled by mutation
     }
@@ -117,7 +117,7 @@ export default function OrganizationMembers() {
   return (
     <Stack spacing={3}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h6">Team Members</Typography>
+        <Typography variant="h5">Members</Typography>
         {canManage && (
           <Button
             variant="contained"
@@ -125,7 +125,7 @@ export default function OrganizationMembers() {
             startIcon={<PersonAddIcon />}
             onClick={() => setInviteOpen(true)}
           >
-            Invite Member
+            Invite
           </Button>
         )}
       </Stack>
@@ -179,7 +179,6 @@ export default function OrganizationMembers() {
                           disabled={updateRole.isPending}
                         >
                           <MenuItem value="admin">Admin</MenuItem>
-                          <MenuItem value="agent">Agent</MenuItem>
                           <MenuItem value="viewer">Viewer</MenuItem>
                         </Select>
                       </FormControl>
@@ -227,7 +226,6 @@ export default function OrganizationMembers() {
                 onChange={(e) => setInviteRole(e.target.value as OrganizationRole)}
               >
                 <MenuItem value="admin">Admin - Can manage settings and members</MenuItem>
-                <MenuItem value="agent">Agent - Can handle conversations</MenuItem>
                 <MenuItem value="viewer">Viewer - Read-only access</MenuItem>
               </Select>
             </FormControl>
