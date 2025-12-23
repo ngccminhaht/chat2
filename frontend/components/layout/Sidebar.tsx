@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Box,
   Drawer,
@@ -24,7 +25,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 const drawerWidth = 240;
 
 interface NavMenuItem {
-  text: string;
+  textKey: string;
   icon: React.ReactNode;
   path: string;
 }
@@ -38,17 +39,17 @@ interface MenuSection {
 const getMenuSections = (orgSlug: string): MenuSection[] => [
   {
     items: [
-      { text: "Conversations", icon: <ChatIcon />, path: `/organizations/${orgSlug}/conversations` },
-      { text: "Customers", icon: <PeopleIcon />, path: `/organizations/${orgSlug}/customers` },
-      { text: "Channels", icon: <HubIcon />, path: `/organizations/${orgSlug}/channels` },
-      { text: "Widget", icon: <WidgetsIcon />, path: `/organizations/${orgSlug}/widget` },
-      { text: "AI Agent", icon: <SmartToyIcon />, path: `/organizations/${orgSlug}/ai-agent` },
-      { text: "Members", icon: <GroupsIcon />, path: `/organizations/${orgSlug}/members` },
+      { textKey: "conversations", icon: <ChatIcon />, path: `/organizations/${orgSlug}/conversations` },
+      { textKey: "customers", icon: <PeopleIcon />, path: `/organizations/${orgSlug}/customers` },
+      { textKey: "channels", icon: <HubIcon />, path: `/organizations/${orgSlug}/channels` },
+      { textKey: "widget", icon: <WidgetsIcon />, path: `/organizations/${orgSlug}/widget` },
+      { textKey: "aiAgent", icon: <SmartToyIcon />, path: `/organizations/${orgSlug}/ai-agent` },
+      { textKey: "members", icon: <GroupsIcon />, path: `/organizations/${orgSlug}/members` },
     ],
   },
   {
     items: [
-      { text: "Settings", icon: <SettingsIcon />, path: `/organizations/${orgSlug}/settings` },
+      { textKey: "settings", icon: <SettingsIcon />, path: `/organizations/${orgSlug}/settings` },
     ],
   },
 ];
@@ -63,6 +64,7 @@ interface SidebarProps {
 export default function Sidebar({ mobileOpen, onMobileClose, orgSlug, unreadCount = 0 }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const t = useTranslations("nav");
 
   const menuSections = orgSlug ? getMenuSections(orgSlug) : [];
   const conversationsPath = orgSlug ? `/organizations/${orgSlug}/conversations` : "";
@@ -83,15 +85,16 @@ export default function Sidebar({ mobileOpen, onMobileClose, orgSlug, unreadCoun
             {section.items.map((item) => {
               const isActive = pathname === item.path || pathname.startsWith(item.path + "/");
               const isConversations = item.path === conversationsPath;
+              const text = t(item.textKey);
               return (
-                <ListItem key={item.text} disablePadding>
+                <ListItem key={item.textKey} disablePadding>
                   <ListItemButton selected={isActive} onClick={() => handleNavigation(item.path)}>
                     <ListItemIcon>{item.icon}</ListItemIcon>
                     <ListItemText
                       primary={
                         isConversations && unreadCount > 0
-                          ? <Badge badgeContent={unreadCount} color="error" sx={{ '& .MuiBadge-badge': { right: -16, top: 8 } }}>{item.text}</Badge>
-                          : item.text
+                          ? <Badge badgeContent={unreadCount} color="error" sx={{ '& .MuiBadge-badge': { right: -16, top: 8 } }}>{text}</Badge>
+                          : text
                       }
                     />
                   </ListItemButton>

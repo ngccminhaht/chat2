@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import {
   Box,
   Paper,
@@ -29,6 +30,7 @@ interface ConversationListProps {
 }
 
 export default function ConversationList({ activeConversationId, orgSlug }: ConversationListProps) {
+  const t = useTranslations('conversations');
   const [status, setStatus] = useState<'open' | 'closed' | 'archived'>('open');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -85,9 +87,9 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={status} onChange={handleStatusChange}>
-          <Tab label="Open" value="open" />
-          <Tab label="Closed" value="closed" />
-          <Tab label="Archived" value="archived" />
+          <Tab label={t('open')} value="open" />
+          <Tab label={t('closed')} value="closed" />
+          <Tab label={t('archived')} value="archived" />
         </Tabs>
       </Box>
 
@@ -95,7 +97,7 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
         <TextField
           fullWidth
           size="small"
-          placeholder="Search conversations..."
+          placeholder={t('searchPlaceholder')}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           slotProps={{
@@ -131,9 +133,9 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
 
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         {isLoading && <LoadingSpinner />}
-        {error && <EmptyState message="Error loading conversations" />}
+        {error && <EmptyState message={t('errorLoading')} />}
         {!isLoading && !error && conversations?.length === 0 && (
-          <EmptyState message="No conversations found" />
+          <EmptyState message={t('noConversations')} />
         )}
         {!isLoading && !error && conversations && conversations.length > 0 && (
           <List>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Box,
   Card,
@@ -19,6 +20,7 @@ import { useAuthStore } from "../stores/authStore";
 
 export function RegisterForm() {
   const router = useRouter();
+  const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { mutate: register, isPending, error } = useRegister();
@@ -64,12 +66,12 @@ export function RegisterForm() {
       <Card>
         <CardContent>
           <Typography variant="h4" component="h1" gutterBottom>
-            Register
+            {t("register")}
           </Typography>
 
           {error && (
             <Alert severity="error">
-              {error.message || "Registration failed. Please try again."}
+              {error.message || t("registerFailed")}
             </Alert>
           )}
 
@@ -79,7 +81,7 @@ export function RegisterForm() {
               required
               fullWidth
               id="email"
-              label="Email Address"
+              label={t("emailPlaceholder")}
               name="email"
               autoComplete="email"
               autoFocus
@@ -91,7 +93,7 @@ export function RegisterForm() {
               required
               fullWidth
               name="password"
-              label="Password"
+              label={t("password")}
               type="password"
               id="password"
               autoComplete="new-password"
@@ -104,14 +106,14 @@ export function RegisterForm() {
               variant="contained"
               disabled={isPending}
             >
-              {isPending ? "Creating account..." : "Register"}
+              {isPending ? t("creatingAccount") : t("register")}
             </Button>
 
             <Box mt={2} textAlign="center">
               <Typography variant="body2">
-                Already have an account?{" "}
+                {t("hasAccount")}{" "}
                 <MuiLink component={Link} href="/login">
-                  Login here
+                  {t("loginHere")}
                 </MuiLink>
               </Typography>
             </Box>

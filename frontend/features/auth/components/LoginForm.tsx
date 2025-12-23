@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Box,
   Card,
@@ -19,6 +20,7 @@ import { useAuthStore } from "../stores/authStore";
 
 export function LoginForm() {
   const router = useRouter();
+  const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { mutate: login, isPending, error } = useLogin();
@@ -64,12 +66,12 @@ export function LoginForm() {
       <Card>
         <CardContent>
           <Typography variant="h4" component="h1" gutterBottom>
-            Login
+            {t("login")}
           </Typography>
 
           {error && (
             <Alert severity="error">
-              {error.message || "Login failed. Please try again."}
+              {error.message || t("loginFailed")}
             </Alert>
           )}
 
@@ -79,7 +81,7 @@ export function LoginForm() {
               required
               fullWidth
               id="email"
-              label="Email Address"
+              label={t("emailPlaceholder")}
               name="email"
               autoComplete="email"
               autoFocus
@@ -91,7 +93,7 @@ export function LoginForm() {
               required
               fullWidth
               name="password"
-              label="Password"
+              label={t("password")}
               type="password"
               id="password"
               autoComplete="current-password"
@@ -104,14 +106,14 @@ export function LoginForm() {
               variant="contained"
               disabled={isPending}
             >
-              {isPending ? "Logging in..." : "Login"}
+              {isPending ? t("loggingIn") : t("login")}
             </Button>
 
             <Box mt={2} textAlign="center">
               <Typography variant="body2">
-                Don't have an account?{" "}
+                {t("noAccount")}{" "}
                 <MuiLink component={Link} href="/register">
-                  Register here
+                  {t("registerHere")}
                 </MuiLink>
               </Typography>
             </Box>

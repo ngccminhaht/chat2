@@ -1,0 +1,173 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "remove": "Remove",
+    "confirm": "Confirm",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "noData": "No data",
+    "you": "You"
+  },
+  "nav": {
+    "conversations": "Conversations",
+    "customers": "Customers",
+    "channels": "Channels",
+    "widget": "Widget",
+    "aiAgent": "AI Agent",
+    "members": "Members",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "emailPlaceholder": "Email Address",
+    "loggingIn": "Logging in...",
+    "creatingAccount": "Creating account...",
+    "loginFailed": "Login failed. Please try again.",
+    "registerFailed": "Registration failed. Please try again.",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "registerHere": "Register here",
+    "loginHere": "Login here"
+  },
+  "members": {
+    "title": "Members",
+    "invite": "Invite",
+    "inviteMember": "Invite Member",
+    "inviteFailed": "Failed to invite member. Make sure the email is registered.",
+    "removeMember": "Remove Member",
+    "removeConfirm": "Are you sure you want to remove {name} from the organization?",
+    "sendInvite": "Send Invite",
+    "noMembers": "No team members yet. Invite someone to get started.",
+    "emailLabel": "Email Address",
+    "invalidEmail": "Enter a valid email",
+    "roleLabel": "Role",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "agent": "Agent",
+      "viewer": "Viewer"
+    },
+    "roleDescriptions": {
+      "admin": "Admin - Can manage settings and members",
+      "viewer": "Viewer - Read-only access"
+    }
+  },
+  "conversations": {
+    "title": "Conversations",
+    "open": "Open",
+    "closed": "Closed",
+    "archived": "Archived",
+    "searchPlaceholder": "Search conversations...",
+    "noConversations": "No conversations found",
+    "errorLoading": "Error loading conversations",
+    "typeMessage": "Type a message...",
+    "send": "Send"
+  },
+  "customers": {
+    "title": "Customers",
+    "noCustomers": "No customers yet",
+    "totalConversations": "Total conversations",
+    "lastActive": "Last active",
+    "info": "Customer Info",
+    "name": "Name",
+    "phone": "Phone",
+    "notes": "Notes"
+  },
+  "channels": {
+    "title": "Connected Channels",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "platforms": {
+      "facebook": "Facebook Messenger",
+      "zalo": "Zalo OA",
+      "tiktok": "TikTok Shop",
+      "shopee": "Shopee",
+      "web": "Website Widget"
+    }
+  },
+  "widget": {
+    "title": "Chat Widget",
+    "preview": "Preview",
+    "settings": "Widget Settings",
+    "embedCode": "Embed Code",
+    "copyCode": "Copy Code"
+  },
+  "aiAgent": {
+    "title": "AI Agent",
+    "create": "Create AI Agent",
+    "edit": "Edit AI Agent",
+    "delete": "Delete AI Agent",
+    "name": "Name",
+    "description": "Description",
+    "provider": "Provider",
+    "model": "Model",
+    "systemPrompt": "System Prompt",
+    "webhookUrl": "Webhook URL",
+    "apiKey": "API Key",
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "deleteConfirm": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+    "noAgents": "No AI agents configured. Create one to get started.",
+    "info": "AI Agents can automatically respond to customers when assigned to conversations. Configure webhook URL to connect to your external AI platform."
+  },
+  "settings": {
+    "title": "Settings",
+    "organization": "Organization Settings",
+    "profile": "Profile",
+    "orgName": "Organization Name",
+    "urlSlug": "URL Slug",
+    "urlSlugHelper": "URL slug cannot be changed",
+    "plan": "Plan",
+    "planHelper": "Contact support to upgrade your plan",
+    "saveChanges": "Save Changes",
+    "dangerZone": "Danger Zone",
+    "deleteOrg": "Delete Organization",
+    "deleteOrgWarning": "Deleting an organization will remove all data including conversations, messages, connections, and team members. This action cannot be undone.",
+    "ownerOnly": "Only organization owners can modify these settings."
+  },
+  "organizations": {
+    "title": "Organizations",
+    "select": "Select Organization",
+    "create": "Create Organization",
+    "createNew": "Create New Organization",
+    "name": "Organization Name",
+    "slug": "URL Slug",
+    "description": "Description",
+    "creating": "Creating...",
+    "noOrganizations": "You don't have any organizations yet",
+    "getStarted": "Create your first organization to start managing your conversations.",
+    "createFirst": "Create First Organization"
+  },
+  "quickReplies": {
+    "title": "Quick Replies",
+    "create": "Create Reply Template",
+    "edit": "Edit Reply Template",
+    "shortcut": "Shortcut",
+    "content": "Content",
+    "noReplies": "No quick reply templates yet"
+  },
+  "filters": {
+    "platform": "Platform",
+    "status": "Status",
+    "all": "All",
+    "clearFilters": "Clear filters"
+  }
+}

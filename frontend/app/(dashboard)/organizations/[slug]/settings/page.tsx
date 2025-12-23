@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import {
   Box,
   Paper,
@@ -13,6 +14,7 @@ import {
 import { useAuthStore } from '@/features/auth/stores/authStore';
 
 export default function SettingsPage() {
+  const t = useTranslations('settings');
   const organization = useAuthStore((state) => state.organization);
   const currentRole = useAuthStore((state) => state.getCurrentRole());
   const isOwner = currentRole === 'owner';
@@ -21,36 +23,36 @@ export default function SettingsPage() {
     <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}>
       <Paper sx={{ maxWidth: 900, mx: 'auto', my: 2, p: 3 }}>
         <Stack spacing={3}>
-          <Typography variant="h5">Organization Settings</Typography>
+          <Typography variant="h5">{t('organization')}</Typography>
 
           {!isOwner && (
             <Alert severity="info">
-              Only organization owners can modify these settings.
+              {t('ownerOnly')}
             </Alert>
           )}
 
           <Stack spacing={2}>
             <TextField
-              label="Organization Name"
+              label={t('orgName')}
               defaultValue={organization?.name || ''}
               fullWidth
               disabled={!isOwner}
             />
 
             <TextField
-              label="URL Slug"
+              label={t('urlSlug')}
               defaultValue={organization?.slug || ''}
               fullWidth
               disabled
-              helperText="URL slug cannot be changed"
+              helperText={t('urlSlugHelper')}
             />
 
             <TextField
-              label="Plan"
+              label={t('plan')}
               value={organization?.plan || 'free'}
               fullWidth
               disabled
-              helperText="Contact support to upgrade your plan"
+              helperText={t('planHelper')}
             />
           </Stack>
 
@@ -58,7 +60,7 @@ export default function SettingsPage() {
             <>
               <Box>
                 <Button variant="contained" disabled>
-                  Save Changes
+                  {t('saveChanges')}
                 </Button>
               </Box>
 
@@ -66,15 +68,14 @@ export default function SettingsPage() {
 
               <Stack spacing={2}>
                 <Typography variant="h6" color="error">
-                  Danger Zone
+                  {t('dangerZone')}
                 </Typography>
                 <Alert severity="warning">
-                  Deleting an organization will remove all data including conversations,
-                  messages, connections, and team members. This action cannot be undone.
+                  {t('deleteOrgWarning')}
                 </Alert>
                 <Box>
                   <Button variant="outlined" color="error" disabled>
-                    Delete Organization
+                    {t('deleteOrg')}
                   </Button>
                 </Box>
               </Stack>

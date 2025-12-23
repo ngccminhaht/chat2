@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Nunito } from 'next/font/google';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -15,15 +17,20 @@ export const metadata: Metadata = {
   description: 'Multi-channel messaging platform',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="en" className={nunito.variable}>
+    <html lang={locale} className={nunito.variable}>
       <body className={nunito.className}>
-        <Providers>{children}</Providers>
+        <NextIntlClientProvider messages={messages}>
+          <Providers>{children}</Providers>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

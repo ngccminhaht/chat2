@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Box,
   Stack,
@@ -39,13 +40,6 @@ import {
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import type { OrganizationRole, OrganizationMember } from '../types/organization.types';
 
-const ROLE_LABELS: Record<OrganizationRole, string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  agent: 'Agent', // Legacy, not selectable in UI
-  viewer: 'Viewer',
-};
-
 const ROLE_COLORS: Record<OrganizationRole, 'default' | 'primary' | 'secondary' | 'info'> = {
   owner: 'primary',
   admin: 'secondary',
@@ -58,6 +52,8 @@ function isValidEmail(email: string): boolean {
 }
 
 export default function OrganizationMembers() {
+  const t = useTranslations('members');
+  const tc = useTranslations('common');
   const { data: members, isLoading } = useOrganizationMembers();
   const inviteMember = useInviteMember();
   const updateRole = useUpdateMemberRole();
@@ -118,7 +114,7 @@ export default function OrganizationMembers() {
   return (
     <Stack spacing={3}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h5">Members</Typography>
+        <Typography variant="h5">{t('title')}</Typography>
         {canManage && (
           <Button
             variant="contained"
@@ -126,7 +122,7 @@ export default function OrganizationMembers() {
             startIcon={<PersonAddIcon />}
             onClick={() => setInviteOpen(true)}
           >
-            Invite
+            {t('invite')}
           </Button>
         )}
       </Stack>
@@ -135,7 +131,7 @@ export default function OrganizationMembers() {
 
       {inviteMember.isError && (
         <Alert severity="error">
-          Failed to invite member. Make sure the email is registered.
+          {t('inviteFailed')}
         </Alert>
       )}
 
@@ -170,7 +166,7 @@ export default function OrganizationMembers() {
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography variant="body1">
                       {member.userId.name}
-                      {isCurrentUser && ' (You)'}
+                      {isCurrentUser && ` (${tc('you')})`}
                     </Typography>
                     {isOwner && !isMemberOwner ? (
                       <FormControl size="small" variant="standard">
@@ -181,13 +177,13 @@ export default function OrganizationMembers() {
                           }
                           disabled={updateRole.isPending}
                         >
-                          <MenuItem value="admin">Admin</MenuItem>
-                          <MenuItem value="viewer">Viewer</MenuItem>
+                          <MenuItem value="admin">{t('roles.admin')}</MenuItem>
+                          <MenuItem value="viewer">{t('roles.viewer')}</MenuItem>
                         </Select>
                       </FormControl>
                     ) : (
                       <Chip
-                        label={ROLE_LABELS[member.role]}
+                        label={t(`roles.${member.role}`)}
                         size="small"
                         color={ROLE_COLORS[member.role]}
                         variant="outlined"
@@ -203,66 +199,66 @@ export default function OrganizationMembers() {
       </List>
 
       {(!members || members.length === 0) && (
-        <Alert severity="info">No team members yet. Invite someone to get started.</Alert>
+        <Alert severity="info">{t('noMembers')}</Alert>
       )}
 
       {/* Invite Dialog */}
       <Dialog open={inviteOpen} onClose={() => setInviteOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Invite Team Member</DialogTitle>
+        <DialogTitle>{t('inviteMember')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} pt={1}>
             <TextField
-              label="Email Address"
+              label={t('emailLabel')}
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               fullWidth
               autoFocus
               error={inviteEmail.length > 0 && !isValidEmail(inviteEmail)}
-              helperText={inviteEmail.length > 0 && !isValidEmail(inviteEmail) ? 'Enter a valid email' : ''}
+              helperText={inviteEmail.length > 0 && !isValidEmail(inviteEmail) ? t('invalidEmail') : ''}
             />
             <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
+              <InputLabel>{t('roleLabel')}</InputLabel>
               <Select
                 value={inviteRole}
-                label="Role"
+                label={t('roleLabel')}
                 onChange={(e) => setInviteRole(e.target.value as OrganizationRole)}
               >
-                <MenuItem value="admin">Admin - Can manage settings and members</MenuItem>
-                <MenuItem value="viewer">Viewer - Read-only access</MenuItem>
+                <MenuItem value="admin">{t('roleDescriptions.admin')}</MenuItem>
+                <MenuItem value="viewer">{t('roleDescriptions.viewer')}</MenuItem>
               </Select>
             </FormControl>
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setInviteOpen(false)}>Cancel</Button>
+          <Button onClick={() => setInviteOpen(false)}>{tc('cancel')}</Button>
           <Button
             variant="contained"
             onClick={handleInvite}
             disabled={!inviteEmail || !isValidEmail(inviteEmail) || inviteMember.isPending}
           >
-            {inviteMember.isPending ? <CircularProgress size={20} /> : 'Send Invite'}
+            {inviteMember.isPending ? <CircularProgress size={20} /> : t('sendInvite')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Remove Confirmation Dialog */}
       <Dialog open={removeDialogOpen} onClose={() => setRemoveDialogOpen(false)}>
-        <DialogTitle>Remove Member</DialogTitle>
+        <DialogTitle>{t('removeMember')}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to remove {memberToRemove?.userId.name} from the organization?
+            {t('removeConfirm', { name: memberToRemove?.userId.name || '' })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRemoveDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setRemoveDialogOpen(false)}>{tc('cancel')}</Button>
           <Button
             variant="contained"
             color="error"
             onClick={confirmRemove}
             disabled={removeMember.isPending}
           >
-            {removeMember.isPending ? <CircularProgress size={20} /> : 'Remove'}
+            {removeMember.isPending ? <CircularProgress size={20} /> : tc('remove')}
           </Button>
         </DialogActions>
       </Dialog>

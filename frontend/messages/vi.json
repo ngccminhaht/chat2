@@ -1,0 +1,173 @@
+{
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Đã xảy ra lỗi",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "edit": "Sửa",
+    "create": "Tạo",
+    "add": "Thêm",
+    "remove": "Xóa",
+    "confirm": "Xác nhận",
+    "close": "Đóng",
+    "search": "Tìm kiếm",
+    "filter": "Lọc",
+    "noData": "Không có dữ liệu",
+    "you": "Bạn"
+  },
+  "nav": {
+    "conversations": "Hội thoại",
+    "customers": "Khách hàng",
+    "channels": "Kênh",
+    "widget": "Widget",
+    "aiAgent": "AI Agent",
+    "members": "Thành viên",
+    "settings": "Cài đặt"
+  },
+  "auth": {
+    "login": "Đăng nhập",
+    "register": "Đăng ký",
+    "logout": "Đăng xuất",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "emailPlaceholder": "Địa chỉ email",
+    "loggingIn": "Đang đăng nhập...",
+    "creatingAccount": "Đang tạo tài khoản...",
+    "loginFailed": "Đăng nhập thất bại. Vui lòng thử lại.",
+    "registerFailed": "Đăng ký thất bại. Vui lòng thử lại.",
+    "noAccount": "Chưa có tài khoản?",
+    "hasAccount": "Đã có tài khoản?",
+    "registerHere": "Đăng ký tại đây",
+    "loginHere": "Đăng nhập tại đây"
+  },
+  "members": {
+    "title": "Thành viên",
+    "invite": "Mời",
+    "inviteMember": "Mời thành viên",
+    "inviteFailed": "Không thể mời thành viên. Đảm bảo email đã được đăng ký.",
+    "removeMember": "Xóa thành viên",
+    "removeConfirm": "Bạn có chắc muốn xóa {name} khỏi tổ chức?",
+    "sendInvite": "Gửi lời mời",
+    "noMembers": "Chưa có thành viên. Mời ai đó để bắt đầu.",
+    "emailLabel": "Địa chỉ email",
+    "invalidEmail": "Nhập email hợp lệ",
+    "roleLabel": "Vai trò",
+    "roles": {
+      "owner": "Chủ sở hữu",
+      "admin": "Quản trị viên",
+      "agent": "Nhân viên",
+      "viewer": "Người xem"
+    },
+    "roleDescriptions": {
+      "admin": "Quản trị viên - Quản lý cài đặt và thành viên",
+      "viewer": "Người xem - Chỉ được xem"
+    }
+  },
+  "conversations": {
+    "title": "Hội thoại",
+    "open": "Đang mở",
+    "closed": "Đã đóng",
+    "archived": "Lưu trữ",
+    "searchPlaceholder": "Tìm kiếm hội thoại...",
+    "noConversations": "Không có hội thoại nào",
+    "errorLoading": "Lỗi khi tải hội thoại",
+    "typeMessage": "Nhập tin nhắn...",
+    "send": "Gửi"
+  },
+  "customers": {
+    "title": "Khách hàng",
+    "noCustomers": "Chưa có khách hàng",
+    "totalConversations": "Tổng hội thoại",
+    "lastActive": "Hoạt động lần cuối",
+    "info": "Thông tin khách hàng",
+    "name": "Tên",
+    "phone": "Số điện thoại",
+    "notes": "Ghi chú"
+  },
+  "channels": {
+    "title": "Kênh kết nối",
+    "connect": "Kết nối",
+    "disconnect": "Ngắt kết nối",
+    "connected": "Đã kết nối",
+    "notConnected": "Chưa kết nối",
+    "platforms": {
+      "facebook": "Facebook Messenger",
+      "zalo": "Zalo OA",
+      "tiktok": "TikTok Shop",
+      "shopee": "Shopee",
+      "web": "Website Widget"
+    }
+  },
+  "widget": {
+    "title": "Widget Chat",
+    "preview": "Xem trước",
+    "settings": "Cài đặt Widget",
+    "embedCode": "Mã nhúng",
+    "copyCode": "Sao chép mã"
+  },
+  "aiAgent": {
+    "title": "AI Agent",
+    "create": "Tạo AI Agent",
+    "edit": "Sửa AI Agent",
+    "delete": "Xóa AI Agent",
+    "name": "Tên",
+    "description": "Mô tả",
+    "provider": "Nhà cung cấp",
+    "model": "Mô hình",
+    "systemPrompt": "System Prompt",
+    "webhookUrl": "Webhook URL",
+    "apiKey": "API Key",
+    "status": {
+      "active": "Hoạt động",
+      "inactive": "Không hoạt động"
+    },
+    "activate": "Kích hoạt",
+    "deactivate": "Hủy kích hoạt",
+    "deleteConfirm": "Bạn có chắc muốn xóa \"{name}\"? Hành động này không thể hoàn tác.",
+    "noAgents": "Chưa có AI agent. Tạo một agent để bắt đầu.",
+    "info": "AI Agents có thể tự động trả lời khách hàng khi được gán vào hội thoại. Cấu hình webhook URL để kết nối với nền tảng AI bên ngoài."
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "organization": "Cài đặt tổ chức",
+    "profile": "Hồ sơ cá nhân",
+    "orgName": "Tên tổ chức",
+    "urlSlug": "URL Slug",
+    "urlSlugHelper": "URL slug không thể thay đổi",
+    "plan": "Gói dịch vụ",
+    "planHelper": "Liên hệ hỗ trợ để nâng cấp gói",
+    "saveChanges": "Lưu thay đổi",
+    "dangerZone": "Vùng nguy hiểm",
+    "deleteOrg": "Xóa tổ chức",
+    "deleteOrgWarning": "Xóa tổ chức sẽ xóa tất cả dữ liệu bao gồm hội thoại, tin nhắn, kết nối và thành viên. Hành động này không thể hoàn tác.",
+    "ownerOnly": "Chỉ chủ sở hữu tổ chức mới có thể thay đổi cài đặt này."
+  },
+  "organizations": {
+    "title": "Tổ chức",
+    "select": "Chọn tổ chức",
+    "create": "Tạo tổ chức",
+    "createNew": "Tạo tổ chức mới",
+    "name": "Tên tổ chức",
+    "slug": "URL Slug",
+    "description": "Mô tả",
+    "creating": "Đang tạo...",
+    "noOrganizations": "Bạn chưa có tổ chức nào",
+    "getStarted": "Tạo tổ chức đầu tiên để bắt đầu quản lý hội thoại của bạn.",
+    "createFirst": "Tạo tổ chức đầu tiên"
+  },
+  "quickReplies": {
+    "title": "Trả lời nhanh",
+    "create": "Tạo mẫu trả lời",
+    "edit": "Sửa mẫu trả lời",
+    "shortcut": "Phím tắt",
+    "content": "Nội dung",
+    "noReplies": "Chưa có mẫu trả lời nhanh"
+  },
+  "filters": {
+    "platform": "Nền tảng",
+    "status": "Trạng thái",
+    "all": "Tất cả",
+    "clearFilters": "Xóa bộ lọc"
+  }
+}
