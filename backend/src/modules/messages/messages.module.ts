@@ -6,7 +6,7 @@ import { Message, MessageSchema } from '@/common/database/schemas/message.schema
 import { Conversation, ConversationSchema } from '@/common/database/schemas/conversation.schema';
 import { PlatformConnection, PlatformConnectionSchema } from '@/common/database/schemas/platform-connection.schema';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
-import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
+import { InboundMessageHandlerModule } from './inbound-message-handler.module';
 
 @Module({
   imports: [
@@ -18,7 +18,8 @@ import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
     // Note: KafkaModule is @Global(), no need to import here
     // WebsocketModule for VisitorMessageService (web chat)
     forwardRef(() => WebsocketModule),
-    AIBatchingModule,
+    // InboundMessageHandlerModule is @Global(), imports here to ensure it's loaded
+    InboundMessageHandlerModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService],

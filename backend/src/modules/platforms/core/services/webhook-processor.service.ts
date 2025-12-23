@@ -1,15 +1,14 @@
 /**
  * Webhook Processor Service
  * Unified webhook processing for all platforms
- * Eliminates code duplication across platform services
+ * Uses InboundMessageHandlerService for message CRUD + AI batching
  */
 
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import {
   Platform,
-  ConversationStatus,
   MessageStatus,
   MessageDirection,
 } from '@/common/constants';
@@ -39,10 +38,11 @@ import {
   MessageEvent,
   DeliveryEvent,
   ReadEvent,
-  NormalizedMessage,
   UserProfile,
 } from '../interfaces';
-import { AIBatchingService } from '@/modules/ai-batching/ai-batching.service';
+import {
+  InboundMessageHandlerService,
+} from '@/modules/messages/inbound-message-handler.service';
 
 export interface WebhookProcessResult {
   success: boolean;
@@ -61,7 +61,7 @@ export class WebhookProcessorService {
     @InjectModel(PlatformConnection.name)
     private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
     private readonly kafkaProducer: KafkaProducerService,
-    private readonly aiBatchingService: AIBatchingService,
+    private readonly inboundMessageHandler: InboundMessageHandlerService,
   ) {}
 
   /**
@@ -147,6 +147,7 @@ export class WebhookProcessorService {
 
   /**
    * Handle incoming message event
+   * Uses InboundMessageHandlerService for CRUD + AI batching
    * @returns true if message was saved, false if skipped
    */
   private async handleMessage(
@@ -167,32 +168,35 @@ export class WebhookProcessorService {
     // 2. Fetch user profile
     const userProfile = await this.fetchUserProfileSafe(adapter, connection, senderId);
 
-    // 3. Find or create conversation
-    const conversation = await this.findOrCreateConversation(
-      adapter.platform,
-      normalized,
-      connection,
-      userProfile,
-    );
+    // 3. Process via shared handler (conversation CRUD + message save + AI batching)
+    const result = await this.inboundMessageHandler.processInboundMessage({
+      platform: adapter.platform,
+      organizationId: connection.organizationId.toString(),
+      conversationKey: normalized.conversationKey,
+      platformMessageId: normalized.platformMessageId,
+      direction: normalized.direction,
+      type: normalized.type,
+      content: normalized.content,
+      sender: {
+        platformUserId: normalized.senderId,
+        name: userProfile.name,
+        avatar: userProfile.avatar,
+      },
+      timestamp: normalized.timestamp,
+      metadata: normalized.metadata,
+      customerName: userProfile.name,
+      customerAvatar: userProfile.avatar,
+      platformConnectionId: connection._id.toString(),
+      platformAccountId: connection.platformAccountId,
+    });
 
-    // 4. Save message with atomic upsert (handles dedup + race conditions)
-    const message = await this.saveMessageWithUpsert(normalized, conversation, userProfile);
-
-    // If null, message was a duplicate
-    if (!message) {
+    // Skip if duplicate
+    if (!result.isNew) {
       return false;
     }
 
-    // 5. Update conversation last message
-    await this.updateConversationLastMessage(conversation, message, normalized);
-
-    // 6. Publish WebSocket notification
-    await this.publishNotification(connection, conversation, message);
-
-    // 7. Trigger AI batching for inbound messages
-    if (normalized.direction === MessageDirection.INBOUND) {
-      await this.aiBatchingService.onVisitorMessage(message, conversation);
-    }
+    // 4. Publish WebSocket notification (webhook-specific, keep here)
+    await this.publishNotification(connection, result.conversation, result.message);
 
     return true;
   }
@@ -267,130 +271,6 @@ export class WebhookProcessorService {
         name: `${adapter.platform} User ${userId.substring(0, 8)}`,
       };
     }
-  }
-
-  /**
-   * Find or create conversation
-   */
-  private async findOrCreateConversation(
-    platform: Platform,
-    normalized: NormalizedMessage,
-    connection: PlatformConnectionDocument,
-    userProfile: UserProfile,
-  ): Promise<ConversationDocument> {
-    const conversationKey = normalized.conversationKey;
-
-    let conversation = await this.conversationModel.findOne({
-      platform,
-      platformConversationId: conversationKey,
-    }).exec();
-
-    if (conversation) {
-      // Update connection if changed
-      if (conversation.platformConnectionId.toString() !== connection._id.toString()) {
-        conversation.platformConnectionId = new Types.ObjectId(connection._id.toString());
-        await conversation.save();
-      }
-
-      // Update customer info if it was placeholder
-      if (conversation.customerName.startsWith(`${platform} User`)) {
-        conversation.customerName = userProfile.name;
-        conversation.customerAvatar = userProfile.avatar;
-        await conversation.save();
-      }
-
-      return conversation;
-    }
-
-    // Create new conversation
-    conversation = await this.conversationModel.create({
-      platform,
-      platformConversationId: conversationKey,
-      platformConnectionId: connection._id,
-      organizationId: connection.organizationId,
-      platformAccountId: connection.platformAccountId,
-      customerPlatformUserId: normalized.senderId,
-      customerName: userProfile.name,
-      customerAvatar: userProfile.avatar,
-      status: ConversationStatus.OPEN,
-      unreadCount: 0,
-      metadata: {
-        userProfile,
-      },
-    });
-
-    return conversation;
-  }
-
-  /**
-   * Save message using atomic upsert pattern
-   * Handles deduplication and race conditions in a single operation
-   * Returns null if message already exists (duplicate)
-   */
-  private async saveMessageWithUpsert(
-    normalized: NormalizedMessage,
-    conversation: ConversationDocument,
-    userProfile: UserProfile,
-  ): Promise<MessageDocument | null> {
-    const messageData = {
-      conversationId: conversation._id,
-      organizationId: conversation.organizationId,
-      platform: conversation.platform,
-      platformMessageId: normalized.platformMessageId,
-      direction: normalized.direction,
-      type: normalized.type,
-      content: normalized.content,
-      sender: {
-        platformUserId: normalized.senderId,
-        name: userProfile.name,
-        avatar: userProfile.avatar,
-      },
-      status: MessageStatus.SENT,
-      metadata: normalized.metadata,
-    };
-
-    const result = await this.messageModel.findOneAndUpdate(
-      {
-        organizationId: conversation.organizationId,
-        platform: conversation.platform,
-        platformMessageId: normalized.platformMessageId,
-      },
-      { $setOnInsert: messageData },
-      { upsert: true, new: true, includeResultMetadata: true },
-    ).exec();
-
-    // Return null if document already existed (duplicate)
-    // When upsert matches existing doc, updatedExisting is true
-    if (result.lastErrorObject?.updatedExisting) {
-      return null;
-    }
-
-    return result.value;
-  }
-
-  /**
-   * Update conversation's last message and unread count
-   */
-  private async updateConversationLastMessage(
-    conversation: ConversationDocument,
-    message: MessageDocument,
-    normalized: NormalizedMessage,
-  ): Promise<void> {
-    const text = normalized.content.text || `[${normalized.type}]`;
-
-    await this.conversationModel.findByIdAndUpdate(
-      conversation._id,
-      {
-        lastMessage: {
-          text: text.substring(0, 100), // Truncate for preview
-          timestamp: normalized.timestamp,
-          senderId: normalized.senderId,
-          messageId: message._id,
-        },
-        $inc: { unreadCount: 1 },
-      },
-      { timestamps: true },
-    );
   }
 
   /**

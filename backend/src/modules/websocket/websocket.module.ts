@@ -19,7 +19,6 @@ import {
   Message,
   MessageSchema,
 } from '@/common/database/schemas/message.schema';
-import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
 import { CustomersModule } from '@/modules/customers/customers.module';
 
 @Module({
@@ -36,7 +35,7 @@ import { CustomersModule } from '@/modules/customers/customers.module';
       { name: Conversation.name, schema: ConversationSchema },
       { name: Message.name, schema: MessageSchema },
     ]),
-    AIBatchingModule,
+    // Note: InboundMessageHandlerModule is @Global, no need to import here
     CustomersModule,
   ],
   controllers: [WebSocketBridgeConsumer],

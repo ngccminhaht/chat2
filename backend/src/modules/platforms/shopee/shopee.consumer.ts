@@ -1,30 +1,31 @@
 import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { KAFKA_TOPICS } from '@/infra/kafka/kafka.config';
-import { ShopeeService } from './shopee.service';
-import { ShopeeWebhookDto } from './dto/shopee-webhook.dto';
+import { WebhookProcessorService } from '../core/services/webhook-processor.service';
+import { Platform } from '@/common/constants';
 
 /**
  * Shopee Kafka Consumer
  *
- * Consumes webhook events from Kafka and processes them asynchronously.
+ * Consumes webhook events from Kafka and processes them via WebhookProcessorService.
  * Topic: platform.shopee.webhooks
  */
 @Controller()
 export class ShopeeConsumer {
   private readonly logger = new Logger(ShopeeConsumer.name);
 
-  constructor(private readonly shopeeService: ShopeeService) {}
+  constructor(private readonly webhookProcessor: WebhookProcessorService) {}
 
   @MessagePattern(KAFKA_TOPICS.SHOPEE_WEBHOOKS)
-  async handleWebhook(@Payload() payload: ShopeeWebhookDto): Promise<void> {
+  async handleWebhook(@Payload() payload: unknown): Promise<void> {
     this.logger.log(`📨 Kafka: Processing Shopee webhook`);
 
-    try {
-      await this.shopeeService.processWebhook(payload);
-      this.logger.log(`✅ Processed`);
-    } catch (error) {
-      this.logger.error(`❌ Failed:`, error);
+    const result = await this.webhookProcessor.process(Platform.SHOPEE, payload);
+
+    if (result.success) {
+      this.logger.log(`✅ Processed ${result.messagesProcessed} messages`);
+    } else {
+      this.logger.error(`❌ Failed:`, result.errors);
     }
   }
 }

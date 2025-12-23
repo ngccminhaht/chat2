@@ -1,30 +1,31 @@
 import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { KAFKA_TOPICS } from '@/infra/kafka/kafka.config';
-import { FacebookService } from './facebook.service';
-import { FacebookWebhookDto } from './dto/facebook-webhook.dto';
+import { WebhookProcessorService } from '../core/services/webhook-processor.service';
+import { Platform } from '@/common/constants';
 
 /**
  * Facebook Kafka Consumer
  *
- * Consumes webhook events from Kafka and processes them asynchronously.
+ * Consumes webhook events from Kafka and processes them via WebhookProcessorService.
  * Topic: platform.facebook.webhooks
  */
 @Controller()
 export class FacebookConsumer {
   private readonly logger = new Logger(FacebookConsumer.name);
 
-  constructor(private readonly facebookService: FacebookService) {}
+  constructor(private readonly webhookProcessor: WebhookProcessorService) {}
 
   @MessagePattern(KAFKA_TOPICS.FACEBOOK_WEBHOOKS)
-  async handleWebhook(@Payload() payload: FacebookWebhookDto): Promise<void> {
+  async handleWebhook(@Payload() payload: unknown): Promise<void> {
     this.logger.log(`📨 Kafka: Processing Facebook webhook`);
 
-    try {
-      await this.facebookService.processWebhook(payload);
-      this.logger.log(`✅ Processed`);
-    } catch (error) {
-      this.logger.error(`❌ Failed:`, error);
+    const result = await this.webhookProcessor.process(Platform.FACEBOOK, payload);
+
+    if (result.success) {
+      this.logger.log(`✅ Processed ${result.messagesProcessed} messages`);
+    } else {
+      this.logger.error(`❌ Failed:`, result.errors);
     }
   }
 }

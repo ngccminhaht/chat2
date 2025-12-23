@@ -19,15 +19,15 @@ import { ConnectionsModule } from '@/modules/connections/connections.module';
 import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
 import { OrganizationsModule } from '@/modules/organizations/organizations.module';
-import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
 
 /**
  * Zalo Module
  *
- * Handles all Zalo OA integration:
- * - HTTP: POST /api/zalo/webhook
- * - Kafka Consumer: platform.webhooks.raw
+ * Handles Zalo OA integration:
+ * - HTTP: POST /api/zalo/webhook (signature verification, publish to Kafka)
+ * - Kafka Consumer: uses WebhookProcessorService via PlatformCoreModule
  * - OAuth flow for connecting Zalo OA
+ * - Outbound messaging
  */
 @Module({
   imports: [
@@ -40,7 +40,7 @@ import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
     WebhooksModule, // For WebhookPublisherService
     WebsocketModule, // For WebsocketGateway
     OrganizationsModule, // For organization slug lookup
-    AIBatchingModule, // For AI auto-reply
+    // Note: AI batching handled by InboundMessageHandlerModule (@Global)
   ],
   controllers: [ZaloController, ZaloConsumer],
   providers: [ZaloService],

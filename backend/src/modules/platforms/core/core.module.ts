@@ -2,7 +2,7 @@
  * Platform Core Module
  * Provides shared platform infrastructure:
  * - PlatformRegistry: Factory to get platform adapters
- * - WebhookProcessorService: Unified webhook processing
+ * - WebhookProcessorService: Unified webhook processing (uses InboundMessageHandler)
  * - MessageSenderService: Unified outbound message handling
  * - MessageSenderConsumer: Kafka consumer for outbound messages
  */
@@ -26,7 +26,6 @@ import { WebhookProcessorService } from './services/webhook-processor.service';
 import { MessageSenderService } from './services/message-sender.service';
 import { MessageSenderConsumer } from '@/infra/kafka/consumers/message-sender.consumer';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
-import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
 
 @Global()
 @Module({
@@ -37,7 +36,7 @@ import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
     WebsocketModule,
-    AIBatchingModule,
+    // Note: InboundMessageHandlerModule is @Global, no need to import here
   ],
   controllers: [MessageSenderConsumer],
   providers: [

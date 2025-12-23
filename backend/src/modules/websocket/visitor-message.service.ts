@@ -19,7 +19,7 @@ import {
 import { WebsocketGateway } from './websocket.gateway';
 import { VisitorGateway } from './visitor.gateway';
 import { nanoid } from 'nanoid';
-import { AIBatchingService } from '@/modules/ai-batching/ai-batching.service';
+import { InboundMessageHandlerService } from '@/modules/messages/inbound-message-handler.service';
 
 interface VisitorMessagePayload {
   sessionId: string;
@@ -51,69 +51,46 @@ export class VisitorMessageService {
     private readonly websocketGateway: WebsocketGateway,
     @Inject(forwardRef(() => VisitorGateway))
     private readonly visitorGateway: VisitorGateway,
-    private readonly aiBatchingService: AIBatchingService,
+    private readonly inboundMessageHandler: InboundMessageHandlerService,
   ) {}
 
   /**
    * Process incoming message from visitor
+   * Uses InboundMessageHandlerService for CRUD + AI batching
    */
   async processVisitorMessage(payload: VisitorMessagePayload) {
     const {
       sessionId,
       organizationId,
       visitorName,
-      visitorEmail,
       text,
       type,
       mediaUrl,
       fileName,
     } = payload;
 
-    // Get or create conversation
-    const conversation = await this.getOrCreateConversation(
-      organizationId,
-      sessionId,
-      visitorName,
-    );
-
-    // Create message
+    const conversationKey = `web_${organizationId}_${sessionId}`;
     const messageId = nanoid();
-    const message = await this.messageModel.create({
-      organizationId: new Types.ObjectId(organizationId),
-      conversationId: conversation._id,
+
+    // Process via shared handler (conversation CRUD + message save + AI batching)
+    const result = await this.inboundMessageHandler.processInboundMessage({
       platform: Platform.WEB,
+      organizationId,
+      conversationKey,
       platformMessageId: messageId,
       direction: MessageDirection.INBOUND,
-      type: type || MessageType.TEXT,
-      content: {
-        text,
-        mediaUrl,
-        fileName,
-      },
-      sender: {
-        platformUserId: sessionId,
-        name: visitorName || 'Visitor',
-      },
-      status: MessageStatus.DELIVERED,
+      type: (type as MessageType) || MessageType.TEXT,
+      content: { text, mediaUrl, fileName },
+      sender: { platformUserId: sessionId, name: visitorName || 'Visitor' },
+      timestamp: new Date(),
+      customerName: visitorName || `Visitor ${sessionId.substring(0, 8)}`,
+      platformConnectionId: new Types.ObjectId().toString(), // Virtual for web
+      platformAccountId: organizationId,
     });
 
-    // Update conversation lastMessage (timestamps: true ensures updatedAt is updated for sorting)
-    await this.conversationModel.findByIdAndUpdate(
-      conversation._id,
-      {
-        'lastMessage.text': text || '[Media]',
-        'lastMessage.timestamp': new Date(),
-        'lastMessage.senderId': sessionId,
-        'lastMessage.messageId': message._id,
-        $inc: { unreadCount: 1 },
-      },
-      { timestamps: true },
-    );
-
-    // Prepare notification payloads (convert ObjectId to string for serialization)
-    const conversationIdStr = conversation._id.toString();
-    // Use JSON serialization to convert all ObjectIds to strings
-    const serializedMessage = JSON.parse(JSON.stringify(message.toObject()));
+    // Direct WebSocket notification (web-specific, keep here)
+    const conversationIdStr = result.conversation._id.toString();
+    const serializedMessage = JSON.parse(JSON.stringify(result.message.toObject()));
     const messagePayload = {
       conversationId: conversationIdStr,
       message: serializedMessage,
@@ -124,7 +101,7 @@ export class VisitorMessageService {
         text: text || '[Media]',
         timestamp: new Date(),
       },
-      unreadCount: conversation.unreadCount + 1,
+      unreadCount: result.conversation.unreadCount + 1,
     };
 
     // Always broadcast to org agents room (admin/owner/agents who joined)
@@ -132,28 +109,20 @@ export class VisitorMessageService {
     this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', conversationUpdatePayload);
 
     // Also notify assigned agent directly (in case they haven't joined org room)
-    const agentId = conversation.assignedTo?.toString();
+    const agentId = result.conversation.assignedTo?.toString();
     if (agentId) {
       this.websocketGateway.emitNewMessage(agentId, messagePayload);
       this.websocketGateway.emitConversationUpdated(agentId, conversationUpdatePayload);
     }
 
     this.logger.log(
-      `Processed visitor message: ${message._id} in conversation ${conversation._id}`,
+      `Processed visitor message: ${result.message._id} in conversation ${conversationIdStr}`,
     );
 
-    // Trigger AI batching for inbound visitor messages (non-blocking)
-    // Wrap in try-catch to not fail message delivery if AI batching fails
-    try {
-      await this.aiBatchingService.onVisitorMessage(message, conversation);
-    } catch (aiError) {
-      this.logger.error('AI batching failed (non-blocking):', aiError.message);
-    }
-
     return {
-      messageId: message._id.toString(),
-      conversationId: conversation._id.toString(),
-      timestamp: (message as any).createdAt || new Date(),
+      messageId: result.message._id.toString(),
+      conversationId: conversationIdStr,
+      timestamp: (result.message as any).createdAt || new Date(),
     };
   }
 
@@ -182,45 +151,6 @@ export class VisitorMessageService {
       _id: conversation._id,
       messages: messages.reverse(),
     };
-  }
-
-  /**
-   * Get or create conversation for visitor
-   */
-  private async getOrCreateConversation(
-    organizationId: string,
-    sessionId: string,
-    visitorName?: string,
-  ): Promise<ConversationDocument> {
-    const conversationKey = `web_${organizationId}_${sessionId}`;
-
-    let conversation = await this.conversationModel.findOne({
-      organizationId: new Types.ObjectId(organizationId),
-      platform: Platform.WEB,
-      platformConversationId: conversationKey,
-    });
-
-    if (!conversation) {
-      // Create web platform connection if not exists
-      // For web, we use a virtual connection per org
-      const virtualConnectionId = new Types.ObjectId();
-
-      conversation = await this.conversationModel.create({
-        organizationId: new Types.ObjectId(organizationId),
-        platform: Platform.WEB,
-        platformConversationId: conversationKey,
-        platformConnectionId: virtualConnectionId, // Virtual for web
-        platformAccountId: organizationId,
-        customerPlatformUserId: sessionId,
-        customerName: visitorName || `Visitor ${sessionId.substring(0, 8)}`,
-        status: ConversationStatus.OPEN,
-        unreadCount: 0,
-      });
-
-      this.logger.log(`Created new web conversation: ${conversation._id}`);
-    }
-
-    return conversation;
   }
 
   /**

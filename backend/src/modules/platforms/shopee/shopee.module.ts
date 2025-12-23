@@ -19,15 +19,15 @@ import { ConnectionsModule } from '@/modules/connections/connections.module';
 import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
 import { OrganizationsModule } from '@/modules/organizations/organizations.module';
-import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
 
 /**
  * Shopee Module
  *
- * Handles all Shopee integration:
- * - HTTP: GET/POST /api/shopee/webhook
- * - Kafka Consumer: platform.webhooks.raw
+ * Handles Shopee integration:
+ * - HTTP: GET/POST /api/shopee/webhook (verification, publish to Kafka)
+ * - Kafka Consumer: uses WebhookProcessorService via PlatformCoreModule
  * - OAuth flow for connecting Shopee shops
+ * - Outbound messaging
  */
 @Module({
   imports: [
@@ -40,7 +40,7 @@ import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
     WebhooksModule, // For WebhookPublisherService
     WebsocketModule, // For WebsocketGateway
     OrganizationsModule, // For organization slug lookup
-    AIBatchingModule, // For AI auto-reply
+    // Note: AI batching handled by InboundMessageHandlerModule (@Global)
   ],
   controllers: [ShopeeController, ShopeeConsumer],
   providers: [ShopeeService],
