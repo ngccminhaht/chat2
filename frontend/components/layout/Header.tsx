@@ -124,25 +124,21 @@ export default function Header({
           transformOrigin={{ vertical: "top", horizontal: "right" }}
         >
           {/* Organizations section */}
-          {organizations && organizations.length > 0 && (
-            <>
-              {organizations.map((org) => (
-                <MenuItem
-                  key={org.id}
-                  selected={org.slug === currentOrgSlug}
-                  onClick={() => handleOrgSelect(org.slug)}
-                >
-                  <ListItemIcon>
-                    <Avatar sx={{ width: 28, height: 28 }}>
-                      <ChatIcon fontSize="small" />
-                    </Avatar>
-                  </ListItemIcon>
-                  <ListItemText primary={org.name} />
-                </MenuItem>
-              ))}
-              <Divider />
-            </>
-          )}
+          {organizations?.map((org) => (
+            <MenuItem
+              key={org.id}
+              selected={org.slug === currentOrgSlug}
+              onClick={() => handleOrgSelect(org.slug)}
+            >
+              <ListItemIcon>
+                <Avatar sx={{ width: 28, height: 28 }}>
+                  <ChatIcon fontSize="small" />
+                </Avatar>
+              </ListItemIcon>
+              <ListItemText primary={org.name} />
+            </MenuItem>
+          ))}
+          {organizations && organizations.length > 0 && <Divider />}
 
           {/* Account section - Profile + Logout in one row */}
           <MenuItem onClick={handleProfile} sx={{ minWidth: 250 }}>

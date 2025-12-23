@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Omnichannel chat platform supporting Facebook Messenger, Zalo OA, TikTok Shop, and Shopee. Centralized message management with real-time WebSocket synchronization. Monorepo with separate backend (NestJS) and frontend (Next.js 16 RC).
+Omnichannel chat platform supporting Facebook Messenger, Zalo OA, TikTok Shop, and Shopee. Centralized message management with real-time WebSocket synchronization. Monorepo with separate backend (NestJS), frontend (Next.js 16 RC), and embeddable widget (Preact).
 
 ## Development Commands
 
@@ -51,6 +51,30 @@ yarn start
 
 # Type checking
 yarn type-check
+```
+
+### Widget (Preact + TailwindCSS)
+
+```bash
+cd widget
+
+# Build CSS + JS (outputs to frontend/public/widget.js)
+yarn build
+
+# Build CSS only
+yarn build:css
+
+# Build JS only
+yarn build:js
+
+# Watch mode for development
+yarn watch
+```
+
+**Embed in HTML:**
+
+```html
+<script src="https://your-domain.com/widget.js" data-org="your-org-slug"></script>
 ```
 
 ## Architecture Overview
@@ -475,6 +499,48 @@ modules/platforms/
 - Backend uses path alias `@/*` for `src/*`
 - Frontend uses `@/*` for root directory
 - Strict mode disabled in both projects for faster development
+
+### Widget Architecture
+
+**Stack:** Preact + TailwindCSS v3 + Socket.IO client + Vite (IIFE bundle)
+
+**Structure:**
+
+```
+widget/
+├── src/
+│   ├── components/          # Preact components
+│   │   ├── widget-app.tsx   # Main app with state management
+│   │   ├── chat-window.tsx  # Chat container
+│   │   ├── chat-header.tsx  # Header with close button
+│   │   ├── chat-button.tsx  # Floating bubble button
+│   │   ├── message-list.tsx # Message display
+│   │   ├── message-input.tsx # Input with send button
+│   │   ├── message-bubble.tsx # Individual message
+│   │   ├── pre-chat-form.tsx # Visitor info form
+│   │   └── icons.tsx        # SVG icon components
+│   ├── hooks/
+│   │   └── use-widget.ts    # Main state hook (socket, messages, config)
+│   ├── types.ts             # TypeScript interfaces
+│   ├── index.tsx            # Entry point, auto-init from script tag
+│   ├── styles.css           # Tailwind directives
+│   └── styles.generated.css # Built CSS (git-ignored)
+├── tailwind.config.cjs      # Tailwind v3 config
+├── vite.config.ts           # Vite lib mode config
+└── package.json
+```
+
+**Build process:**
+1. `build:css` - Tailwind CLI compiles CSS with JIT
+2. `build:js` - Vite bundles to IIFE, imports CSS as raw string
+3. Output: Single `widget.js` file (~27KB gzip) with embedded CSS
+
+**Key patterns:**
+- CSS injected via `<style>` tag in document head
+- Widget isolated in `#miagent-widget-container`
+- Socket.IO connects to backend for real-time messaging
+- Config fetched from `/api/widget/config/:orgSlug`
+- `window.MiAgent.destroy()` for cleanup
 
 ## Onboarding Flow
 
