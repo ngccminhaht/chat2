@@ -37,6 +37,7 @@ export default function ConversationItem({ conversation, isActive, orgSlug }: Co
           </Badge>
         </ListItemAvatar>
         <ListItemText
+          sx={{ overflow: 'hidden' }}
           primary={
             <>
               {conversation.customerName || 'Unknown'}
@@ -51,7 +52,12 @@ export default function ConversationItem({ conversation, isActive, orgSlug }: Co
           }
           secondary={
             <>
-              <Typography component="span" variant="body2" color="text.secondary" noWrap display="block">
+              <Typography
+                component="span"
+                variant="body2"
+                color="text.secondary"
+                noWrap
+              >
                 {conversation.lastMessage?.text || 'No messages yet'}
               </Typography>
               {conversation.lastMessage && (
