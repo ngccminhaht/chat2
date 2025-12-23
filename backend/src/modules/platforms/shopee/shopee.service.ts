@@ -28,6 +28,7 @@ import {
   ShopeeRefreshTokenResponse,
 } from "./dto/oauth.dto";
 import { WebsocketGateway } from "@/modules/websocket/websocket.gateway";
+import { AIBatchingService } from "@/modules/ai-batching/ai-batching.service";
 
 @Injectable()
 export class ShopeeService {
@@ -47,7 +48,8 @@ export class ShopeeService {
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private websocketGateway: WebsocketGateway,
-    private envService: EnvService
+    private envService: EnvService,
+    private aiBatchingService: AIBatchingService,
   ) {
     this.partnerId = this.envService.get("SHOPEE_PARTNER_ID");
     this.partnerKey = this.envService.get("SHOPEE_PARTNER_KEY");
@@ -231,6 +233,9 @@ export class ShopeeService {
     }
 
     this.logger.log(`✅ Message saved: ${message._id}`);
+
+    // Trigger AI batching for auto-reply
+    await this.aiBatchingService.onVisitorMessage(message, conversation);
 
     // Update conversation's last message
     await this.conversationModel.findByIdAndUpdate(conversation._id, {

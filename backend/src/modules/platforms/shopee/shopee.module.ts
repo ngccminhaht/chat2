@@ -19,6 +19,7 @@ import { ConnectionsModule } from '@/modules/connections/connections.module';
 import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
 import { OrganizationsModule } from '@/modules/organizations/organizations.module';
+import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
 
 /**
  * Shopee Module
@@ -39,6 +40,7 @@ import { OrganizationsModule } from '@/modules/organizations/organizations.modul
     WebhooksModule, // For WebhookPublisherService
     WebsocketModule, // For WebsocketGateway
     OrganizationsModule, // For organization slug lookup
+    AIBatchingModule, // For AI auto-reply
   ],
   controllers: [ShopeeController, ShopeeConsumer],
   providers: [ShopeeService],

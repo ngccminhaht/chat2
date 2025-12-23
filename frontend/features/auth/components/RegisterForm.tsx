@@ -21,7 +21,6 @@ export function RegisterForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const { mutate: register, isPending, error } = useRegister();
 
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -52,7 +51,7 @@ export function RegisterForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    register({ email, password, name });
+    register({ email, password });
   };
 
   return (
