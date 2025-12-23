@@ -56,7 +56,12 @@ export default function ConversationItem({ conversation, isActive, orgSlug }: Co
                 component="span"
                 variant="body2"
                 color="text.secondary"
-                noWrap
+                sx={{
+                  display: 'block',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
               >
                 {conversation.lastMessage?.text || 'No messages yet'}
               </Typography>
