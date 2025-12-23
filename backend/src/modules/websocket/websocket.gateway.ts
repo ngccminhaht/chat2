@@ -97,9 +97,21 @@ export class WebsocketGateway
     @MessageBody() data: { organizationId: string },
   ) {
     const { organizationId } = data;
-    client.join(`org:${organizationId}:agents`);
-    const sockets = await this.server.in(`org:${organizationId}:agents`).fetchSockets();
-    this.logger.log(`✅ Agent ${client.userId} joined org:${organizationId}:agents (total: ${sockets.length} clients)`);
+    const room = `org:${organizationId}:agents`;
+
+    // Remove other sockets of same user from room to prevent duplicates
+    const existingSockets = await this.server.in(room).fetchSockets();
+    for (const socket of existingSockets) {
+      const authSocket = socket as unknown as AuthenticatedSocket;
+      if (authSocket.userId === client.userId && socket.id !== client.id) {
+        socket.leave(room);
+        this.logger.log(`Removed duplicate socket ${socket.id} for user ${client.userId} from ${room}`);
+      }
+    }
+
+    client.join(room);
+    const sockets = await this.server.in(room).fetchSockets();
+    this.logger.log(`✅ Agent ${client.userId} joined ${room} (total: ${sockets.length} clients)`);
   }
 
   @SubscribeMessage('leave:org:agents')

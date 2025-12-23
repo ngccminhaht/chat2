@@ -7,6 +7,7 @@ interface UpdateConversationDto {
   status?: 'open' | 'closed' | 'archived';
   assignedTo?: string | null;
   tags?: string[];
+  aiEnabled?: boolean;
 }
 
 export function useUpdateConversation() {

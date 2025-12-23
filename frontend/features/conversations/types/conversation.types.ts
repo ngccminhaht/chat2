@@ -8,7 +8,7 @@ export interface LastMessage {
 export interface Conversation {
   _id: string;
   organizationId: string;
-  platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
+  platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee' | 'web';
   platformConversationId: string;
   platformConnectionId: string;
   customerPlatformUserId: string;
@@ -25,6 +25,9 @@ export interface Conversation {
   lastMessage?: LastMessage;
   unreadCount: number;
   metadata: Record<string, any>;
+  // AI settings
+  aiEnabled: boolean;
+  aiState?: 'AI_ACTIVE' | 'BATCHING' | 'AI_RESPONDING';
   createdAt: string;
   updatedAt: string;
 }

@@ -162,8 +162,9 @@ export class VisitorGateway
       client.visitorEmail = auth.email;
       client.customerId = customer._id.toString();
 
-      // Join rooms
-      client.join(`visitor:${auth.sessionId}`);
+      // Join rooms first
+      const room = `visitor:${auth.sessionId}`;
+      client.join(room);
       client.join(`org:${auth.organizationId}:visitors`);
 
       // Notify visitor of successful connection
@@ -288,12 +289,8 @@ export class VisitorGateway
    */
   emitToVisitor(sessionId: string, event: string, data: any) {
     const room = `visitor:${sessionId}`;
-
-    // Debug: Log caller stack trace to find duplicate emit source
-    const stack = new Error().stack?.split('\n').slice(1, 4).join(' <- ');
-    this.logger.log(`📤 emitToVisitor called: event=${event}, room=${room}, messageId=${data?.message?._id}, caller=${stack}`);
-
     this.server.to(room).emit(event, data);
+    this.logger.debug(`📤 Emitted ${event} to ${room}`);
   }
 
   /**

@@ -4,7 +4,7 @@
  */
 
 import { Processor, WorkerHost } from "@nestjs/bullmq";
-import { Logger, Inject, forwardRef, Optional } from "@nestjs/common";
+import { Logger, Inject, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Job } from "bullmq";
@@ -47,7 +47,16 @@ export class AIBatchingProcessor extends WorkerHost {
     );
 
     try {
-      // Update state to AI_RESPONDING
+      // Check if already responding (prevent duplicate processing)
+      const conv = await this.batchingService.getConversation(conversationId);
+      if (conv?.aiState === "AI_RESPONDING") {
+        this.logger.warn(
+          `Skipping batch ${job.id}: conversation ${conversationId} already AI_RESPONDING`
+        );
+        return;
+      }
+
+      // Update state to AI_RESPONDING (atomic check)
       await this.batchingService.updateAIState(conversationId, "AI_RESPONDING");
 
       // Get pending messages for this conversation

@@ -10,12 +10,11 @@ import {
   Divider,
   IconButton,
   TextField,
-  Autocomplete,
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   CircularProgress,
+  Switch,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -52,13 +51,6 @@ const platformColors: Record<string, 'primary' | 'secondary' | 'error' | 'warnin
   zalo: 'info',
   tiktok: 'secondary',
   shopee: 'error',
-};
-
-// Status colors
-const statusColors: Record<string, 'success' | 'warning' | 'default'> = {
-  open: 'success',
-  closed: 'default',
-  archived: 'warning',
 };
 
 export default function CustomerInfoPanel({ conversation, onClose }: CustomerInfoPanelProps) {
@@ -113,6 +105,14 @@ export default function CustomerInfoPanel({ conversation, onClose }: CustomerInf
     updateConversation({
       conversationId: conversation._id,
       data: { tags: newTags },
+    });
+  };
+
+  // Handle AI toggle
+  const handleAiToggle = (enabled: boolean) => {
+    updateConversation({
+      conversationId: conversation._id,
+      data: { aiEnabled: enabled },
     });
   };
 
@@ -194,6 +194,35 @@ export default function CustomerInfoPanel({ conversation, onClose }: CustomerInf
                 </MenuItem>
               </Select>
             </FormControl>
+          </Box>
+
+          {/* AI Auto-Reply */}
+          <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  <AiIcon fontSize="inherit" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                  AI Auto-Reply
+                </Typography>
+                <Typography variant="body2" color={conversation.aiEnabled !== false ? 'success.main' : 'text.secondary'}>
+                  {conversation.aiEnabled !== false ? 'Enabled' : 'Disabled'}
+                </Typography>
+              </Box>
+              <Switch
+                checked={conversation.aiEnabled !== false}
+                onChange={(e) => handleAiToggle(e.target.checked)}
+                disabled={isPending}
+                color="success"
+              />
+            </Stack>
+            {conversation.aiState && conversation.aiState !== 'AI_ACTIVE' && (
+              <Chip
+                label={conversation.aiState === 'BATCHING' ? 'Batching...' : 'AI Responding...'}
+                size="small"
+                color="info"
+                sx={{ mt: 1 }}
+              />
+            )}
           </Box>
 
           {/* Assignment */}
