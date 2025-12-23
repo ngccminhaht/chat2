@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 8315",
-    "build": "yarn build:widget && next build",
-    "build:widget": "cd widget && vite build",
+    "build": "next build",
     "start": "next start -p 8315",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
