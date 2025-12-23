@@ -5,6 +5,7 @@ import { AppModule } from "./app.module";
 import cookieParser from "cookie-parser";
 import { EnvService } from "./common/env";
 import { getKafkaConfig } from "./infra/kafka/kafka.config";
+import { Partitioners } from "kafkajs";
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -24,6 +25,9 @@ async function bootstrap() {
       client: kafkaConfig,
       consumer: {
         groupId: 'omnichat-backend-consumers',
+      },
+      producer: {
+        createPartitioner: Partitioners.LegacyPartitioner,
       },
     },
   });

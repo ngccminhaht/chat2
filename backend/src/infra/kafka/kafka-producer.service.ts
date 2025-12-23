@@ -1,7 +1,18 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Kafka, Producer, ProducerRecord, RecordMetadata } from 'kafkajs';
-import { getKafkaConfig } from './kafka.config';
-import { EnvService } from '@/common/env';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from "@nestjs/common";
+import {
+  Kafka,
+  Producer,
+  ProducerRecord,
+  RecordMetadata,
+  Partitioners,
+} from "kafkajs";
+import { getKafkaConfig } from "./kafka.config";
+import { EnvService } from "@/common/env";
 
 /**
  * Kafka Producer Service
@@ -19,14 +30,16 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     const config = getKafkaConfig(this.envService);
     this.kafka = new Kafka(config);
-    this.producer = this.kafka.producer();
+    this.producer = this.kafka.producer({
+      createPartitioner: Partitioners.LegacyPartitioner,
+    });
 
     try {
       await this.producer.connect();
       this.isConnected = true;
-      this.logger.log('✅ Kafka Producer connected successfully');
+      this.logger.log("✅ Kafka Producer connected successfully");
     } catch (error) {
-      this.logger.error('❌ Failed to connect Kafka Producer:', error);
+      this.logger.error("❌ Failed to connect Kafka Producer:", error);
       throw error;
     }
   }
@@ -34,7 +47,7 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     if (this.isConnected) {
       await this.producer.disconnect();
-      this.logger.log('Kafka Producer disconnected');
+      this.logger.log("Kafka Producer disconnected");
     }
   }
 
@@ -48,10 +61,10 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       value: any;
       partition?: number;
       headers?: Record<string, string>;
-    },
+    }
   ): Promise<RecordMetadata[]> {
     if (!this.isConnected) {
-      throw new Error('Kafka Producer is not connected');
+      throw new Error("Kafka Producer is not connected");
     }
 
     try {
@@ -92,10 +105,10 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       value: any;
       partition?: number;
       headers?: Record<string, string>;
-    }>,
+    }>
   ): Promise<RecordMetadata[]> {
     if (!this.isConnected) {
-      throw new Error('Kafka Producer is not connected');
+      throw new Error("Kafka Producer is not connected");
     }
 
     try {
@@ -111,7 +124,9 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
 
       const metadata = await this.producer.send(record);
 
-      this.logger.debug(`Published batch to ${topic}: ${messages.length} messages`);
+      this.logger.debug(
+        `Published batch to ${topic}: ${messages.length} messages`
+      );
 
       return metadata;
     } catch (error) {
