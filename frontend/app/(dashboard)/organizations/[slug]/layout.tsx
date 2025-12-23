@@ -75,7 +75,7 @@ export default function OrganizationLayout({
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <Header onMenuClick={handleDrawerToggle} />
+      <Header onMenuClick={handleDrawerToggle} currentOrgSlug={slug} />
       <Sidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} orgSlug={slug} />
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />

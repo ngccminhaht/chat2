@@ -22,7 +22,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 
 const drawerWidth = 240;
 
-interface MenuItem {
+interface NavMenuItem {
   text: string;
   icon: React.ReactNode;
   path: string;
@@ -30,7 +30,7 @@ interface MenuItem {
 
 interface MenuSection {
   title?: string;
-  items: MenuItem[];
+  items: NavMenuItem[];
 }
 
 // Function to generate menu sections with org slug

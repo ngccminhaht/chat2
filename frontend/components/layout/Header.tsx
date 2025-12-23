@@ -1,25 +1,28 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AppBar,
   Toolbar,
   Typography,
   IconButton,
+  Avatar,
   Menu,
   MenuItem,
-  Avatar,
-  Box,
   Divider,
   ListItemIcon,
+  ListItemText,
+  Badge,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import NotificationsIcon from "@mui/icons-material/Notifications";
-import PersonIcon from "@mui/icons-material/Person";
 import LogoutIcon from "@mui/icons-material/Logout";
+import PersonIcon from "@mui/icons-material/Person";
+import ChatIcon from "@mui/icons-material/Chat";
 import { useAuthStore } from "@/features/auth/stores/authStore";
-import { useRouter } from "next/navigation";
+import { useOrganizations } from "@/features/organizations/hooks/useOrganizations";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -27,6 +30,7 @@ interface HeaderProps {
   title?: string;
   showBackButton?: boolean;
   onBackClick?: () => void;
+  currentOrgSlug?: string;
 }
 
 export default function Header({
@@ -35,9 +39,11 @@ export default function Header({
   title = "miAgent",
   showBackButton = false,
   onBackClick,
+  currentOrgSlug,
 }: HeaderProps) {
-  const { user, clearAuth } = useAuthStore();
   const router = useRouter();
+  const { user, clearAuth } = useAuthStore();
+  const { data: organizations } = useOrganizations();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -46,6 +52,11 @@ export default function Header({
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleOrgSelect = (slug: string) => {
+    handleMenuClose();
+    router.push(`/organizations/${slug}/conversations`);
   };
 
   const handleProfile = () => {
@@ -90,47 +101,65 @@ export default function Header({
           {title}
         </Typography>
 
-        <IconButton color="inherit" sx={{ mr: 2 }}>
-          <NotificationsIcon />
+        {/* User Avatar */}
+        <IconButton onClick={handleMenuOpen} sx={{ mr: 1 }}>
+          <Avatar sx={{ width: 36, height: 36 }}>
+            {user?.name?.charAt(0) || "U"}
+          </Avatar>
         </IconButton>
 
-        <Box>
-          <IconButton onClick={handleMenuOpen} color="inherit">
-            <Avatar sx={{ width: 32, height: 32 }}>
-              {user?.name?.charAt(0) || "U"}
-            </Avatar>
-          </IconButton>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-            anchorOrigin={{
-              vertical: "bottom",
-              horizontal: "right",
-            }}
-            transformOrigin={{
-              vertical: "top",
-              horizontal: "right",
-            }}
-          >
-            <MenuItem disabled>
-              <Typography variant="body2">{user?.email}</Typography>
-            </MenuItem>
-            <Divider />
-            <MenuItem onClick={handleProfile}>
-              <ListItemIcon>
-                <PersonIcon fontSize="small" />
-              </ListItemIcon>
-              Profile
-            </MenuItem>
-            <MenuItem onClick={handleLogout}>
-              <ListItemIcon>
-                <LogoutIcon fontSize="small" />
-              </ListItemIcon>
-              Logout
-            </MenuItem>
-          </Menu>
-        </Box>
+        {/* Notifications */}
+        <IconButton color="inherit">
+          <Badge badgeContent={0} color="error">
+            <NotificationsIcon />
+          </Badge>
+        </IconButton>
+
+        {/* Dropdown Menu */}
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+        >
+          {/* Organizations section */}
+          {organizations && organizations.length > 0 && (
+            <>
+              {organizations.map((org) => (
+                <MenuItem
+                  key={org._id}
+                  selected={org.slug === currentOrgSlug}
+                  onClick={() => handleOrgSelect(org.slug)}
+                >
+                  <ListItemIcon>
+                    <Avatar sx={{ width: 28, height: 28 }}>
+                      <ChatIcon fontSize="small" />
+                    </Avatar>
+                  </ListItemIcon>
+                  <ListItemText primary={org.name} />
+                </MenuItem>
+              ))}
+              <Divider />
+            </>
+          )}
+
+          {/* Account section - Profile + Logout in one row */}
+          <MenuItem onClick={handleProfile} sx={{ minWidth: 250 }}>
+            <ListItemIcon>
+              <Avatar sx={{ width: 32, height: 32 }}>
+                {user?.name?.charAt(0) || "U"}
+              </Avatar>
+            </ListItemIcon>
+            <ListItemText
+              primary={<Typography variant="caption" color="text.secondary">Tài khoản</Typography>}
+              secondary={user?.name}
+            />
+            <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleLogout(); }}>
+              <LogoutIcon fontSize="small" />
+            </IconButton>
+          </MenuItem>
+        </Menu>
       </Toolbar>
     </AppBar>
   );
