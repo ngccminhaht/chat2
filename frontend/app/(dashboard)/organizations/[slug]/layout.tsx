@@ -8,6 +8,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { useConversationWebSocketEvents } from '@/lib/websocket/useConversationWebSocketEvents';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { useSwitchOrganization } from '@/features/auth/hooks/useSwitchOrganization';
+import { useTotalUnreadCount } from '@/features/conversations/stores/conversationStore';
 
 export default function OrganizationLayout({
   children,
@@ -25,6 +26,7 @@ export default function OrganizationLayout({
   const accessToken = useAuthStore((state) => state.accessToken);
   const hasHydrated = useAuthStore((state) => state._hasHydrated);
   const switchOrg = useSwitchOrganization();
+  const unreadCount = useTotalUnreadCount();
 
   // Setup WebSocket event listeners
   useConversationWebSocketEvents();
@@ -76,7 +78,7 @@ export default function OrganizationLayout({
   return (
     <Box sx={{ display: 'flex' }}>
       <Header onMenuClick={handleDrawerToggle} currentOrgSlug={slug} />
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} orgSlug={slug} />
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} orgSlug={slug} unreadCount={unreadCount} />
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />
         {children}

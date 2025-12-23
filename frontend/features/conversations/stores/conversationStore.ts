@@ -102,3 +102,9 @@ export const useConversationStore = create<ConversationState>((set) => ({
       },
     })),
 }));
+
+// Selector to get total unread count across all conversations
+export const useTotalUnreadCount = () =>
+  useConversationStore((state) =>
+    state.conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0)
+  );

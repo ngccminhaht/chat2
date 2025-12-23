@@ -13,11 +13,9 @@ import {
   Divider,
   ListItemIcon,
   ListItemText,
-  Badge,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import ChatIcon from "@mui/icons-material/Chat";
@@ -102,17 +100,10 @@ export default function Header({
         </Typography>
 
         {/* User Avatar */}
-        <IconButton onClick={handleMenuOpen} sx={{ mr: 1 }}>
+        <IconButton onClick={handleMenuOpen}>
           <Avatar sx={{ width: 36, height: 36 }}>
             {user?.name?.charAt(0) || "U"}
           </Avatar>
-        </IconButton>
-
-        {/* Notifications */}
-        <IconButton color="inherit">
-          <Badge badgeContent={0} color="error">
-            <NotificationsIcon />
-          </Badge>
         </IconButton>
 
         {/* Dropdown Menu */}

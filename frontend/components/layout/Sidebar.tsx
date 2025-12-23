@@ -11,6 +11,7 @@ import {
   ListItemText,
   Toolbar,
   Divider,
+  Badge,
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
 import PeopleIcon from "@mui/icons-material/People";
@@ -56,13 +57,15 @@ interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
   orgSlug?: string;
+  unreadCount?: number;
 }
 
-export default function Sidebar({ mobileOpen, onMobileClose, orgSlug }: SidebarProps) {
+export default function Sidebar({ mobileOpen, onMobileClose, orgSlug, unreadCount = 0 }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
   const menuSections = orgSlug ? getMenuSections(orgSlug) : [];
+  const conversationsPath = orgSlug ? `/organizations/${orgSlug}/conversations` : "";
 
   const handleNavigation = (path: string) => {
     router.push(path);
@@ -79,11 +82,18 @@ export default function Sidebar({ mobileOpen, onMobileClose, orgSlug }: SidebarP
           <List>
             {section.items.map((item) => {
               const isActive = pathname === item.path || pathname.startsWith(item.path + "/");
+              const isConversations = item.path === conversationsPath;
               return (
                 <ListItem key={item.text} disablePadding>
                   <ListItemButton selected={isActive} onClick={() => handleNavigation(item.path)}>
                     <ListItemIcon>{item.icon}</ListItemIcon>
-                    <ListItemText primary={item.text} />
+                    <ListItemText
+                      primary={
+                        isConversations && unreadCount > 0
+                          ? <Badge badgeContent={unreadCount} color="error" sx={{ '& .MuiBadge-badge': { right: -16, top: 8 } }}>{item.text}</Badge>
+                          : item.text
+                      }
+                    />
                   </ListItemButton>
                 </ListItem>
               );
