@@ -16,10 +16,10 @@ export default function WidgetPreview({ orgSlug, refreshKey }: WidgetPreviewProp
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8300/api';
     const widgetUrl = `${window.location.origin}/widget.js`;
 
-    // Clean up existing widget
-    const existingContainer = document.getElementById('miagent-widget-container');
-    if (existingContainer) {
-      existingContainer.remove();
+    // Clean up existing widget - MUST call destroy() to disconnect socket
+    if ((window as any).MiAgent) {
+      (window as any).MiAgent.destroy();
+      delete (window as any).MiAgent;
     }
 
     // Remove old script if exists
@@ -32,9 +32,10 @@ export default function WidgetPreview({ orgSlug, refreshKey }: WidgetPreviewProp
     const oldStyles = document.querySelectorAll('style[data-miagent-widget]');
     oldStyles.forEach((s) => s.remove());
 
-    // Clear MiAgent global
-    if ((window as any).MiAgent) {
-      delete (window as any).MiAgent;
+    // Remove container (destroy() should do this but just in case)
+    const existingContainer = document.getElementById('miagent-widget-container');
+    if (existingContainer) {
+      existingContainer.remove();
     }
 
     // Create and inject new script with cache busting
@@ -45,11 +46,11 @@ export default function WidgetPreview({ orgSlug, refreshKey }: WidgetPreviewProp
     script.setAttribute('data-miagent-widget', 'true');
     document.body.appendChild(script);
 
-    // Cleanup on unmount or refresh
+    // Cleanup on unmount or refresh - MUST call destroy() to disconnect socket
     return () => {
-      const container = document.getElementById('miagent-widget-container');
-      if (container) {
-        container.remove();
+      if ((window as any).MiAgent) {
+        (window as any).MiAgent.destroy();
+        delete (window as any).MiAgent;
       }
       const scriptEl = document.querySelector('script[data-miagent-widget]');
       if (scriptEl) {
@@ -57,8 +58,10 @@ export default function WidgetPreview({ orgSlug, refreshKey }: WidgetPreviewProp
       }
       const styles = document.querySelectorAll('style[data-miagent-widget]');
       styles.forEach((s) => s.remove());
-      if ((window as any).MiAgent) {
-        delete (window as any).MiAgent;
+      // Container should be removed by destroy() but just in case
+      const container = document.getElementById('miagent-widget-container');
+      if (container) {
+        container.remove();
       }
     };
   }, [orgSlug, refreshKey]);
