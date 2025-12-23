@@ -7,6 +7,7 @@ import { Conversation, ConversationSchema } from '@/common/database/schemas/conv
 import { PlatformConnection, PlatformConnectionSchema } from '@/common/database/schemas/platform-connection.schema';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
 import { InboundMessageHandlerModule } from './inbound-message-handler.module';
+import { AIBatchingModule } from '@/modules/ai-batching/ai-batching.module';
 
 @Module({
   imports: [
@@ -20,6 +21,8 @@ import { InboundMessageHandlerModule } from './inbound-message-handler.module';
     forwardRef(() => WebsocketModule),
     // InboundMessageHandlerModule is @Global(), imports here to ensure it's loaded
     InboundMessageHandlerModule,
+    // AIBatchingModule for MessagesService.send() to cancel AI batch on agent reply
+    AIBatchingModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService],
