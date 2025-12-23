@@ -288,17 +288,12 @@ export class VisitorGateway
    */
   emitToVisitor(sessionId: string, event: string, data: any) {
     const room = `visitor:${sessionId}`;
-    const sockets = this.server.sockets;
 
-    // Debug: Check if room has any sockets
-    this.server.in(room).fetchSockets().then((socketsInRoom) => {
-      this.logger.debug(
-        `emitToVisitor: room=${room}, socketsInRoom=${socketsInRoom.length}, event=${event}`,
-      );
-    });
+    // Debug: Log caller stack trace to find duplicate emit source
+    const stack = new Error().stack?.split('\n').slice(1, 4).join(' <- ');
+    this.logger.log(`📤 emitToVisitor called: event=${event}, room=${room}, messageId=${data?.message?._id}, caller=${stack}`);
 
     this.server.to(room).emit(event, data);
-    this.logger.log(`📤 Emitted ${event} to visitor room ${room}`);
   }
 
   /**

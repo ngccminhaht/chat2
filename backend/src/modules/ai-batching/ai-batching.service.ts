@@ -4,9 +4,10 @@
  *
  * Flow:
  * 1. Visitor sends message → onVisitorMessage()
- * 2. Create/update batch job with delay
- * 3. Timer expires → processor handles batch
- * 4. Agent replies → cancelBatch() + HUMAN_TAKEOVER
+ * 2. Check org.aiAgentSettings.enabled + conversation.aiEnabled
+ * 3. Create/update batch job with delay (debounce)
+ * 4. Timer expires → processor handles batch
+ * 5. Agent replies → cancelBatch() + set aiEnabled=false
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -65,6 +66,14 @@ export class AIBatchingService {
     const conversationId = conversation._id.toString();
     const organizationId = conversation.organizationId.toString();
 
+    // Check if AI is enabled for this conversation
+    if (conversation.aiEnabled === false) {
+      this.logger.debug(
+        `Skipping AI batch for ${conversationId}: AI disabled for conversation`
+      );
+      return;
+    }
+
     // Check if AI agent is enabled for this organization
     const org = await this.organizationModel.findById(organizationId).lean();
     if (!org?.aiAgentSettings?.enabled) {
@@ -72,18 +81,6 @@ export class AIBatchingService {
         `Skipping AI batch for ${conversationId}: AI agent disabled for org ${organizationId}`
       );
       return;
-    }
-
-    // Skip if human has taken over
-    if (conversation.aiState === "HUMAN_TAKEOVER") {
-      // Check if takeover has expired
-      const takeoverExpired = await this.checkHumanTakeoverExpiry(conversation);
-      if (!takeoverExpired) {
-        this.logger.debug(
-          `Skipping AI batch for ${conversationId}: human takeover active`
-        );
-        return;
-      }
     }
 
     // Skip if already responding
@@ -183,41 +180,10 @@ export class AIBatchingService {
   /**
    * Update conversation AI state
    */
-  async updateAIState(
-    conversationId: string,
-    state: AIState,
-    humanTakeoverAt?: Date
-  ): Promise<void> {
-    const update: any = { aiState: state };
-    if (humanTakeoverAt) {
-      update.humanTakeoverAt = humanTakeoverAt;
-    }
-
-    await this.conversationModel.findByIdAndUpdate(conversationId, update);
-  }
-
-  /**
-   * Check if human takeover has expired and reset if needed
-   * Default: 30 minutes
-   */
-  private async checkHumanTakeoverExpiry(
-    conversation: ConversationDocument
-  ): Promise<boolean> {
-    if (!conversation.humanTakeoverAt) return false;
-
-    const HUMAN_TAKEOVER_MINUTES = 30;
-    const expiryMs = HUMAN_TAKEOVER_MINUTES * 60 * 1000;
-    const elapsed = Date.now() - conversation.humanTakeoverAt.getTime();
-
-    if (elapsed >= expiryMs) {
-      await this.updateAIState(conversation._id.toString(), "AI_ACTIVE");
-      this.logger.log(
-        `Human takeover expired for ${conversation._id}, resuming AI`
-      );
-      return true;
-    }
-
-    return false;
+  async updateAIState(conversationId: string, state: AIState): Promise<void> {
+    await this.conversationModel.findByIdAndUpdate(conversationId, {
+      aiState: state,
+    });
   }
 
   /**

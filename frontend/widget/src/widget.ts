@@ -458,6 +458,11 @@ export class Widget {
     const messagesEl = document.getElementById('miagent-widget-messages');
     if (!messagesEl) return;
 
+    // Check duplicate - skip if message already exists
+    if (this.messages.some((m) => m.id === message.id)) {
+      return;
+    }
+
     const msgEl = document.createElement('div');
     msgEl.className = `miagent-message ${message.sender}`;
     if (message.status === 'sending') msgEl.classList.add('sending');

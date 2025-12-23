@@ -1,4 +1,10 @@
-import { IsEnum, IsOptional, IsString, IsArray } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsArray,
+  IsBoolean,
+} from 'class-validator';
 import { ConversationStatus } from '@/common/constants';
 
 export class UpdateConversationDto {
@@ -14,4 +20,8 @@ export class UpdateConversationDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  aiEnabled?: boolean;
 }

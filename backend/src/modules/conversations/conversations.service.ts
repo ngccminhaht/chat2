@@ -132,6 +132,7 @@ export class ConversationsService {
     const updateData: any = {};
     if (dto.status !== undefined) updateData.status = dto.status;
     if (dto.tags !== undefined) updateData.tags = dto.tags;
+    if (dto.aiEnabled !== undefined) updateData.aiEnabled = dto.aiEnabled;
     if (dto.assignedTo !== undefined) {
       updateData.assignedTo = dto.assignedTo
         ? new Types.ObjectId(dto.assignedTo)

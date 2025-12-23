@@ -68,16 +68,17 @@ export class Conversation {
   @Prop({ type: Object, default: {} })
   metadata: Record<string, any>;
 
-  // AI Message Batching State Machine
+  // AI enabled for this conversation (can be toggled by agent)
+  @Prop({ type: Boolean, default: true })
+  aiEnabled: boolean;
+
+  // AI Message Batching State
   @Prop({
     type: String,
-    enum: ["AI_ACTIVE", "BATCHING", "AI_RESPONDING", "HUMAN_TAKEOVER"],
+    enum: ["AI_ACTIVE", "BATCHING", "AI_RESPONDING"],
     default: "AI_ACTIVE",
   })
   aiState: string;
-
-  @Prop({ type: Date })
-  humanTakeoverAt?: Date;
 
   // AI Conversation Continuity
   @Prop()

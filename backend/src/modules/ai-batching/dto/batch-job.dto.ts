@@ -19,8 +19,4 @@ export interface BatchJobData {
   createdAt: number;
 }
 
-export type AIState =
-  | 'AI_ACTIVE'
-  | 'BATCHING'
-  | 'AI_RESPONDING'
-  | 'HUMAN_TAKEOVER';
+export type AIState = 'AI_ACTIVE' | 'BATCHING' | 'AI_RESPONDING';

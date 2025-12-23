@@ -145,18 +145,15 @@ export class MessagesService {
       throw new NotFoundException('Conversation not found');
     }
 
-    // Agent reply triggers human takeover - cancel any pending AI batch
-    if (conversation.aiState !== 'HUMAN_TAKEOVER') {
+    // Agent reply - cancel any pending AI batch and disable AI for this conversation
+    if (conversation.aiEnabled !== false) {
       await this.aiBatchingService.cancelBatch(conversationId);
       await this.conversationModel.findByIdAndUpdate(
         conversationId,
-        {
-          aiState: 'HUMAN_TAKEOVER',
-          humanTakeoverAt: new Date(),
-        },
+        { aiEnabled: false, aiState: 'AI_ACTIVE' },
         { timestamps: true },
       );
-      this.logger.log(`👤 Human takeover activated for conversation ${conversationId}`);
+      this.logger.log(`🤖 AI disabled for conversation ${conversationId} (agent replied)`);
     }
 
     // Handle web chat conversations differently - they don't have platform connections
