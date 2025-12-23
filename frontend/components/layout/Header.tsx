@@ -128,7 +128,7 @@ export default function Header({
             <>
               {organizations.map((org) => (
                 <MenuItem
-                  key={org._id}
+                  key={org.id}
                   selected={org.slug === currentOrgSlug}
                   onClick={() => handleOrgSelect(org.slug)}
                 >
