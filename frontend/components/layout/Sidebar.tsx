@@ -43,7 +43,7 @@ const getMenuSections = (orgSlug: string): MenuSection[] => [
       { text: "Channels", icon: <HubIcon />, path: `/organizations/${orgSlug}/channels` },
       { text: "Widget", icon: <WidgetsIcon />, path: `/organizations/${orgSlug}/widget` },
       { text: "AI Agent", icon: <SmartToyIcon />, path: `/organizations/${orgSlug}/ai-agent` },
-      { text: "Members", icon: <GroupsIcon />, path: `/organizations/${orgSlug}/team` },
+      { text: "Members", icon: <GroupsIcon />, path: `/organizations/${orgSlug}/members` },
     ],
   },
   {

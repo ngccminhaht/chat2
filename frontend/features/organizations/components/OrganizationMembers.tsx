@@ -24,6 +24,7 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Divider,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -129,6 +130,8 @@ export default function OrganizationMembers() {
           </Button>
         )}
       </Stack>
+
+      <Divider />
 
       {inviteMember.isError && (
         <Alert severity="error">
