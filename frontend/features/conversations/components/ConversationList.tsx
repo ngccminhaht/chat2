@@ -33,7 +33,7 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filters, setFilters] = useState<ConversationFiltersState>({});
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterAnchor, setFilterAnchor] = useState<HTMLElement | null>(null);
   const queryClient = useQueryClient();
 
   const filterCount = getActiveFilterCount(filters);
@@ -109,7 +109,7 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
                 <InputAdornment position="end">
                   <IconButton
                     size="small"
-                    onClick={() => setShowFilters(!showFilters)}
+                    onClick={(e) => setFilterAnchor(e.currentTarget)}
                     color={filterCount > 0 ? 'primary' : 'default'}
                   >
                     <Badge badgeContent={filterCount} color="primary">
@@ -121,7 +121,12 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
             },
           }}
         />
-        <ConversationFilters filters={filters} onFiltersChange={setFilters} expanded={showFilters} />
+        <ConversationFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          anchorEl={filterAnchor}
+          onClose={() => setFilterAnchor(null)}
+        />
       </Box>
 
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
