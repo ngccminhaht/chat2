@@ -10,6 +10,18 @@ declare global {
 
 // Auto-initialize from script tag
 (function () {
+  // Prevent duplicate initialization
+  if (window.MiAgent) {
+    console.warn('[MiAgent Widget] Already initialized, skipping');
+    return;
+  }
+
+  // Check if container already exists (another guard)
+  if (document.getElementById('miagent-widget-container')) {
+    console.warn('[MiAgent Widget] Container already exists, skipping');
+    return;
+  }
+
   // Try to get script element - works for inline scripts
   let script = document.currentScript as HTMLScriptElement | null;
 
