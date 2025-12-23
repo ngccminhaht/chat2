@@ -61,6 +61,7 @@ export default function ConversationItem({ conversation, isActive, orgSlug }: Co
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
+                  maxWidth: 200,
                 }}
               >
                 {conversation.lastMessage?.text || 'No messages yet'}
