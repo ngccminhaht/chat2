@@ -35,8 +35,6 @@ import {
   NewMessagePayload,
   ConversationUpdatedPayload,
 } from '@/infra/kafka/types/webhook.types';
-import { AIBatchingService } from '@/modules/ai-batching/ai-batching.service';
-
 @Injectable()
 export class FacebookService {
   private readonly logger = new Logger(FacebookService.name);
@@ -56,7 +54,6 @@ export class FacebookService {
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private kafkaProducer: KafkaProducerService,
     private envService: EnvService,
-    private aiBatchingService: AIBatchingService,
   ) {
     this.appId = this.envService.get('FACEBOOK_APP_ID');
     this.appSecret = this.envService.get('FACEBOOK_APP_SECRET');
@@ -355,8 +352,7 @@ export class FacebookService {
 
     this.logger.log(`✅ Message saved successfully: ${newMessage._id}`);
 
-    // Trigger AI batching for auto-reply
-    await this.aiBatchingService.onVisitorMessage(newMessage, conversation);
+    // Note: AI batching is now handled by InboundMessageHandlerService via WebhookProcessorService
 
     // Update conversation's last message
     await this.conversationModel.findByIdAndUpdate(conversation._id, {

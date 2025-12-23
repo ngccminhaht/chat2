@@ -26,8 +26,6 @@ import {
   NewMessagePayload,
   ConversationUpdatedPayload,
 } from "@/infra/kafka/types/webhook.types";
-import { AIBatchingService } from "@/modules/ai-batching/ai-batching.service";
-
 @Injectable()
 export class ZaloService {
   private readonly logger = new Logger(ZaloService.name);
@@ -46,7 +44,6 @@ export class ZaloService {
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private kafkaProducer: KafkaProducerService,
     private envService: EnvService,
-    private aiBatchingService: AIBatchingService,
   ) {
     this.appId = this.envService.get("ZALO_APP_ID");
     this.appSecret = this.envService.get("ZALO_APP_SECRET");
@@ -360,8 +357,7 @@ export class ZaloService {
 
     this.logger.log(`✅ Message saved successfully: ${message._id}`);
 
-    // Trigger AI batching for auto-reply
-    await this.aiBatchingService.onVisitorMessage(message, conversation);
+    // Note: AI batching is now handled by InboundMessageHandlerService via WebhookProcessorService
 
     // Update conversation's last message
     await this.conversationModel.findByIdAndUpdate(conversation._id, {
