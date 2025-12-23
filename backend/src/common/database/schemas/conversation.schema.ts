@@ -48,9 +48,6 @@ export class Conversation {
   })
   status: ConversationStatus;
 
-  @Prop({ type: Types.ObjectId, ref: "User" })
-  assignedTo?: Types.ObjectId;
-
   @Prop({ type: [String], default: [] })
   tags: string[];
 
@@ -99,7 +96,6 @@ ConversationSchema.index(
   { organizationId: 1, platformConnectionId: 1, platformConversationId: 1 },
   { unique: true }
 ); // Unique per org
-ConversationSchema.index({ organizationId: 1, assignedTo: 1 }); // Agent's conversations
 ConversationSchema.index({ organizationId: 1, customerId: 1 }); // Customer's conversations
 ConversationSchema.index({
   organizationId: 1,

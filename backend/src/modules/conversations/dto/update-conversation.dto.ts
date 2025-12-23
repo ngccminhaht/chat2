@@ -13,10 +13,6 @@ export class UpdateConversationDto {
   status?: ConversationStatus;
 
   @IsOptional()
-  @IsString()
-  assignedTo?: string | null; // null to unassign
-
-  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   tags?: string[];

@@ -37,7 +37,6 @@ export interface PaginatedResponse<T> {
 export interface GetConversationsDto extends PaginationDto {
   status?: ConversationStatus;
   platform?: Platform;
-  assignedTo?: string;
   search?: string;
 }
 
@@ -57,7 +56,6 @@ export interface CreateConversationDto {
 
 export interface UpdateConversationDto {
   status?: ConversationStatus;
-  assignedTo?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
 }

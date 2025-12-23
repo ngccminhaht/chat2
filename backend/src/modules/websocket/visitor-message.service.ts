@@ -14,7 +14,6 @@ import {
   MessageDirection,
   MessageType,
   MessageStatus,
-  ConversationStatus,
 } from '@/common/constants';
 import { WebsocketGateway } from './websocket.gateway';
 import { VisitorGateway } from './visitor.gateway';
@@ -104,16 +103,9 @@ export class VisitorMessageService {
       unreadCount: result.conversation.unreadCount + 1,
     };
 
-    // Always broadcast to org agents room (admin/owner/agents who joined)
+    // Broadcast to org agents room (admin/owner/agents who joined)
     this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', messagePayload);
     this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', conversationUpdatePayload);
-
-    // Also notify assigned agent directly (in case they haven't joined org room)
-    const agentId = result.conversation.assignedTo?.toString();
-    if (agentId) {
-      this.websocketGateway.emitNewMessage(agentId, messagePayload);
-      this.websocketGateway.emitConversationUpdated(agentId, conversationUpdatePayload);
-    }
 
     this.logger.log(
       `Processed visitor message: ${result.message._id} in conversation ${conversationIdStr}`,

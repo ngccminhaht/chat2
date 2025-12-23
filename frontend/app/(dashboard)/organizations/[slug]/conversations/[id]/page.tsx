@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { Box, Paper, Typography, Chip, Stack, Avatar, IconButton, useMediaQuery, useTheme } from '@mui/material';
-import { Info as InfoIcon } from '@mui/icons-material';
+import { Box, Paper, Typography, Chip, Stack, Avatar, IconButton } from '@mui/material';
+import { MoreVert as MoreIcon } from '@mui/icons-material';
 import { useInfiniteMessages } from '@/features/conversations/hooks/useInfiniteMessages';
 import { useConversation } from '@/features/conversations/hooks/useConversation';
 import { useMarkAsRead } from '@/features/conversations/hooks/useMarkAsRead';
@@ -11,7 +11,8 @@ import { useConversationStore } from '@/features/conversations/stores/conversati
 import MessageList from '@/features/conversations/components/MessageList';
 import MessageInput from '@/features/conversations/components/MessageInput';
 import ConversationList from '@/features/conversations/components/ConversationList';
-import CustomerInfoPanel from '@/features/conversations/components/CustomerInfoPanel';
+import CustomerInfoPopover from '@/features/conversations/components/CustomerInfoPopover';
+import ConversationSettingsModal from '@/features/conversations/components/ConversationSettingsModal';
 
 const EMPTY_MESSAGES: any[] = [];
 
@@ -19,10 +20,11 @@ export default function ConversationDetailPage() {
   const params = useParams();
   const conversationId = params.id as string;
   const slug = params.slug as string;
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [showInfoPanel, setShowInfoPanel] = useState(!isMobile);
   const markedAsReadRef = useRef<string | null>(null);
+
+  // Popover & Modal states
+  const [customerInfoAnchor, setCustomerInfoAnchor] = useState<HTMLElement | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const {
     data,
@@ -36,8 +38,6 @@ export default function ConversationDetailPage() {
 
   const apiMessages = useMemo(() => {
     if (!data?.pages) return [];
-    // Pages: [page1(newest), page2(older)...], each page already reversed by backend (oldest→newest)
-    // Reverse pages order then flatMap to get chronological order
     return [...data.pages].reverse().flatMap((page) => page.data);
   }, [data?.pages]);
 
@@ -61,15 +61,10 @@ export default function ConversationDetailPage() {
       const currentMessages = useConversationStore.getState().messages[conversationId] || [];
 
       if (currentMessages.length === 0) {
-        // Store empty - set API messages directly
         useConversationStore.getState().setMessages(conversationId, apiMessages);
       } else {
-        // Store has messages (from WebSocket) - merge with API messages
-        // API messages are older history, WebSocket messages are newer real-time updates
         const apiMessageIds = new Set(apiMessages.map((m) => m._id));
         const newMessagesFromWebSocket = currentMessages.filter((m) => !apiMessageIds.has(m._id));
-
-        // Combine: API messages (sorted history) + new WebSocket messages
         const mergedMessages = [...apiMessages, ...newMessagesFromWebSocket];
         useConversationStore.getState().setMessages(conversationId, mergedMessages);
       }
@@ -83,7 +78,6 @@ export default function ConversationDetailPage() {
   }, [conversationData]);
 
   useEffect(() => {
-    // Skip if already marked as read for this conversation
     if (markedAsReadRef.current === conversationId) return;
 
     if (conversationId && storeMessages.length > 0) {
@@ -98,7 +92,6 @@ export default function ConversationDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, storeMessages.length]);
 
-  // Reset ref when conversation changes
   useEffect(() => {
     markedAsReadRef.current = null;
   }, [conversationId]);
@@ -114,22 +107,23 @@ export default function ConversationDetailPage() {
           <Paper sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
               <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-                <Stack direction="row" spacing={2} alignItems="center">
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  alignItems="center"
+                  sx={{ cursor: 'pointer' }}
+                  onClick={(e) => setCustomerInfoAnchor(e.currentTarget)}
+                >
                   <Avatar src={conversation?.customerAvatar} alt={conversation?.customerName || 'User'}>
                     {conversation?.customerName?.charAt(0) || 'U'}
                   </Avatar>
                   <Box>
                     <Typography variant="h6">{conversation?.customerName || 'Unknown User'}</Typography>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Chip label={conversation?.platform || 'Unknown'} size="small" variant="outlined" />
-                      {conversation?.assignedTo && (
-                        <Chip label={conversation.assignedTo.name} size="small" color="primary" variant="outlined" />
-                      )}
-                    </Stack>
+                    <Chip label={conversation?.platform || 'Unknown'} size="small" variant="outlined" />
                   </Box>
                 </Stack>
-                <IconButton onClick={() => setShowInfoPanel(!showInfoPanel)} color={showInfoPanel ? 'primary' : 'default'}>
-                  <InfoIcon />
+                <IconButton onClick={() => setShowSettingsModal(true)}>
+                  <MoreIcon />
                 </IconButton>
               </Stack>
             </Box>
@@ -149,13 +143,25 @@ export default function ConversationDetailPage() {
             </Box>
           </Paper>
         </Box>
-
-        {showInfoPanel && conversation && (
-          <Box sx={{ width: '280px', minWidth: 280, display: { xs: 'none', lg: 'block' } }}>
-            <CustomerInfoPanel conversation={conversation} onClose={() => setShowInfoPanel(false)} />
-          </Box>
-        )}
       </Stack>
+
+      {/* Customer Info Popover */}
+      {conversation && (
+        <CustomerInfoPopover
+          anchorEl={customerInfoAnchor}
+          onClose={() => setCustomerInfoAnchor(null)}
+          conversation={conversation}
+        />
+      )}
+
+      {/* Conversation Settings Modal */}
+      {conversation && (
+        <ConversationSettingsModal
+          open={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          conversation={conversation}
+        />
+      )}
     </Box>
   );
 }

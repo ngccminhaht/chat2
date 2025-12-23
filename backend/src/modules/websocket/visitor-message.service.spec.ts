@@ -29,7 +29,6 @@ describe('VisitorMessageService', () => {
     platformConversationId: `web_${orgId}_session123`,
     customerName: 'Visitor',
     unreadCount: 0,
-    assignedTo: new Types.ObjectId('507f1f77bcf86cd799439013'),
   };
 
   const mockMessage = {

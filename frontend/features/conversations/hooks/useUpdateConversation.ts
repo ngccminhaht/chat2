@@ -5,7 +5,6 @@ import { useAuthStore } from '@/features/auth/stores/authStore';
 
 interface UpdateConversationDto {
   status?: 'open' | 'closed' | 'archived';
-  assignedTo?: string | null;
   tags?: string[];
   aiEnabled?: boolean;
 }

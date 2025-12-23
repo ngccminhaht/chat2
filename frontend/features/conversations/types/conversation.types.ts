@@ -15,12 +15,6 @@ export interface Conversation {
   customerName: string;
   customerAvatar?: string;
   status: 'open' | 'closed' | 'archived';
-  assignedTo?: {
-    _id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-  };
   tags: string[];
   lastMessage?: LastMessage;
   unreadCount: number;

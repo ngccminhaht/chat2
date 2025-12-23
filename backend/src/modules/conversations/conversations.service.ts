@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
@@ -14,7 +9,6 @@ import {
   Message,
   MessageDocument,
 } from '@/common/database/schemas/message.schema';
-import { User, UserDocument } from '@/common/database/schemas/user.schema';
 import { GetConversationsDto } from './dto/get-conversations.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 
@@ -27,8 +21,6 @@ export class ConversationsService {
     private conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name)
     private messageModel: Model<MessageDocument>,
-    @InjectModel(User.name)
-    private userModel: Model<UserDocument>,
   ) {}
 
   /**
@@ -36,7 +28,7 @@ export class ConversationsService {
    * IMPORTANT: organizationId is REQUIRED for tenant isolation
    */
   async findAll(organizationId: string, dto: GetConversationsDto) {
-    const { status, platform, assignedTo, search, page = 1, limit = 20 } = dto;
+    const { status, platform, search, page = 1, limit = 20 } = dto;
 
     // CRITICAL: Always filter by organizationId
     const filter: any = {
@@ -49,10 +41,6 @@ export class ConversationsService {
 
     if (platform) {
       filter.platform = platform;
-    }
-
-    if (assignedTo) {
-      filter.assignedTo = new Types.ObjectId(assignedTo);
     }
 
     if (search) {
@@ -71,7 +59,6 @@ export class ConversationsService {
         .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('assignedTo', 'name email avatarUrl')
         .lean()
         .exec(),
       this.conversationModel.countDocuments(filter).exec(),
@@ -97,7 +84,6 @@ export class ConversationsService {
         _id: new Types.ObjectId(id),
         organizationId: new Types.ObjectId(organizationId),
       })
-      .populate('assignedTo', 'name email avatarUrl')
       .lean()
       .exec();
 
@@ -109,35 +95,13 @@ export class ConversationsService {
   }
 
   /**
-   * Update conversation (status, assignedTo, tags) with org check
+   * Update conversation (status, tags, aiEnabled) with org check
    */
   async update(organizationId: string, id: string, dto: UpdateConversationDto) {
-    // Validate assignedTo user exists and belongs to same org
-    if (dto.assignedTo) {
-      const user = await this.userModel
-        .findOne({
-          _id: new Types.ObjectId(dto.assignedTo),
-          organizationId: new Types.ObjectId(organizationId),
-        })
-        .lean()
-        .exec();
-
-      if (!user) {
-        throw new BadRequestException(
-          'Assigned user not found or not in same organization',
-        );
-      }
-    }
-
     const updateData: any = {};
     if (dto.status !== undefined) updateData.status = dto.status;
     if (dto.tags !== undefined) updateData.tags = dto.tags;
     if (dto.aiEnabled !== undefined) updateData.aiEnabled = dto.aiEnabled;
-    if (dto.assignedTo !== undefined) {
-      updateData.assignedTo = dto.assignedTo
-        ? new Types.ObjectId(dto.assignedTo)
-        : null;
-    }
 
     const conversation = await this.conversationModel
       .findOneAndUpdate(
@@ -148,7 +112,6 @@ export class ConversationsService {
         updateData,
         { new: true },
       )
-      .populate('assignedTo', 'name email avatarUrl')
       .lean()
       .exec();
 

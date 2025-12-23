@@ -13,10 +13,6 @@ export class GetConversationsDto {
 
   @IsOptional()
   @IsString()
-  assignedTo?: string;
-
-  @IsOptional()
-  @IsString()
   search?: string;
 
   @IsOptional()

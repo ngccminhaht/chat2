@@ -20,7 +20,6 @@ import { useState } from 'react';
 export interface ConversationFiltersState {
   status?: 'open' | 'closed' | 'archived';
   platform?: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
-  assignedTo?: string;
 }
 
 interface ConversationFiltersProps {
