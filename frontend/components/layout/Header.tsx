@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   AppBar,
   Toolbar,
@@ -21,6 +22,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import ChatIcon from "@mui/icons-material/Chat";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useOrganizations } from "@/features/organizations/hooks/useOrganizations";
+import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -40,9 +42,17 @@ export default function Header({
   currentOrgSlug,
 }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const t = useTranslations('common');
   const { user, clearAuth } = useAuthStore();
   const { data: organizations } = useOrganizations();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Show back button to organizations if not already on organizations page
+  const shouldShowBackToOrgs = !showBackButton && pathname !== '/organizations' && pathname.startsWith('/organizations/');
+  const handleBackToOrganizations = () => {
+    router.push('/organizations');
+  };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -80,6 +90,19 @@ export default function Header({
             edge="start"
             onClick={onBackClick}
             sx={{ mr: 2 }}
+            aria-label={t('backToOrganizations')}
+          >
+            <ArrowBackIcon />
+          </IconButton>
+        )}
+        {shouldShowBackToOrgs && (
+          <IconButton
+            color="inherit"
+            edge="start"
+            onClick={handleBackToOrganizations}
+            sx={{ mr: 2 }}
+            aria-label={t('backToOrganizations')}
+            title={t('backToOrganizations')}
           >
             <ArrowBackIcon />
           </IconButton>
@@ -98,6 +121,9 @@ export default function Header({
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           {title}
         </Typography>
+
+        {/* Language Switcher */}
+        <LanguageSwitcher />
 
         {/* User Avatar */}
         <IconButton onClick={handleMenuOpen}>

@@ -14,7 +14,8 @@
     "search": "Tìm kiếm",
     "filter": "Lọc",
     "noData": "Không có dữ liệu",
-    "you": "Bạn"
+    "you": "Bạn",
+    "backToOrganizations": "Về danh sách tổ chức"
   },
   "nav": {
     "conversations": "Hội thoại",
@@ -169,5 +170,11 @@
     "status": "Trạng thái",
     "all": "Tất cả",
     "clearFilters": "Xóa bộ lọc"
+  },
+  "language": {
+    "title": "Ngôn ngữ",
+    "vi": "Tiếng Việt",
+    "en": "English",
+    "changeLanguage": "Đổi ngôn ngữ"
   }
 }

@@ -14,7 +14,8 @@
     "search": "Search",
     "filter": "Filter",
     "noData": "No data",
-    "you": "You"
+    "you": "You",
+    "backToOrganizations": "Back to Organizations"
   },
   "nav": {
     "conversations": "Conversations",
@@ -169,5 +170,11 @@
     "status": "Status",
     "all": "All",
     "clearFilters": "Clear filters"
+  },
+  "language": {
+    "title": "Language",
+    "vi": "Vietnamese",
+    "en": "English",
+    "changeLanguage": "Change Language"
   }
 }

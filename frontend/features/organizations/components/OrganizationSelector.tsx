@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Box, Typography, Button, Grid, Alert } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useAuthStore } from '@/features/auth/stores/authStore';
@@ -11,6 +12,7 @@ import EmptyOrganizationState from './EmptyOrganizationState';
 
 export default function OrganizationSelector() {
   const router = useRouter();
+  const t = useTranslations();
   const organizations = useAuthStore((state) => state.organizations);
   const switchOrg = useSwitchOrganization();
   const [switchingOrgId, setSwitchingOrgId] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export default function OrganizationSelector() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
         <Box>
-          <Typography variant="h4">Select Organization</Typography>
+          <Typography variant="h4">{t('organizations.select')}</Typography>
           <Typography variant="body1" color="text.secondary">
             Choose an organization to continue
           </Typography>
@@ -44,7 +46,7 @@ export default function OrganizationSelector() {
           startIcon={<AddIcon />}
           onClick={() => router.push('/organizations/new')}
         >
-          Create New
+          {t('organizations.createNew')}
         </Button>
       </Box>
 
