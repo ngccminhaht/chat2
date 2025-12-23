@@ -10,15 +10,18 @@ import {
   Tabs,
   Tab,
   InputAdornment,
+  IconButton,
+  Badge,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import ConversationItem from './ConversationItem';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
 import { useConversations } from '../hooks/useConversations';
 import { useConversationStore } from '../stores/conversationStore';
 import { useWebSocketEvent } from '@/lib/websocket/useWebSocketEvent';
-import ConversationFilters, { ConversationFiltersState } from './ConversationFilters';
+import ConversationFilters, { ConversationFiltersState, getActiveFilterCount } from './ConversationFilters';
 
 interface ConversationListProps {
   activeConversationId?: string;
@@ -30,7 +33,10 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filters, setFilters] = useState<ConversationFiltersState>({});
+  const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
+
+  const filterCount = getActiveFilterCount(filters);
 
   // Debounce search input (300ms delay)
   useEffect(() => {
@@ -51,21 +57,17 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
 
   // Listen for connection deletion events and refetch conversations
   const handleConnectionDeleted = useCallback(() => {
-    // Invalidate and refetch conversations when a connection is deleted
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
   }, [queryClient]);
 
   // Listen for connection creation events and refetch conversations
   const handleConnectionCreated = useCallback(() => {
-    // Invalidate and refetch conversations when a new connection is created
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
   }, [queryClient]);
 
   // Listen for conversation updates from new messages
   const handleConversationUpdated = useCallback((conversation: any) => {
-    // Add or update conversation in store
     useConversationStore.getState().addConversation(conversation);
-    // Invalidate query to refresh UI
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
   }, [queryClient]);
 
@@ -77,7 +79,6 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
     setStatus(newValue as 'open' | 'closed' | 'archived');
   };
 
-  // Server-side search is now handled by useConversations hook
   const conversations = data?.data;
 
   return (
@@ -93,6 +94,7 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
       <Box sx={{ p: 2 }}>
         <TextField
           fullWidth
+          size="small"
           placeholder="Search conversations..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
@@ -100,15 +102,26 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
             input: {
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon />
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setShowFilters(!showFilters)}
+                    color={filterCount > 0 ? 'primary' : 'default'}
+                  >
+                    <Badge badgeContent={filterCount} color="primary">
+                      <FilterListIcon fontSize="small" />
+                    </Badge>
+                  </IconButton>
                 </InputAdornment>
               ),
             },
           }}
         />
-        <Box sx={{ mt: 1 }}>
-          <ConversationFilters filters={filters} onFiltersChange={setFilters} />
-        </Box>
+        <ConversationFilters filters={filters} onFiltersChange={setFilters} expanded={showFilters} />
       </Box>
 
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>

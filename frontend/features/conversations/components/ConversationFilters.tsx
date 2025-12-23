@@ -8,14 +8,9 @@ import {
   MenuItem,
   Stack,
   Chip,
-  IconButton,
   Collapse,
 } from '@mui/material';
-import {
-  FilterList as FilterIcon,
-  Clear as ClearIcon,
-} from '@mui/icons-material';
-import { useState } from 'react';
+import { Clear as ClearIcon } from '@mui/icons-material';
 
 export interface ConversationFiltersState {
   status?: 'open' | 'closed' | 'archived';
@@ -25,14 +20,14 @@ export interface ConversationFiltersState {
 interface ConversationFiltersProps {
   filters: ConversationFiltersState;
   onFiltersChange: (filters: ConversationFiltersState) => void;
+  expanded: boolean;
 }
 
 export default function ConversationFilters({
   filters,
   onFiltersChange,
+  expanded,
 }: ConversationFiltersProps) {
-  const [expanded, setExpanded] = useState(false);
-
   const handleFilterChange = (key: keyof ConversationFiltersState, value: string | undefined) => {
     onFiltersChange({
       ...filters,
@@ -46,81 +41,58 @@ export default function ConversationFilters({
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== undefined);
 
-  // Count active filters
-  const activeFilterCount = Object.values(filters).filter((v) => v !== undefined).length;
-
   return (
-    <Box>
-      {/* Filter Toggle Button */}
-      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-        <IconButton
-          size="small"
-          onClick={() => setExpanded(!expanded)}
-          color={hasActiveFilters ? 'primary' : 'default'}
-        >
-          <FilterIcon fontSize="small" />
-        </IconButton>
-        {activeFilterCount > 0 && (
-          <>
+    <Collapse in={expanded}>
+      <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+        {/* Platform Filter */}
+        <FormControl size="small" fullWidth>
+          <InputLabel>Platform</InputLabel>
+          <Select
+            value={filters.platform || ''}
+            label="Platform"
+            onChange={(e) => handleFilterChange('platform', e.target.value as any)}
+          >
+            <MenuItem value="">All Platforms</MenuItem>
+            <MenuItem value="facebook">Facebook</MenuItem>
+            <MenuItem value="zalo">Zalo</MenuItem>
+            <MenuItem value="tiktok">TikTok</MenuItem>
+            <MenuItem value="shopee">Shopee</MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* Status Filter */}
+        <FormControl size="small" fullWidth>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={filters.status || ''}
+            label="Status"
+            onChange={(e) => handleFilterChange('status', e.target.value as any)}
+          >
+            <MenuItem value="">All Status</MenuItem>
+            <MenuItem value="open">Open</MenuItem>
+            <MenuItem value="closed">Closed</MenuItem>
+            <MenuItem value="archived">Archived</MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* Clear All Button */}
+        {hasActiveFilters && (
+          <Box display="flex" justifyContent="flex-end">
             <Chip
-              label={`${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''}`}
+              icon={<ClearIcon />}
+              label="Clear all"
               size="small"
-              onDelete={handleClearFilters}
-              color="primary"
+              onClick={handleClearFilters}
               variant="outlined"
             />
-          </>
+          </Box>
         )}
       </Stack>
-
-      {/* Collapsible Filter Panel */}
-      <Collapse in={expanded}>
-        <Stack spacing={1.5} sx={{ mb: 2 }}>
-          {/* Platform Filter */}
-          <FormControl size="small" fullWidth>
-            <InputLabel>Platform</InputLabel>
-            <Select
-              value={filters.platform || ''}
-              label="Platform"
-              onChange={(e) => handleFilterChange('platform', e.target.value as any)}
-            >
-              <MenuItem value="">All Platforms</MenuItem>
-              <MenuItem value="facebook">Facebook</MenuItem>
-              <MenuItem value="zalo">Zalo</MenuItem>
-              <MenuItem value="tiktok">TikTok</MenuItem>
-              <MenuItem value="shopee">Shopee</MenuItem>
-            </Select>
-          </FormControl>
-
-          {/* Status Filter - now outside tabs for additional filtering */}
-          <FormControl size="small" fullWidth>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={filters.status || ''}
-              label="Status"
-              onChange={(e) => handleFilterChange('status', e.target.value as any)}
-            >
-              <MenuItem value="">All Status</MenuItem>
-              <MenuItem value="open">Open</MenuItem>
-              <MenuItem value="closed">Closed</MenuItem>
-              <MenuItem value="archived">Archived</MenuItem>
-            </Select>
-          </FormControl>
-
-          {/* Clear All Button */}
-          {hasActiveFilters && (
-            <Box display="flex" justifyContent="flex-end">
-              <Chip
-                icon={<ClearIcon />}
-                label="Clear all"
-                size="small"
-                onClick={handleClearFilters}
-                variant="outlined"
-              />
-            </Box>
-          )}
-        </Stack>
-      </Collapse>
-    </Box>
+    </Collapse>
   );
+}
+
+// Helper to get filter count for badge
+export function getActiveFilterCount(filters: ConversationFiltersState): number {
+  return Object.values(filters).filter((v) => v !== undefined).length;
 }
