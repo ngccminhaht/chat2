@@ -5,13 +5,21 @@
 
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger, Inject, forwardRef, Optional } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
 import { Job } from "bullmq";
 import { AIBatchingService, AI_BATCH_QUEUE } from "./ai-batching.service";
 import { AIResponseService } from "./ai-response.service";
 import { BatchJobData } from "./dto/batch-job.dto";
 import { VisitorGateway } from "@/modules/websocket/visitor.gateway";
 import { WebsocketGateway } from "@/modules/websocket/websocket.gateway";
-import { Platform } from "@/common/constants";
+import { Platform, MessageType } from "@/common/constants";
+import { KafkaProducerService } from "@/infra/kafka/kafka-producer.service";
+import { KAFKA_TOPICS } from "@/infra/kafka/kafka.config";
+import {
+  PlatformConnection,
+  PlatformConnectionDocument,
+} from "@/common/database/schemas/platform-connection.schema";
 
 @Processor(AI_BATCH_QUEUE)
 export class AIBatchingProcessor extends WorkerHost {
@@ -23,7 +31,10 @@ export class AIBatchingProcessor extends WorkerHost {
     @Inject(forwardRef(() => VisitorGateway))
     private readonly visitorGateway: VisitorGateway,
     @Inject(forwardRef(() => WebsocketGateway))
-    private readonly websocketGateway: WebsocketGateway
+    private readonly websocketGateway: WebsocketGateway,
+    private readonly kafkaProducer: KafkaProducerService,
+    @InjectModel(PlatformConnection.name)
+    private readonly platformConnectionModel: Model<PlatformConnectionDocument>
   ) {
     super();
   }
@@ -92,30 +103,78 @@ export class AIBatchingProcessor extends WorkerHost {
           `AI response saved for ${conversationId}: message ${message._id}`
         );
 
-        // Emit AI message to visitor via WebSocket
-        const widgetPayload = {
-          message: {
-            _id: message._id.toString(),
-            content: {
-              text: aiResponse.answer,
-            },
-            sender: {
-              name: "AI Agent",
-              platformUserId: "ai-agent",
-            },
-            direction: "outbound" as const,
-            createdAt:
-              (message as any).createdAt?.toISOString() ||
-              new Date().toISOString(),
-          },
-        };
+        // Handle message delivery based on platform
+        if (conversation.platform === Platform.WEB) {
+          if (sessionId) {
+            // Web chat: emit via WebSocket
+            const widgetPayload = {
+              message: {
+                _id: message._id.toString(),
+                content: {
+                  text: aiResponse.answer,
+                },
+                sender: {
+                  name: "AI Agent",
+                  platformUserId: "ai-agent",
+                },
+                direction: "outbound" as const,
+                createdAt:
+                  (message as any).createdAt?.toISOString() ||
+                  new Date().toISOString(),
+              },
+            };
 
-        this.visitorGateway.emitToVisitor(
-          sessionId,
-          "message:received",
-          widgetPayload
-        );
-        this.logger.log(`📤 Emitted AI message to visitor ${sessionId}`);
+            this.visitorGateway.emitToVisitor(
+              sessionId,
+              "message:received",
+              widgetPayload
+            );
+            this.logger.log(`📤 Emitted AI message to visitor ${sessionId}`);
+          } else {
+            this.logger.warn(
+              `Web chat conversation ${conversationId} has no sessionId, message saved but not delivered`
+            );
+          }
+        } else {
+          // Platform messages (Zalo, Facebook, etc.): publish to Kafka
+          const platformConnection = await this.platformConnectionModel
+            .findById(conversation.platformConnectionId)
+            .exec();
+
+          if (!platformConnection) {
+            this.logger.error(
+              `Platform connection not found for conversation ${conversationId}`
+            );
+          } else {
+            // Build outgoing message event for Kafka
+            const outgoingEvent = {
+              messageId: message._id.toString(),
+              conversationId: conversation._id.toString(),
+              platform: conversation.platform as Platform,
+              platformConnectionId: platformConnection._id.toString(),
+              platformAccountId: platformConnection.platformAccountId,
+              recipientId: conversation.customerPlatformUserId,
+              message: {
+                type: MessageType.TEXT,
+                text: aiResponse.answer,
+              },
+              credentials: {
+                accessToken: platformConnection.credentials.accessToken,
+              },
+              timestamp: Date.now(),
+            };
+
+            // Publish to Kafka for async processing
+            await this.kafkaProducer.publish(KAFKA_TOPICS.MESSAGES_OUTGOING, {
+              key: conversationId,
+              value: outgoingEvent,
+            });
+
+            this.logger.log(
+              `📤 Published AI message to ${KAFKA_TOPICS.MESSAGES_OUTGOING}: ${message._id}`
+            );
+          }
+        }
 
         // Broadcast to org agents so they see the AI reply
         const serializedMsg = JSON.parse(JSON.stringify(message.toObject()));
