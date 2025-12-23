@@ -37,7 +37,7 @@ export default function ConversationItem({ conversation, isActive, orgSlug }: Co
           </Badge>
         </ListItemAvatar>
         <ListItemText
-          sx={{ overflow: 'hidden' }}
+          sx={{ overflow: 'hidden', minWidth: 0 }}
           primary={
             <>
               {conversation.customerName || 'Unknown'}
