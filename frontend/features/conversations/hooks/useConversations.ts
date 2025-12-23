@@ -5,7 +5,7 @@ import { useAuthStore } from '@/features/auth/stores/authStore';
 
 interface UseConversationsParams {
   status?: 'open' | 'closed' | 'archived';
-  platform?: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
+  platform?: 'facebook' | 'zalo' | 'tiktok' | 'shopee' | 'web';
   search?: string;
   page?: number;
   limit?: number;
