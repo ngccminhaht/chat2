@@ -112,6 +112,9 @@ export class WebsocketGateway
     client.join(room);
     const sockets = await this.server.in(room).fetchSockets();
     this.logger.log(`✅ Agent ${client.userId} joined ${room} (total: ${sockets.length} clients)`);
+
+    // Return acknowledgment to client
+    return { success: true, room, clientCount: sockets.length };
   }
 
   @SubscribeMessage('leave:org:agents')

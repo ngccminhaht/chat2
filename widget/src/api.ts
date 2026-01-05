@@ -14,13 +14,4 @@ export class WidgetAPI {
     }
     return response.json();
   }
-
-  async sendMessage(
-    orgSlug: string,
-    visitorId: string,
-    message: string
-  ): Promise<void> {
-    // TODO: Implement when backend endpoint is ready
-    console.log('Send message:', { orgSlug, visitorId, message });
-  }
 }

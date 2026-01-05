@@ -26,7 +26,7 @@ export function ChatWindow({
   onRetryMessage,
   onSubmitPreChat,
 }: ChatWindowProps): JSX.Element {
-  const { buttonSize, marginBottom, marginBottomMobile, marginRight, windowHeight, windowHeightUnit, windowHeightMobile, preChatForm, preChatFields } = config;
+  const { buttonSize, marginBottom, windowHeight, windowHeightUnit, preChatForm, preChatFields } = config;
 
   const showPreChat = preChatForm && preChatFields.length > 0 && !preChatCompleted;
 

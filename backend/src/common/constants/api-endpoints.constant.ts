@@ -42,10 +42,3 @@ export const SHOPEE_ENDPOINTS = {
   SEND_MESSAGE: `${SHOPEE_API_BASE}/api/v2/sellerchat/send_message`,
 } as const;
 
-export const TIKTOK_API_BASE = 'https://open-api.tiktok.com';
-
-export const TIKTOK_ENDPOINTS = {
-  OAUTH: `${TIKTOK_API_BASE}/platform/oauth/connect`,
-  TOKEN: `${TIKTOK_API_BASE}/oauth/access_token`,
-  USER_INFO: `${TIKTOK_API_BASE}/user/info`,
-} as const;

@@ -15,7 +15,8 @@
     "filter": "Filter",
     "noData": "No data",
     "you": "You",
-    "backToOrganizations": "Back to Organizations"
+    "backToOrganizations": "Back to Organizations",
+    "account": "Account"
   },
   "nav": {
     "conversations": "Conversations",

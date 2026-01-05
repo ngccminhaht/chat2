@@ -125,16 +125,6 @@ export interface ShopeeWebhookPayload {
 }
 
 // ============================================================================
-// TikTok Webhook Types (Placeholder - to be implemented)
-// ============================================================================
-
-export interface TikTokWebhookPayload {
-  event: string;
-  timestamp: number;
-  data: Record<string, unknown>;
-}
-
-// ============================================================================
 // Generic Normalized Message (Internal Format)
 // ============================================================================
 

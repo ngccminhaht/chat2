@@ -7,6 +7,14 @@ import CssBaseline from '@mui/material/CssBaseline';
 import theme from '@/lib/theme';
 import { useState } from 'react';
 import { WebSocketProvider } from '@/lib/websocket/WebSocketContext';
+import { useConversationWebSocketEvents } from '@/lib/websocket/useConversationWebSocketEvents';
+
+// Setup WebSocket event listeners at root level
+// Ensures listeners register immediately when socket connects (no race condition)
+function WebSocketEventSetup() {
+  useConversationWebSocketEvents();
+  return null;
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -27,6 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <CssBaseline />
         <QueryClientProvider client={queryClient}>
           <WebSocketProvider>
+            <WebSocketEventSetup />
             {children}
           </WebSocketProvider>
         </QueryClientProvider>

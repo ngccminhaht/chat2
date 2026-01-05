@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { Box, Toolbar, CircularProgress } from '@mui/material';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
-import { useConversationWebSocketEvents } from '@/lib/websocket/useConversationWebSocketEvents';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { useSwitchOrganization } from '@/features/auth/hooks/useSwitchOrganization';
 import { useTotalUnreadCount } from '@/features/conversations/stores/conversationStore';
@@ -27,9 +26,6 @@ export default function OrganizationLayout({
   const hasHydrated = useAuthStore((state) => state._hasHydrated);
   const switchOrg = useSwitchOrganization();
   const unreadCount = useTotalUnreadCount();
-
-  // Setup WebSocket event listeners
-  useConversationWebSocketEvents();
 
   // Validate org slug and switch if needed
   useEffect(() => {

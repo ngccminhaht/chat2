@@ -57,9 +57,14 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
         const orgId = useAuthStore.getState().organizationId;
         console.log(`[WebSocketProvider] organizationId from store: ${orgId}`);
         if (orgId && joinedOrgRef.current !== orgId) {
-          newSocket.emit('join:org:agents', { organizationId: orgId });
-          joinedOrgRef.current = orgId;
-          console.log(`[WebSocketProvider] Emitted join:org:agents for org: ${orgId}`);
+          newSocket.emit('join:org:agents', { organizationId: orgId }, (response: { success: boolean; room: string; clientCount: number }) => {
+            if (response?.success) {
+              joinedOrgRef.current = orgId;
+              console.log(`[WebSocketProvider] ✅ Joined room: ${response.room} (${response.clientCount} clients)`);
+            } else {
+              console.error('[WebSocketProvider] ❌ Failed to join org room');
+            }
+          });
         } else {
           console.log(`[WebSocketProvider] Not joining org room - orgId: ${orgId}, joinedOrgRef: ${joinedOrgRef.current}`);
         }
@@ -97,9 +102,14 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
     // Join new org room
     if (joinedOrgRef.current !== organizationId) {
-      socketRef.current.emit('join:org:agents', { organizationId });
-      joinedOrgRef.current = organizationId;
-      console.log(`[WebSocketProvider] Joined org:${organizationId}:agents room`);
+      socketRef.current.emit('join:org:agents', { organizationId }, (response: { success: boolean; room: string; clientCount: number }) => {
+        if (response?.success) {
+          joinedOrgRef.current = organizationId;
+          console.log(`[WebSocketProvider] ✅ Switched to room: ${response.room} (${response.clientCount} clients)`);
+        } else {
+          console.error('[WebSocketProvider] ❌ Failed to switch org room');
+        }
+      });
     }
   }, [organizationId, isConnected]);
 

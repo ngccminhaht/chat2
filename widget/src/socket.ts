@@ -58,7 +58,6 @@ export class WidgetSocket {
   private organizationId: string;
   private apiUrl: string;
   private callbacks: SocketEventCallback = {};
-  private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
 
   constructor(apiUrl: string, organizationId: string) {
@@ -137,17 +136,12 @@ export class WidgetSocket {
 
     this.socket.on('connect', () => {
       console.log('[MiAgent] Connected to server');
-      this.reconnectAttempts = 0;
       this.callbacks.onConnected?.();
     });
 
     this.socket.on('disconnect', () => {
       console.log('[MiAgent] Disconnected from server');
       this.callbacks.onDisconnected?.();
-    });
-
-    this.socket.on('connected', () => {
-      // Server confirmed connection
     });
 
     this.socket.on('conversation:restored', (data) => {

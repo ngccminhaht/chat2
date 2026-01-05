@@ -18,7 +18,6 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LogoutIcon from "@mui/icons-material/Logout";
-import PersonIcon from "@mui/icons-material/Person";
 import ChatIcon from "@mui/icons-material/Chat";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useOrganizations } from "@/features/organizations/hooks/useOrganizations";
@@ -165,7 +164,7 @@ export default function Header({
               </Avatar>
             </ListItemIcon>
             <ListItemText
-              primary={<Typography variant="caption" color="text.secondary">Tài khoản</Typography>}
+              primary={<Typography variant="caption" color="text.secondary">{t('account')}</Typography>}
               secondary={user?.name}
             />
             <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleLogout(); }}>
