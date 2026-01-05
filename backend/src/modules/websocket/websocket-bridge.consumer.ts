@@ -72,7 +72,9 @@ export class WebSocketBridgeConsumer {
 
         case 'message:read':
           const readPayload = payload as MessagesReadPayload;
-          if (userId) {
+          if (organizationId) {
+            this.websocketGateway.emitToOrgAgents(organizationId, 'message:read', readPayload);
+          } else if (userId) {
             this.websocketGateway.emitMessagesRead(
               userId,
               readPayload.conversationId,

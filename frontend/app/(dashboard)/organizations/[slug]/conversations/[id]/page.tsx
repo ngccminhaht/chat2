@@ -80,17 +80,19 @@ export default function ConversationDetailPage() {
   useEffect(() => {
     if (markedAsReadRef.current === conversationId) return;
 
-    if (conversationId && storeMessages.length > 0) {
-      const hasUnreadMessages = storeMessages.some(
+    // Mark as read based on conversation unread count or message status
+    const shouldMarkAsRead =
+      (conversation?.unreadCount && conversation.unreadCount > 0) ||
+      (storeMessages.length > 0 && storeMessages.some(
         (msg) => msg.direction === 'inbound' && msg.status !== 'read'
-      );
-      if (hasUnreadMessages) {
-        markedAsReadRef.current = conversationId;
-        markAsRead({ conversationId });
-      }
+      ));
+
+    if (conversationId && shouldMarkAsRead) {
+      markedAsReadRef.current = conversationId;
+      markAsRead({ conversationId });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, storeMessages.length]);
+  }, [conversationId, conversation?.unreadCount, storeMessages.length]);
 
   useEffect(() => {
     markedAsReadRef.current = null;

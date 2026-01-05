@@ -357,10 +357,10 @@ export class MessagesService {
       .lean()
       .exec();
 
-    // Publish messages read event to Kafka
+    // Publish messages read event to Kafka (broadcast to organization)
     const messagesReadEvent: WebSocketNotificationEvent = {
       type: 'message:read',
-      userId: connectionUserId,
+      organizationId,
       payload: {
         conversationId,
         messageIds: updatedMessages.map((m) => m._id.toString()),
@@ -369,15 +369,15 @@ export class MessagesService {
     };
 
     await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-      key: connectionUserId,
+      key: organizationId,
       value: messagesReadEvent,
     });
 
-    // Publish conversation update to Kafka
+    // Publish conversation update to Kafka (broadcast to organization)
     if (updatedConversation) {
       const conversationEvent: WebSocketNotificationEvent = {
         type: 'conversation:updated',
-        userId: connectionUserId,
+        organizationId,
         payload: {
           _id: updatedConversation._id.toString(),
           unreadCount: updatedConversation.unreadCount,
@@ -387,12 +387,12 @@ export class MessagesService {
       };
 
       await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-        key: connectionUserId,
+        key: organizationId,
         value: conversationEvent,
       });
     }
 
-    this.logger.log(`📤 Published Kafka events for user ${connectionUserId}`);
+    this.logger.log(`📤 Published mark-as-read events to organization ${organizationId}`);
 
     return {
       updated: updatedMessages.length,

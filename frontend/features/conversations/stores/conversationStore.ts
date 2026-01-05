@@ -100,6 +100,9 @@ export const useConversationStore = create<ConversationState>((set) => ({
           messageIds.includes(msg._id) ? { ...msg, status: 'read' } : msg
         ),
       },
+      conversations: state.conversations.map((conv) =>
+        conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
+      ),
     })),
 }));
 
