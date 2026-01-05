@@ -35,6 +35,7 @@
     "class-validator": "^0.14.2",
     "cookie-parser": "^1.4.7",
     "ioredis": "5",
+    "jwks-rsa": "^3.2.0",
     "kafkajs": "2",
     "mongoose": "8",
     "multer": "^2.0.2",
