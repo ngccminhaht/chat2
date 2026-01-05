@@ -158,4 +158,39 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
+
+  /**
+   * Login with Keycloak token
+   * Syncs user from Keycloak to local DB if not exists
+   * Returns session tokens for frontend to use
+   */
+  async loginWithKeycloak(keycloakUser: {
+    sub: string;
+    email: string;
+    name: string;
+    roles?: string[];
+    organizationId?: string;
+  }) {
+    // Find or create user by Keycloak ID
+    let user = await this.usersService.findByKeycloakId(keycloakUser.sub);
+
+    if (!user) {
+      // User doesn't exist, sync from Keycloak
+      user = await this.usersService.create({
+        email: keycloakUser.email,
+        name: keycloakUser.name,
+        keycloakId: keycloakUser.sub,
+        // No password hash for Keycloak users
+        passwordHash: '',
+      });
+    } else {
+      // Update user info from Keycloak (in case name/email changed)
+      user.email = keycloakUser.email;
+      user.name = keycloakUser.name;
+      await user.save();
+    }
+
+    const { passwordHash, ...result } = user.toObject();
+    return this.login(result, keycloakUser.organizationId);
+  }
 }

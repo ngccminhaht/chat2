@@ -7,6 +7,7 @@ import { OrganizationsModule } from '../organizations/organizations.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { KeycloakStrategy } from './strategies/keycloak.strategy';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, KeycloakStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

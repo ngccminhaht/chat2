@@ -4,10 +4,11 @@ import {
   Body,
   UseGuards,
   UnauthorizedException,
+  Get,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from './dto';
-import { JwtAuthGuard } from '@/common/guards';
+import { JwtAuthGuard, KeycloakAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators';
 
 @Controller('auth')
@@ -24,6 +25,17 @@ export class AuthController {
       throw new UnauthorizedException('Invalid credentials');
     }
     return this.authService.login(user);
+  }
+
+  /**
+   * Keycloak login endpoint
+   * Frontend sends Keycloak token, backend validates and syncs user
+   * GET /api/auth/keycloak/me
+   */
+  @Get('keycloak/me')
+  @UseGuards(KeycloakAuthGuard)
+  async keycloakLogin(@CurrentUser() keycloakUser: any) {
+    return this.authService.loginWithKeycloak(keycloakUser);
   }
 
   @Post('register')

@@ -56,6 +56,23 @@ export class EnvSchema {
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN?: string;
 
+  // Keycloak
+  @IsString()
+  @IsOptional()
+  KEYCLOAK_REALM?: string;
+
+  @IsString()
+  @IsOptional()
+  KEYCLOAK_SERVER_URL?: string;
+
+  @IsString()
+  @IsOptional()
+  KEYCLOAK_CLIENT_ID?: string;
+
+  @IsString()
+  @IsOptional()
+  KEYCLOAK_CLIENT_SECRET?: string;
+
   // Kafka
   @IsArray()
   @Transform(({ value }) => value ? value.split(',').map((v: string) => v.trim()) : ['localhost:8311'])

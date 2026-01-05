@@ -21,6 +21,10 @@ export class User {
   @Prop({ required: true })
   name: string;
 
+  // Keycloak ID for SSO users (optional)
+  @Prop({ unique: true, sparse: true })
+  keycloakId?: string;
+
   // Role removed - now per-organization in OrganizationMember
 
   @Prop()
@@ -40,3 +44,4 @@ export const UserSchema = SchemaFactory.createForClass(User);
 
 // Indexes
 UserSchema.index({ isActive: 1 });
+UserSchema.index({ keycloakId: 1 });

@@ -23,6 +23,10 @@ export class UsersService {
     return this.userModel.findById(id).exec();
   }
 
+  async findByKeycloakId(keycloakId: string): Promise<UserDocument | null> {
+    return this.userModel.findOne({ keycloakId }).exec();
+  }
+
   async update(id: string, updateData: Partial<User>): Promise<UserDocument | null> {
     return this.userModel
       .findByIdAndUpdate(id, updateData, { new: true })
