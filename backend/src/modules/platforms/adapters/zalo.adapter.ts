@@ -17,6 +17,17 @@ import { PlatformConnectionDocument } from '@/common/database/schemas/platform-c
 
 // Zalo error codes that indicate token expiration
 const ZALO_TOKEN_EXPIRED_ERRORS = [-216, -124]; // -216: access token expired, -124: invalid access token
+
+// Common Zalo API error codes
+const ZALO_ERROR_CODES: Record<number, string> = {
+  [-216]: 'Access token expired',
+  [-124]: 'Invalid access token',
+  [-201]: 'Missing required parameter',
+  [-214]: 'User not found or blocked the OA',
+  [-229]: 'User ID not found',
+  [-218]: 'Insufficient permission',
+  0: 'Success',
+};
 import {
   IPlatformAdapter,
   BasePlatformAdapter,
@@ -624,6 +635,8 @@ export class ZaloAdapter extends BasePlatformAdapter {
     try {
       const accessToken = connection.credentials.accessToken;
 
+      this.logger.log(`📋 Fetching Zalo profile for user ${userId}`);
+
       const response = await axios.get(
         'https://openapi.zalo.me/v2.0/oa/getprofile',
         {
@@ -636,18 +649,36 @@ export class ZaloAdapter extends BasePlatformAdapter {
         },
       );
 
+      this.logger.debug(`Zalo getprofile response:`, response.data);
+
       if (response.data.error !== 0) {
+        const errorCode = response.data.error;
+        const errorMessage = response.data.message || ZALO_ERROR_CODES[errorCode] || 'Unknown error';
+
+        this.logger.warn(`⚠️ Zalo getprofile error ${errorCode}: ${errorMessage}`, {
+          userId,
+          errorCode,
+          errorMessage,
+          knownError: ZALO_ERROR_CODES[errorCode],
+        });
         return this.createDefaultProfile(userId, 'Zalo');
       }
 
       const userData = response.data.data;
-      return {
+      const profile = {
         id: userId,
         name: userData.display_name || userData.user_alias || `Zalo User`,
         avatar: userData.avatars?.['120'] || userData.avatar,
       };
+
+      this.logger.log(`✅ Zalo profile fetched: ${profile.name}`);
+      return profile;
     } catch (error) {
-      this.logger.warn(`Failed to fetch Zalo profile for ${userId}: ${error.message}`);
+      this.logger.error(`❌ Failed to fetch Zalo profile for ${userId}:`, {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       return this.createDefaultProfile(userId, 'Zalo');
     }
   }
