@@ -77,8 +77,15 @@ export default function ConversationDetailPage() {
     }
   }, [conversationData]);
 
+  // Mark as read only when page is visible and user is viewing the conversation
   useEffect(() => {
     if (markedAsReadRef.current === conversationId) return;
+
+    // Check if page is visible (not minimized, not in background tab)
+    if (document.hidden) {
+      console.log('[ConversationDetail] Page hidden, skip mark as read');
+      return;
+    }
 
     // Mark as read based on conversation unread count or message status
     const shouldMarkAsRead =
@@ -97,6 +104,33 @@ export default function ConversationDetailPage() {
   useEffect(() => {
     markedAsReadRef.current = null;
   }, [conversationId]);
+
+  // Handle visibility change - mark as read when user returns to tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && conversationId) {
+        console.log('[ConversationDetail] Page visible again, checking unread messages');
+
+        // Reset the ref to allow re-marking as read
+        markedAsReadRef.current = null;
+
+        // Check if there are unread messages
+        const shouldMarkAsRead =
+          (conversation?.unreadCount && conversation.unreadCount > 0) ||
+          (storeMessages.length > 0 && storeMessages.some(
+            (msg) => msg.direction === 'inbound' && msg.status !== 'read'
+          ));
+
+        if (shouldMarkAsRead) {
+          markedAsReadRef.current = conversationId;
+          markAsRead({ conversationId });
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [conversationId, conversation?.unreadCount, storeMessages, markAsRead]);
 
   return (
     <Box sx={{ height: 'calc(100vh - 112px)' }}>
