@@ -3,8 +3,6 @@ import { JwtService } from '@nestjs/jwt';
 import { EnvService } from '@/common/env';
 import { UsersService } from '../users/users.service';
 import { OrganizationsService } from '../organizations/organizations.service';
-import { RegisterDto } from './dto';
-import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -16,20 +14,6 @@ export class AuthService {
     private envService: EnvService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      return null;
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isPasswordValid) {
-      return null;
-    }
-
-    const { passwordHash, ...result } = user.toObject();
-    return result;
-  }
 
   /**
    * Generate tokens for user
@@ -45,14 +29,12 @@ export class AuthService {
     // Determine active organization
     let activeOrgId = organizationId;
     let activeOrg = null;
-    let userRole = null;
 
     if (userOrgs.length > 0) {
       // If no org specified, use first one
       if (!activeOrgId) {
         activeOrgId = userOrgs[0].organization._id.toString();
         activeOrg = userOrgs[0].organization;
-        userRole = userOrgs[0].role;
       } else {
         // Verify user belongs to specified org
         const membership = userOrgs.find(
@@ -60,7 +42,6 @@ export class AuthService {
         );
         if (membership) {
           activeOrg = membership.organization;
-          userRole = membership.role;
         }
       }
     }
@@ -119,26 +100,9 @@ export class AuthService {
       throw new UnauthorizedException('Not a member of this organization');
     }
 
-    const { passwordHash, ...result } = user.toObject();
-    return this.login(result, organizationId);
+    return this.login(user.toObject(), organizationId);
   }
 
-  async register(registerDto: RegisterDto) {
-    const existingUser = await this.usersService.findByEmail(registerDto.email);
-    if (existingUser) {
-      throw new UnauthorizedException('Email already exists');
-    }
-
-    const passwordHash = await bcrypt.hash(registerDto.password, 10);
-    const user = await this.usersService.create({
-      email: registerDto.email,
-      name: registerDto.name || registerDto.email.split('@')[0],
-      passwordHash,
-    });
-
-    const { passwordHash: _, ...result } = user.toObject();
-    return this.login(result);
-  }
 
   async refreshToken(refreshToken: string) {
     try {
@@ -151,46 +115,11 @@ export class AuthService {
         throw new UnauthorizedException('User not found');
       }
 
-      const { passwordHash, ...result } = user.toObject();
       // Preserve active organization from refresh token
-      return this.login(result, payload.organizationId);
+      return this.login(user.toObject(), payload.organizationId);
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  /**
-   * Login with Keycloak token
-   * Syncs user from Keycloak to local DB if not exists
-   * Returns session tokens for frontend to use
-   */
-  async loginWithKeycloak(keycloakUser: {
-    sub: string;
-    email: string;
-    name: string;
-    roles?: string[];
-    organizationId?: string;
-  }) {
-    // Find or create user by Keycloak ID
-    let user = await this.usersService.findByKeycloakId(keycloakUser.sub);
-
-    if (!user) {
-      // User doesn't exist, sync from Keycloak
-      user = await this.usersService.create({
-        email: keycloakUser.email,
-        name: keycloakUser.name,
-        keycloakId: keycloakUser.sub,
-        // No password hash for Keycloak users
-        passwordHash: '',
-      });
-    } else {
-      // Update user info from Keycloak (in case name/email changed)
-      user.email = keycloakUser.email;
-      user.name = keycloakUser.name;
-      await user.save();
-    }
-
-    const { passwordHash, ...result } = user.toObject();
-    return this.login(result, keycloakUser.organizationId);
-  }
 }
