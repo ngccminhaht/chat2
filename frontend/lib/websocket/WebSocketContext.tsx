@@ -19,9 +19,16 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   // Select accessToken directly - calling isAuthenticated() in selector is anti-pattern
   const accessToken = useAuthStore((state) => state.accessToken);
   const organizationId = useAuthStore((state) => state.organizationId);
+  const hasHydrated = useAuthStore((state) => state._hasHydrated);
   const isAuthenticated = !!accessToken;
 
   useEffect(() => {
+    // Wait for auth store to hydrate before connecting
+    if (!hasHydrated) {
+      console.log('[WebSocketProvider] Waiting for auth store hydration...');
+      return;
+    }
+
     if (!isAuthenticated) {
       // Disconnect and cleanup
       if (socketRef.current) {
@@ -88,7 +95,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       socketRef.current = newSocket;
       setSocket(newSocket);
     }
-  }, [isAuthenticated]);
+  }, [hasHydrated, isAuthenticated]);
 
   // Handle org switch - join new org room
   useEffect(() => {
