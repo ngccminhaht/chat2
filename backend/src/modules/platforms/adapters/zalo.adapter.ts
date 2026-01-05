@@ -637,8 +637,10 @@ export class ZaloAdapter extends BasePlatformAdapter {
 
       this.logger.log(`📋 Fetching Zalo profile for user ${userId}`);
 
+      // Use v3.0 API (v2.0/oa/getprofile has been shut down as of June 2024)
+      // See: https://go.zalo.me/upgrade-api-06_2024
       const response = await axios.get(
-        'https://openapi.zalo.me/v2.0/oa/getprofile',
+        'https://openapi.zalo.me/v3.0/oa/user/detail',
         {
           headers: {
             access_token: accessToken,
