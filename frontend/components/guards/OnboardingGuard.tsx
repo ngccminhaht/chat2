@@ -28,14 +28,15 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
   const hasOrganization = organizationId || (organizations && organizations.length > 0);
 
   useEffect(() => {
-    // Wait for both Keycloak init and store hydration
-    if (!initialized || !_hasHydrated) {
+    // Check logout flag FIRST (before any other checks) - survives page redirect
+    const isLoggingOutSession = sessionStorage.getItem('keycloak_logging_out') === 'true';
+    if (isLoggingOut || isLoggingOutSession) {
+      // Don't do anything while logging out - Keycloak will redirect to login
       return;
     }
 
-    // Don't do anything while logging out - Keycloak will redirect
-    const isLoggingOutSession = sessionStorage.getItem('keycloak_logging_out') === 'true';
-    if (isLoggingOut || isLoggingOutSession) {
+    // Wait for both Keycloak init and store hydration
+    if (!initialized || !_hasHydrated) {
       return;
     }
 

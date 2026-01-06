@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, CircularProgress } from '@mui/material';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { useKeycloak } from '@/lib/keycloak/KeycloakProvider';
 
 interface Props {
   children: React.ReactNode;
@@ -11,28 +12,29 @@ interface Props {
 
 export default function OrganizationGuard({ children }: Props) {
   const router = useRouter();
+  const { initialized, authenticated, login } = useKeycloak();
   const organizationId = useAuthStore((state) => state.organizationId);
-  const accessToken = useAuthStore((state) => state.accessToken);
+  const hasHydrated = useAuthStore((state) => state._hasHydrated);
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Wait for hydration from persisted store
-    const timer = setTimeout(() => {
-      if (!accessToken) {
-        router.replace('/login');
-        return;
-      }
+    // Wait for Keycloak init and Zustand hydration
+    if (!initialized || !hasHydrated) return;
 
-      if (!organizationId) {
-        router.replace('/organizations');
-        return;
-      }
+    // Not authenticated - trigger Keycloak login
+    if (!authenticated) {
+      login();
+      return;
+    }
 
-      setIsChecking(false);
-    }, 100);
+    // Authenticated but no organization - redirect to org selector
+    if (!organizationId) {
+      router.replace('/organizations');
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, [organizationId, accessToken, router]);
+    setIsChecking(false);
+  }, [initialized, authenticated, organizationId, hasHydrated, router, login]);
 
   // Show loading while checking auth state
   if (isChecking || !organizationId) {
