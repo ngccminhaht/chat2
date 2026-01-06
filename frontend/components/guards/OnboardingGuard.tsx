@@ -18,8 +18,6 @@ const ONBOARDING_ROUTES = [
   '/organizations/new',
 ];
 
-const AUTH_ROUTES = ['/login', '/register', '/auth/callback'];
-
 export default function OnboardingGuard({ children }: OnboardingGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -35,29 +33,15 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
       return;
     }
 
-    const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
     const isOnboardingRoute = ONBOARDING_ROUTES.some((route) => pathname.startsWith(route));
 
-    // Use Keycloak's authenticated state as source of truth
+    // Not authenticated - trigger Keycloak login immediately
     if (!authenticated) {
-      // Not authenticated - trigger Keycloak login immediately
       login();
       return;
     }
 
-    // From here: user IS authenticated in Keycloak
-
-    // On auth routes (login/register) - redirect authenticated users away
-    if (isAuthRoute) {
-      if (hasOrganization) {
-        router.replace('/organizations');
-      } else {
-        router.replace('/organizations/new');
-      }
-      return;
-    }
-
-    // Authenticated but no organization - redirect to onboarding (unless already there)
+    // Authenticated but no organization - redirect to onboarding
     if (!hasOrganization) {
       if (!isOnboardingRoute) {
         router.replace('/organizations/new');
