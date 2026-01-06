@@ -124,12 +124,14 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
 
     initPromise
       .then((auth) => {
-        // Clear redirect flag on success
+        // Clear flags on success
         sessionStorage.removeItem('keycloak_redirect_attempted');
+        sessionStorage.removeItem('keycloak_logging_out');
 
         setKeycloak(kcInstance);
         setInitialized(true);
         setAuthenticated(auth);
+        setIsLoggingOut(false);
 
         if (auth && kcInstance.token) {
           // Set token in API client
@@ -179,6 +181,7 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
   const logout = useCallback(() => {
     if (keycloak) {
       setIsLoggingOut(true);
+      sessionStorage.setItem('keycloak_logging_out', 'true');
       clearAuth();
       keycloak.logout({
         redirectUri: window.location.origin,

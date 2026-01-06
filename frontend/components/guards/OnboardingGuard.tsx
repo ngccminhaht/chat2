@@ -34,7 +34,8 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
     }
 
     // Don't do anything while logging out - Keycloak will redirect
-    if (isLoggingOut) {
+    const isLoggingOutSession = sessionStorage.getItem('keycloak_logging_out') === 'true';
+    if (isLoggingOut || isLoggingOutSession) {
       return;
     }
 
