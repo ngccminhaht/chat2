@@ -41,7 +41,9 @@
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
     "registerHere": "Register here",
-    "loginHere": "Login here"
+    "loginHere": "Login here",
+    "loginWithSSO": "Sign in with your organization account",
+    "loginWithKeycloak": "Sign in with SSO"
   },
   "members": {
     "title": "Members",

@@ -1,6 +1,6 @@
-import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
-import Redis from 'ioredis';
-import { EnvService } from '@/common/env';
+import { Injectable, OnModuleDestroy, Logger } from "@nestjs/common";
+import Redis from "ioredis";
+import { EnvService } from "@/common/env";
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
@@ -8,19 +8,19 @@ export class RedisService implements OnModuleDestroy {
   private readonly client: Redis;
 
   constructor(private readonly envService: EnvService) {
-    const redisUrl = this.envService.get('REDIS_URL');
+    const redisUrl = this.envService.get("REDIS_URL");
 
     if (redisUrl) {
-      this.logger.log('🔧 Using REDIS_URL for connection');
+      this.logger.log("🔧 Using REDIS_URL for connection");
       this.client = new Redis(redisUrl);
     } else {
       const redisConfig: any = {
-        host: this.envService.get('REDIS_HOST'),
-        port: this.envService.get('REDIS_PORT'),
+        host: this.envService.get("REDIS_HOST"),
+        port: this.envService.get("REDIS_PORT"),
       };
 
-      const password = this.envService.get('REDIS_PASSWORD');
-      const db = this.envService.get('REDIS_DB');
+      const password = this.envService.get("REDIS_PASSWORD");
+      const db = this.envService.get("REDIS_DB");
 
       if (password) {
         redisConfig.password = password;
@@ -30,26 +30,19 @@ export class RedisService implements OnModuleDestroy {
         redisConfig.db = db;
       }
 
-      this.logger.log('🔧 Redis config:', {
-        host: redisConfig.host,
-        port: redisConfig.port,
-        db: redisConfig.db,
-        hasPassword: !!redisConfig.password,
-      });
-
       this.client = new Redis(redisConfig);
     }
 
-    this.client.on('error', (err) => {
-      this.logger.error('❌ Redis connection error:', err.message);
+    this.client.on("error", (err) => {
+      this.logger.error("❌ Redis connection error:", err.message);
     });
 
-    this.client.on('connect', () => {
-      this.logger.log('✅ Redis connected');
+    this.client.on("connect", () => {
+      this.logger.log("✅ Redis connected");
     });
 
-    this.client.on('ready', () => {
-      this.logger.log('✅ Redis ready');
+    this.client.on("ready", () => {
+      this.logger.log("✅ Redis ready");
     });
   }
 
@@ -122,7 +115,7 @@ export class RedisService implements OnModuleDestroy {
    * Clean up Redis connection on module destroy
    */
   async onModuleDestroy() {
-    this.logger.log('🔌 Closing Redis connection');
+    this.logger.log("🔌 Closing Redis connection");
     await this.client.quit();
   }
 }
