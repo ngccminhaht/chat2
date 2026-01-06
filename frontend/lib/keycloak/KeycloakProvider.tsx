@@ -9,6 +9,7 @@ interface KeycloakContextType {
   keycloak: Keycloak | null;
   initialized: boolean;
   authenticated: boolean;
+  isLoggingOut: boolean;
   login: () => void;
   logout: () => void;
   token: string | undefined;
@@ -18,6 +19,7 @@ const KeycloakContext = createContext<KeycloakContextType>({
   keycloak: null,
   initialized: false,
   authenticated: false,
+  isLoggingOut: false,
   login: () => {},
   logout: () => {},
   token: undefined,
@@ -37,6 +39,7 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
   const [keycloak, setKeycloak] = useState<Keycloak | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const didInit = useRef(false);
 
   const updateUserAndTokens = useAuthStore((state) => state.updateUserAndTokens);
@@ -175,6 +178,7 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
 
   const logout = useCallback(() => {
     if (keycloak) {
+      setIsLoggingOut(true);
       clearAuth();
       keycloak.logout({
         redirectUri: window.location.origin,
@@ -188,6 +192,7 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
         keycloak,
         initialized,
         authenticated,
+        isLoggingOut,
         login,
         logout,
         token: keycloak?.token,
