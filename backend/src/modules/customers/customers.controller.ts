@@ -6,13 +6,11 @@ import {
   Query,
   Body,
   Delete,
-  UseGuards,
   BadRequestException,
 } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { CustomersService } from './customers.service';
 import { GetCustomersDto, UpdateCustomerDto } from './dto';
-import { JwtAuthGuard } from '@/common/guards';
 
 function validateObjectId(id: string, fieldName: string): void {
   if (!Types.ObjectId.isValid(id)) {
@@ -21,7 +19,6 @@ function validateObjectId(id: string, fieldName: string): void {
 }
 
 @Controller('organizations/:organizationId/customers')
-@UseGuards(JwtAuthGuard)
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 

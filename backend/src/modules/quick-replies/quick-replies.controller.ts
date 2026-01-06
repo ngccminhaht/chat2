@@ -7,9 +7,7 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { CurrentOrganization } from '@/common/decorators/current-organization.decorator';
 import { QuickRepliesService } from './quick-replies.service';
@@ -17,7 +15,6 @@ import { CreateQuickReplyDto } from './dto/create-quick-reply.dto';
 import { UpdateQuickReplyDto } from './dto/update-quick-reply.dto';
 
 @Controller('quick-replies')
-@UseGuards(JwtAuthGuard)
 export class QuickRepliesController {
   constructor(private readonly quickRepliesService: QuickRepliesService) {}
 

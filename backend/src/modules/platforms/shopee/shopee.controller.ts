@@ -9,12 +9,11 @@ import {
   Req,
   Query,
   Res,
-  UseGuards,
   Request as NestRequest,
   BadRequestException,
 } from "@nestjs/common";
 import { Request, Response } from "express";
-import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
+import { Public } from "@/common/decorators";
 import { ShopeeWebhookDto } from "./dto/shopee-webhook.dto";
 import {
   ShopeeAuthUrlDto,
@@ -55,6 +54,7 @@ export class ShopeeController {
    * Shopee webhook verification - return success response
    */
   @Get("webhook")
+  @Public()
   @HttpCode(200)
   async verifyWebhook(): Promise<{ code: number; message: string }> {
     this.logger.log("📋 Shopee webhook verification");
@@ -66,6 +66,7 @@ export class ShopeeController {
    * Receive webhook events from Shopee
    */
   @Post("webhook")
+  @Public()
   @HttpCode(200)
   async handleWebhook(
     @Req() req: RawBodyRequest<Request>,
@@ -201,7 +202,6 @@ export class ShopeeController {
    * GET /api/shopee/auth-url?organizationId=xxx
    */
   @Get("auth-url")
-  @UseGuards(JwtAuthGuard)
   async getAuthUrl(@Query() dto: ShopeeAuthUrlDto, @NestRequest() req: any) {
     const userId = req.user.userId;
     const { url, state } = this.shopeeService.getAuthorizationUrl(dto.state);
@@ -224,7 +224,6 @@ export class ShopeeController {
    * GET /api/shopee/complete?code=xxx&state=xxx&shop_id=xxx
    */
   @Get("complete")
-  @UseGuards(JwtAuthGuard)
   async completeOAuth(
     @Query() dto: ShopeeCallbackDto,
     @NestRequest() req: any

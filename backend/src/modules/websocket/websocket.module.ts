@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
 import { WebsocketGateway } from './websocket.gateway';
 import { VisitorGateway } from './visitor.gateway';
 import { VisitorMessageService } from './visitor-message.service';
 import { VisitorRateLimitService } from './visitor-rate-limit.service';
 import { WebSocketBridgeConsumer } from './websocket-bridge.consumer';
-import { EnvService } from '@/common/env';
 import {
   Organization,
   OrganizationSchema,
@@ -20,16 +18,11 @@ import {
   MessageSchema,
 } from '@/common/database/schemas/message.schema';
 import { CustomersModule } from '@/modules/customers/customers.module';
+import { AuthModule } from '@/modules/auth/auth.module';
 
 @Module({
   imports: [
-    JwtModule.registerAsync({
-      inject: [EnvService],
-      useFactory: (envService: EnvService) => ({
-        secret: envService.get('JWT_SECRET'),
-        signOptions: { expiresIn: '1h' },
-      }),
-    }),
+    AuthModule,
     MongooseModule.forFeature([
       { name: Organization.name, schema: OrganizationSchema },
       { name: Conversation.name, schema: ConversationSchema },

@@ -12,7 +12,7 @@ import type {
 export function useCreateOrganization() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { user, accessToken, refreshToken, organizations, setAuth } = useAuthStore();
+  const { organizations, setOrganizations } = useAuthStore();
 
   return useMutation({
     mutationFn: async (data: CreateOrganizationRequest) => {
@@ -23,24 +23,19 @@ export function useCreateOrganization() {
       return response.data;
     },
     onSuccess: (data) => {
-      if (user && accessToken && refreshToken) {
-        // Add new org to organizations list
-        const newOrg = {
-          id: data.id,
-          name: data.name,
-          slug: data.slug,
-          plan: data.plan as 'free' | 'starter' | 'pro' | 'enterprise',
-          role: 'owner' as const,
-        };
-        setAuth(
-          user,
-          accessToken,
-          refreshToken,
-          data.id,
-          { id: data.id, name: data.name, slug: data.slug, plan: data.plan },
-          [...organizations, newOrg]
-        );
-      }
+      // Add new org to organizations list
+      const newOrg = {
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        plan: data.plan as 'free' | 'starter' | 'pro' | 'enterprise',
+        role: 'owner' as const,
+      };
+      const currentOrg = { id: data.id, name: data.name, slug: data.slug, plan: data.plan };
+
+      // Update organizations in store (preserves user/tokens from Keycloak)
+      setOrganizations(data.id, currentOrg, [...organizations, newOrg]);
+
       // Invalidate organizations query to refresh list
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
       // Redirect back to organizations selector

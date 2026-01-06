@@ -1,12 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Box, Typography, Button, Grid, Alert } from '@mui/material';
+import { Box, Typography, Button, Grid } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import { useSwitchOrganization } from '@/features/auth/hooks/useSwitchOrganization';
 import OrganizationCard from './OrganizationCard';
 import EmptyOrganizationState from './EmptyOrganizationState';
 
@@ -14,18 +12,15 @@ export default function OrganizationSelector() {
   const router = useRouter();
   const t = useTranslations();
   const organizations = useAuthStore((state) => state.organizations);
-  const switchOrg = useSwitchOrganization();
-  const [switchingOrgId, setSwitchingOrgId] = useState<string | null>(null);
+  const setOrganizations = useAuthStore((state) => state.setOrganizations);
 
   const handleSelectOrg = (orgId: string, orgSlug: string) => {
-    setSwitchingOrgId(orgId);
-    switchOrg.mutate(
-      { organizationId: orgId },
-      {
-        onSuccess: () => router.push(`/organizations/${orgSlug}/conversations`),
-        onError: () => setSwitchingOrgId(null),
-      }
-    );
+    // Update current org in store and navigate
+    const org = organizations.find((o) => o.id === orgId);
+    if (org) {
+      setOrganizations(orgId, { id: org.id, name: org.name, slug: org.slug, plan: org.plan }, organizations);
+      router.push(`/organizations/${orgSlug}/conversations`);
+    }
   };
 
   if (organizations.length === 0) {
@@ -50,21 +45,12 @@ export default function OrganizationSelector() {
         </Button>
       </Box>
 
-      {switchOrg.isError && (
-        <Box mb={2}>
-          <Alert severity="error">
-            Failed to switch organization. Please try again.
-          </Alert>
-        </Box>
-      )}
-
       <Grid container spacing={2}>
         {organizations.map((org) => (
           <Grid size={{ xs: 12, sm: 6, md: 4 }} key={org.id}>
             <OrganizationCard
               organization={org}
               onClick={() => handleSelectOrg(org.id, org.slug)}
-              loading={switchingOrgId === org.id}
             />
           </Grid>
         ))}

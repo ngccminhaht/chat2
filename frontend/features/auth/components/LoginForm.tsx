@@ -1,86 +1,56 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import {
-  Box,
-  Card,
-  CardContent,
-  Button,
-  Typography,
-  CircularProgress,
-} from "@mui/material";
+import { Box, CircularProgress, Typography, Button } from "@mui/material";
 import { useKeycloak } from "@/lib/keycloak/KeycloakProvider";
 import { useAuthStore } from "../stores/authStore";
 
+// LoginForm only handles login UI - OnboardingGuard handles all routing
 export function LoginForm() {
-  const router = useRouter();
-  const t = useTranslations("auth");
-  const { initialized, authenticated, login } = useKeycloak();
-
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const organization = useAuthStore((state) => state.organization);
+  const { initialized, login } = useKeycloak();
   const hasHydrated = useAuthStore((state) => state._hasHydrated);
 
-  // Redirect to dashboard if already authenticated
-  useEffect(() => {
-    if (!hasHydrated || !initialized) return;
-
-    if (authenticated && accessToken) {
-      if (organization?.slug) {
-        router.replace(`/organizations/${organization.slug}/conversations`);
-      } else {
-        router.replace('/create-organization');
-      }
-    }
-  }, [authenticated, accessToken, organization, hasHydrated, initialized, router]);
-
-  // Show loading while Keycloak initializes
+  // Show loading while initializing
   if (!initialized || !hasHydrated) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+        gap={2}
+      >
         <CircularProgress />
+        <Typography color="text.secondary">
+          Initializing...
+        </Typography>
       </Box>
     );
   }
 
-  // If authenticated, show loading (will redirect)
-  if (authenticated && accessToken) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
+  // Show login button - OnboardingGuard will redirect if already authenticated
   return (
     <Box
       display="flex"
+      flexDirection="column"
       justifyContent="center"
       alignItems="center"
       minHeight="100vh"
+      gap={3}
     >
-      <Card>
-        <CardContent>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {t("login")}
-          </Typography>
-
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {t("loginWithSSO")}
-          </Typography>
-
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={login}
-            size="large"
-          >
-            {t("loginWithKeycloak")}
-          </Button>
-        </CardContent>
-      </Card>
+      <Typography variant="h4" component="h1">
+        Welcome
+      </Typography>
+      <Typography color="text.secondary">
+        Sign in to continue
+      </Typography>
+      <Button
+        variant="contained"
+        size="large"
+        onClick={login}
+      >
+        Sign in with SSO
+      </Button>
     </Box>
   );
 }

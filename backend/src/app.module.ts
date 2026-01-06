@@ -1,7 +1,15 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bullmq';
+import {
+  KeycloakConnectModule,
+  AuthGuard,
+  RoleGuard,
+} from 'nest-keycloak-connect';
 import { EnvModule, EnvService } from './common/env';
+import { KeycloakConfigService } from './common/keycloak';
+import { KeycloakUserSyncGuard } from './common/guards';
 import { RedisModule } from './infra/redis';
 import { KafkaModule } from './infra/kafka/kafka.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -23,6 +31,11 @@ import { CustomersModule } from './modules/customers/customers.module';
   imports: [
     // Environment service (Global) - Includes ConfigModule with validation
     EnvModule,
+
+    // Keycloak authentication (Global)
+    KeycloakConnectModule.registerAsync({
+      useClass: KeycloakConfigService,
+    }),
 
     // Redis service (Global)
     RedisModule,
@@ -75,6 +88,15 @@ import { CustomersModule } from './modules/customers/customers.module';
 
     // Customer management (CRM)
     CustomersModule,
+  ],
+  providers: [
+    // Global Keycloak guards - Order matters!
+    // 1. AuthGuard: validates JWT token from Keycloak
+    { provide: APP_GUARD, useClass: AuthGuard },
+    // 2. KeycloakUserSyncGuard: syncs Keycloak user to MongoDB
+    { provide: APP_GUARD, useClass: KeycloakUserSyncGuard },
+    // 3. RoleGuard: checks @Roles decorator
+    { provide: APP_GUARD, useClass: RoleGuard },
   ],
 })
 export class AppModule {}

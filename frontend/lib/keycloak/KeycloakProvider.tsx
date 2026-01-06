@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import Keycloak from 'keycloak-js';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import apiClient from '@/lib/api/client';
@@ -29,87 +29,54 @@ interface KeycloakProviderProps {
   children: ReactNode;
 }
 
+// Singleton Keycloak instance to prevent React 18 Strict Mode double-init
+let keycloakInstance: Keycloak | null = null;
+let initPromise: Promise<boolean> | null = null;
+
 export function KeycloakProvider({ children }: KeycloakProviderProps) {
   const [keycloak, setKeycloak] = useState<Keycloak | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const didInit = useRef(false);
 
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const updateUserAndTokens = useAuthStore((state) => state.updateUserAndTokens);
+  const setOrganizations = useAuthStore((state) => state.setOrganizations);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
-  useEffect(() => {
-    const kc = new Keycloak({
-      url: process.env.NEXT_PUBLIC_KEYCLOAK_URL || '',
-      realm: process.env.NEXT_PUBLIC_KEYCLOAK_REALM || '',
-      clientId: process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || '',
-    });
-
-    kc.init({
-      onLoad: 'check-sso',
-      silentCheckSsoRedirectUri: typeof window !== 'undefined'
-        ? `${window.location.origin}/silent-check-sso.html`
-        : undefined,
-      pkceMethod: 'S256',
-    })
-      .then((auth) => {
-        console.log('[Keycloak] Initialized, authenticated:', auth);
-        setKeycloak(kc);
-        setInitialized(true);
-        setAuthenticated(auth);
-
-        if (auth && kc.token) {
-          // Set token in API client
-          apiClient.defaults.headers.common['Authorization'] = `Bearer ${kc.token}`;
-
-          // Extract user info from token
-          const tokenParsed = kc.tokenParsed as any;
-          if (tokenParsed) {
-            const user = {
-              id: tokenParsed.sub,
-              email: tokenParsed.email,
-              name: tokenParsed.name || tokenParsed.preferred_username,
-              avatarUrl: tokenParsed.picture || null,
-            };
-
-            // Set auth store with Keycloak token
-            // Note: No backend session tokens needed anymore
-            setAuth(
-              user,
-              kc.token,
-              kc.refreshToken || '',
-              tokenParsed.organizationId || '',
-              tokenParsed.organization || null,
-              tokenParsed.organizations || [],
-            );
-          }
-
-          // Setup token refresh
-          setupTokenRefresh(kc);
-        }
-      })
-      .catch((error) => {
-        console.error('[Keycloak] Init failed:', error);
-        setInitialized(true);
+  // Fetch organizations from API and sync to authStore
+  const fetchAndSyncOrganizations = useCallback(async (token: string) => {
+    try {
+      const response = await apiClient.get('/organizations', {
+        headers: { Authorization: `Bearer ${token}` },
       });
+      const orgs = response.data;
 
-    return () => {
-      // Cleanup if needed
-    };
-  }, [setAuth]);
+      if (orgs && orgs.length > 0) {
+        // Get current org from store or use first org
+        const currentOrgId = useAuthStore.getState().organizationId;
+        const currentOrg = orgs.find((o: any) => o.id === currentOrgId) || orgs[0];
 
-  const setupTokenRefresh = (kc: Keycloak) => {
+        setOrganizations(
+          currentOrg.id,
+          { id: currentOrg.id, name: currentOrg.name, slug: currentOrg.slug, plan: currentOrg.plan },
+          orgs
+        );
+      }
+    } catch {
+      // Failed to fetch organizations - will retry on next auth
+    }
+  }, [setOrganizations]);
+
+  const setupTokenRefresh = useCallback((kc: Keycloak) => {
     // Refresh token when expired
     kc.onTokenExpired = () => {
-      console.log('[Keycloak] Token expired, refreshing...');
       kc.updateToken(30)
         .then((refreshed) => {
           if (refreshed && kc.token) {
-            console.log('[Keycloak] Token refreshed');
             apiClient.defaults.headers.common['Authorization'] = `Bearer ${kc.token}`;
           }
         })
         .catch(() => {
-          console.error('[Keycloak] Failed to refresh token');
           clearAuth();
         });
     };
@@ -118,18 +85,90 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
     const refreshInterval = setInterval(() => {
       if (kc.authenticated) {
         kc.updateToken(300).catch(() => {
-          console.error('[Keycloak] Periodic refresh failed');
+          // Periodic refresh failed - will retry
         });
       }
     }, 60000);
 
     return () => clearInterval(refreshInterval);
-  };
+  }, [clearAuth]);
+
+  useEffect(() => {
+    // Prevent double init in React 18 Strict Mode
+    if (didInit.current) return;
+    didInit.current = true;
+
+    // Reuse singleton instance
+    if (!keycloakInstance) {
+      keycloakInstance = new Keycloak({
+        url: process.env.NEXT_PUBLIC_KEYCLOAK_URL || '',
+        realm: process.env.NEXT_PUBLIC_KEYCLOAK_REALM || '',
+        clientId: process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || '',
+      });
+    }
+
+    const kcInstance = keycloakInstance;
+
+    // Reuse init promise to prevent double init
+    if (!initPromise) {
+      initPromise = kcInstance.init({
+        // check-sso: silently check SSO session without redirect
+        onLoad: 'check-sso',
+        pkceMethod: 'S256',
+        checkLoginIframe: false,
+      });
+    }
+
+    initPromise
+      .then((auth) => {
+        // Clear redirect flag on success
+        sessionStorage.removeItem('keycloak_redirect_attempted');
+
+        setKeycloak(kcInstance);
+        setInitialized(true);
+        setAuthenticated(auth);
+
+        if (auth && kcInstance.token) {
+          // Set token in API client
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${kcInstance.token}`;
+
+          // Extract user info from token
+          const tokenParsed = kcInstance.tokenParsed as any;
+          if (tokenParsed) {
+            const user = {
+              id: tokenParsed.sub,
+              email: tokenParsed.email,
+              name: tokenParsed.name || tokenParsed.preferred_username,
+              avatarUrl: tokenParsed.picture || null,
+            };
+
+            // Update user and tokens only, preserve organization data from localStorage
+            updateUserAndTokens(user, kcInstance.token, kcInstance.refreshToken || '');
+          }
+
+          // Fetch organizations from API and sync to store
+          fetchAndSyncOrganizations(kcInstance.token);
+
+          // Setup token refresh
+          setupTokenRefresh(kcInstance);
+        }
+      })
+      .catch(() => {
+        // Mark that we attempted redirect to prevent loop
+        sessionStorage.setItem('keycloak_redirect_attempted', 'true');
+        setInitialized(true);
+      });
+
+    return () => {
+      // Don't cleanup - singleton pattern
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const login = useCallback(() => {
     if (keycloak) {
       keycloak.login({
-        redirectUri: window.location.origin + '/auth/callback',
+        redirectUri: window.location.href,
       });
     }
   }, [keycloak]);

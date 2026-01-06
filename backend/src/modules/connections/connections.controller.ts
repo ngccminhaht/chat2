@@ -5,15 +5,12 @@ import {
   Patch,
   Param,
   Body,
-  UseGuards,
   BadRequestException,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { ConnectionsService } from './connections.service';
 import { UpdateStatusDto } from './dto/update-status.dto';
 
 @Controller('organizations/:organizationId/connections')
-@UseGuards(JwtAuthGuard)
 export class ConnectionsController {
   constructor(
     private readonly connectionsService: ConnectionsService,

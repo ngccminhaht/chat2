@@ -4,13 +4,12 @@ import {
   Get,
   Body,
   Query,
-  UseGuards,
   Logger,
   BadRequestException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { Public } from '@/common/decorators';
 import { MediaService, PresignedUrlResult, GetPresignedUrlResult } from './media.service';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 const ALLOWED_MIME_TYPES = [
   // Images
@@ -52,6 +51,7 @@ export class MediaController {
    * Check if media service is available
    */
   @Get('status')
+  @Public()
   getStatus(): { configured: boolean } {
     return { configured: this.mediaService.isS3Configured() };
   }
@@ -61,7 +61,6 @@ export class MediaController {
    * Frontend calls this first, then uses the returned URL to upload directly to S3
    */
   @Post('presign/upload')
-  @UseGuards(JwtAuthGuard)
   async getPresignedUploadUrl(
     @Body() dto: PresignedUploadDto,
   ): Promise<PresignedUrlResult> {
@@ -106,7 +105,6 @@ export class MediaController {
    * Get presigned URL for downloading/viewing a private file
    */
   @Get('presign/download')
-  @UseGuards(JwtAuthGuard)
   async getPresignedDownloadUrl(
     @Query('key') key: string,
   ): Promise<GetPresignedUrlResult> {

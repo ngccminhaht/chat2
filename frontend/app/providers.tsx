@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { WebSocketProvider } from '@/lib/websocket/WebSocketContext';
 import { useConversationWebSocketEvents } from '@/lib/websocket/useConversationWebSocketEvents';
 import { KeycloakProvider } from '@/lib/keycloak/KeycloakProvider';
+import OnboardingGuard from '@/components/guards/OnboardingGuard';
 
 // Setup WebSocket event listeners at root level
 // Ensures listeners register immediately when socket connects (no race condition)
@@ -36,10 +37,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <CssBaseline />
         <QueryClientProvider client={queryClient}>
           <KeycloakProvider>
-            <WebSocketProvider>
-              <WebSocketEventSetup />
-              {children}
-            </WebSocketProvider>
+            <OnboardingGuard>
+              <WebSocketProvider>
+                <WebSocketEventSetup />
+                {children}
+              </WebSocketProvider>
+            </OnboardingGuard>
           </KeycloakProvider>
         </QueryClientProvider>
       </ThemeProvider>

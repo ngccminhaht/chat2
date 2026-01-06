@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Box, CircularProgress } from '@mui/material';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { useKeycloak } from '@/lib/keycloak/KeycloakProvider';
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
@@ -14,72 +15,94 @@ const ONBOARDING_ROUTES = [
   '/create-organization',
   '/connect-platforms',
   '/invite-members',
+  '/organizations/new',
 ];
 
-const AUTH_ROUTES = ['/login', '/register'];
+const AUTH_ROUTES = ['/login', '/register', '/auth/callback'];
 
 export default function OnboardingGuard({ children }: OnboardingGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isChecking, setIsChecking] = useState(true);
 
-  const { isAuthenticated, organizationId, organizations } = useAuthStore();
+  const { initialized, authenticated, login } = useKeycloak();
+  const { organizationId, organizations, _hasHydrated } = useAuthStore();
   const hasOrganization = organizationId || (organizations && organizations.length > 0);
 
   useEffect(() => {
-    const checkAuth = () => {
-      const isAuth = isAuthenticated();
-      const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
-      const isOnboardingRoute = ONBOARDING_ROUTES.some((route) => pathname.startsWith(route));
+    // Wait for both Keycloak init and store hydration
+    if (!initialized || !_hasHydrated) {
+      return;
+    }
 
-      // Not authenticated - allow access to auth routes only
-      if (!isAuth) {
-        if (!isAuthRoute) {
-          router.replace('/login');
-        }
-        setIsChecking(false);
-        return;
+    const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
+    const isOnboardingRoute = ONBOARDING_ROUTES.some((route) => pathname.startsWith(route));
+
+    // Use Keycloak's authenticated state as source of truth
+    if (!authenticated) {
+      // Not authenticated - trigger Keycloak login (unless on auth route showing login UI)
+      if (!isAuthRoute) {
+        login();
       }
-
-      // Authenticated but no organization - redirect to onboarding
-      if (!hasOrganization) {
-        if (!isOnboardingRoute) {
-          router.replace('/create-organization');
-        }
-        setIsChecking(false);
-        return;
-      }
-
-      // Has organization - redirect away from onboarding
-      if (hasOrganization && isOnboardingRoute) {
-        router.replace('/organizations');
-        return;
-      }
-
-      // Authenticated with organization - redirect away from auth routes
-      if (isAuthRoute) {
-        router.replace('/organizations');
-        return;
-      }
-
       setIsChecking(false);
-    };
+      return;
+    }
 
-    checkAuth();
-  }, [isAuthenticated, hasOrganization, pathname, router]);
+    // From here: user IS authenticated in Keycloak
 
-  if (isChecking) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-      >
-        <CircularProgress />
+    // On auth routes (login/register) - redirect authenticated users away
+    if (isAuthRoute) {
+      if (hasOrganization) {
+        router.replace('/organizations');
+      } else {
+        router.replace('/organizations/new');
+      }
+      return;
+    }
+
+    // Authenticated but no organization - redirect to onboarding (unless already there)
+    if (!hasOrganization) {
+      if (!isOnboardingRoute) {
+        router.replace('/organizations/new');
+      }
+      setIsChecking(false);
+      return;
+    }
+
+    // Has organization - redirect away from onboarding routes
+    if (isOnboardingRoute) {
+      router.replace('/organizations');
+      return;
+    }
+
+    // All checks passed - render children
+    setIsChecking(false);
+  }, [initialized, authenticated, hasOrganization, _hasHydrated, pathname, router, login]);
+
+  // Always render children to preserve hook order in child components
+  // Use overlay to hide content while checking
+  return (
+    <>
+      {isChecking && (
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="100vh"
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          bgcolor="background.default"
+          zIndex={9999}
+        >
+          <CircularProgress />
+        </Box>
+      )}
+      <Box sx={{ visibility: isChecking ? 'hidden' : 'visible' }}>
+        {children}
       </Box>
-    );
-  }
-
-  return <>{children}</>;
+    </>
+  );
 }

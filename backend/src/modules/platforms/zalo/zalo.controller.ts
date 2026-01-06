@@ -13,7 +13,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { Public } from '@/common/decorators';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
 import { ZaloAuthUrlDto, ZaloAuthorizeDto, ZaloCallbackDto } from './dto/oauth.dto';
 import { ZaloService } from './zalo.service';
@@ -45,6 +45,7 @@ export class ZaloController {
    * Receive webhook events from Zalo Official Account
    */
   @Post('webhook')
+  @Public()
   @HttpCode(200)
   async handleWebhook(
     @Body() payload: ZaloWebhookDto,
@@ -149,7 +150,7 @@ export class ZaloController {
    * GET /api/zalo/auth-url?organizationId=xxx
    */
   @Get('auth-url')
-  @UseGuards(JwtAuthGuard)
+  
   async getAuthUrl(@Query() dto: ZaloAuthUrlDto, @NestRequest() req: any) {
     const userId = req.user.userId;
     const { url, codeVerifier, state } = this.zaloService.getAuthorizationUrl(dto.state);
@@ -173,7 +174,7 @@ export class ZaloController {
    * GET /api/zalo/complete?code=xxx&state=xxx&oa_id=xxx
    */
   @Get('complete')
-  @UseGuards(JwtAuthGuard)
+  
   async completeOAuth(@Query() dto: ZaloCallbackDto, @NestRequest() req: any) {
     const userId = req.user.userId;
 

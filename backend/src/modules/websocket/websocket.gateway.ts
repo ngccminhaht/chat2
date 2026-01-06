@@ -9,7 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { KeycloakTokenService } from '@/modules/auth/services/keycloak-token.service';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -33,7 +33,7 @@ export class WebsocketGateway
 
   private readonly logger = new Logger(WebsocketGateway.name);
 
-  constructor(private jwtService: JwtService) {}
+  constructor(private keycloakTokenService: KeycloakTokenService) {}
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
@@ -44,8 +44,8 @@ export class WebsocketGateway
         return;
       }
 
-      // JwtService uses the secret configured in JwtModule (via EnvService)
-      const payload = await this.jwtService.verifyAsync(token);
+      // Validate Keycloak JWT token using RS256 + JWKS
+      const payload = await this.keycloakTokenService.verifyToken(token);
 
       client.userId = payload.sub;
 

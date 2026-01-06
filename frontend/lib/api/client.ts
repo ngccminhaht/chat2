@@ -20,53 +20,28 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle token refresh
+// Auth routes that should not trigger redirect on 401
+const AUTH_ROUTES = ['/login', '/register', '/auth/callback'];
+
+// Response interceptor to handle 401 errors
+// Note: With Keycloak SSO, token refresh is handled by KeycloakProvider
+// When token is invalid/expired, redirect to login for re-authentication
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    if (error.response?.status === 401) {
+      // Check if we're on an auth route - don't redirect to prevent loops
+      const isAuthRoute = typeof window !== 'undefined' &&
+        AUTH_ROUTES.some(route => window.location.pathname.startsWith(route));
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        const refreshToken = useAuthStore.getState().refreshToken;
-        if (!refreshToken) {
-          useAuthStore.getState().clearAuth();
-          window.location.href = '/login';
-          return Promise.reject(error);
-        }
-
-        const response = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
-          { refreshToken }
-        );
-
-        const {
-          accessToken,
-          refreshToken: newRefreshToken,
-          user,
-          organizationId,
-          organization,
-          organizations,
-        } = response.data;
-
-        useAuthStore.getState().setAuth(
-          user,
-          accessToken,
-          newRefreshToken,
-          organizationId,
-          organization,
-          organizations,
-        );
-
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return apiClient(originalRequest);
-      } catch (refreshError) {
+      if (!isAuthRoute) {
+        console.log('[apiClient] 401 Unauthorized - clearing auth and redirecting to login');
         useAuthStore.getState().clearAuth();
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
       }
+      // On auth routes, just reject the error without redirecting
     }
 
     return Promise.reject(error);

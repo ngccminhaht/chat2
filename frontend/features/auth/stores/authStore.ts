@@ -25,11 +25,23 @@ interface AuthState {
     organization: CurrentOrganization,
     organizations: Organization[],
   ) => void;
+  // Update only user and tokens, preserve organization data
+  updateUserAndTokens: (
+    user: User,
+    accessToken: string,
+    refreshToken: string,
+  ) => void;
   switchOrganization: (
     accessToken: string,
     refreshToken: string,
     organizationId: string,
     organization: CurrentOrganization,
+  ) => void;
+  // Update organizations list (e.g., after creating new org)
+  setOrganizations: (
+    organizationId: string,
+    organization: CurrentOrganization,
+    organizations: Organization[],
   ) => void;
   clearAuth: () => void;
   isAuthenticated: () => boolean;
@@ -49,8 +61,12 @@ export const useAuthStore = create<AuthState>()(
       _hasHydrated: false,
       setAuth: (user, accessToken, refreshToken, organizationId, organization, organizations) =>
         set({ user, accessToken, refreshToken, organizationId, organization, organizations }),
+      updateUserAndTokens: (user, accessToken, refreshToken) =>
+        set({ user, accessToken, refreshToken }),
       switchOrganization: (accessToken, refreshToken, organizationId, organization) =>
         set({ accessToken, refreshToken, organizationId, organization }),
+      setOrganizations: (organizationId, organization, organizations) =>
+        set({ organizationId, organization, organizations }),
       clearAuth: () =>
         set({
           user: null,

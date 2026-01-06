@@ -2,10 +2,9 @@ import {
   Controller,
   Post,
   Body,
-  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from '@/common/guards';
+import { Public } from '@/common/decorators';
 import { CurrentUser } from '@/common/decorators';
 
 @Controller('auth')
@@ -13,6 +12,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('refresh')
+  @Public()
   async refresh(@Body() body: { refreshToken: string }) {
     return this.authService.refreshToken(body.refreshToken);
   }
@@ -22,7 +22,6 @@ export class AuthController {
    * POST /api/auth/switch-organization
    */
   @Post('switch-organization')
-  @UseGuards(JwtAuthGuard)
   async switchOrganization(
     @CurrentUser() user: { sub: string },
     @Body() body: { organizationId: string },

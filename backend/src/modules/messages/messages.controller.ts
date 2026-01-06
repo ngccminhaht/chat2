@@ -5,18 +5,15 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   Patch,
 } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { GetMessagesDto } from './dto/get-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MarkReadDto } from './dto/mark-read.dto';
-import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators';
 
 @Controller('organizations/:organizationId/messages')
-@UseGuards(JwtAuthGuard)
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 

@@ -7,9 +7,7 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentOrganization } from '@/common/decorators/current-organization.decorator';
 import { AiAgentsService } from './ai-agents.service';
 import { CreateAiAgentDto } from './dto/create-ai-agent.dto';
@@ -17,7 +15,6 @@ import { UpdateAiAgentDto } from './dto/update-ai-agent.dto';
 import { AiAgentStatus } from './ai-agent.schema';
 
 @Controller('ai-agents')
-@UseGuards(JwtAuthGuard)
 export class AiAgentsController {
   constructor(private readonly aiAgentsService: AiAgentsService) {}
 

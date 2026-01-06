@@ -6,15 +6,12 @@ import {
   Query,
   Body,
   Delete,
-  UseGuards,
 } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { GetConversationsDto } from './dto/get-conversations.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
-import { JwtAuthGuard } from '@/common/guards';
 
 @Controller('organizations/:organizationId/conversations')
-@UseGuards(JwtAuthGuard)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 

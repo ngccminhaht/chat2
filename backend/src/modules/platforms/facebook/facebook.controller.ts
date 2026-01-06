@@ -14,7 +14,7 @@ import {
   Request as NestRequest,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { Public } from '@/common/decorators';
 import { FacebookWebhookDto } from './dto/facebook-webhook.dto';
 import {
   FacebookAuthUrlDto,
@@ -57,6 +57,7 @@ export class FacebookController {
    * Facebook webhook verification - must echo challenge parameter
    */
   @Get('webhook')
+  @Public()
   @HttpCode(200)
   async verifyWebhook(
     @Query('hub.mode') mode: string,
@@ -83,6 +84,7 @@ export class FacebookController {
    * Receive messages from Facebook Messenger
    */
   @Post('webhook')
+  @Public()
   @HttpCode(200)
   async handleWebhook(
     @Req() req: RawBodyRequest<Request>,
@@ -208,7 +210,7 @@ export class FacebookController {
    * GET /api/facebook/auth-url?organizationId=xxx
    */
   @Get('auth-url')
-  @UseGuards(JwtAuthGuard)
+  
   async getAuthUrl(@Query() dto: FacebookAuthUrlDto, @NestRequest() req: any) {
     const userId = req.user.userId;
     const { url, state } = this.facebookService.getAuthorizationUrl(dto.state);
@@ -237,7 +239,7 @@ export class FacebookController {
    * GET /api/facebook/complete?code=xxx&state=xxx
    */
   @Get('complete')
-  @UseGuards(JwtAuthGuard)
+  
   async completeOAuth(@Query() dto: FacebookCallbackDto, @NestRequest() req: any) {
     const userId = req.user.userId;
 
@@ -293,7 +295,7 @@ export class FacebookController {
    * GET /api/facebook/sync-status
    */
   @Get('sync-status')
-  @UseGuards(JwtAuthGuard)
+  
   async getSyncStatus(@NestRequest() req: any) {
     const userId = req.user.userId;
     const status = await this.facebookService.getSyncStatus(userId);
@@ -309,7 +311,7 @@ export class FacebookController {
    * GET /api/facebook/sync-auth-url
    */
   @Get('sync-auth-url')
-  @UseGuards(JwtAuthGuard)
+  
   async getSyncAuthUrl(@NestRequest() req: any) {
     const userId = req.user.userId;
 
@@ -335,7 +337,7 @@ export class FacebookController {
    * GET /api/facebook/pending-pages?token=xxx
    */
   @Get('pending-pages')
-  @UseGuards(JwtAuthGuard)
+  
   async getPendingPages(@Query() dto: FacebookPendingPagesDto, @NestRequest() req: any) {
     const userId = req.user.userId;
 
@@ -361,7 +363,7 @@ export class FacebookController {
    * GET /api/facebook/save-pages
    */
   @Get('save-pages')
-  @UseGuards(JwtAuthGuard)
+  
   async saveSelectedPages(@Query() dto: FacebookSavePagesDto, @NestRequest() req: any) {
     const userId = req.user.userId;
     const selectedPageIds = dto.pageIds.split(',');

@@ -7,12 +7,10 @@ import {
   Delete,
   Body,
   Param,
-  UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '@/common/guards';
-import { CurrentUser } from '@/common/decorators';
+import { CurrentUser, RequestUser } from '@/common/decorators';
 import { OrganizationsService } from './organizations.service';
 import {
   CreateOrganizationDto,
@@ -25,15 +23,14 @@ import { OrganizationRole } from '@/common/database/schemas';
 import { WidgetService } from '../widget/widget.service';
 import { UpdateWidgetConfigDto } from '../widget/dto/update-widget-config.dto';
 
-// JWT payload interface
+// User payload interface (after KeycloakUserSyncGuard)
 interface JwtPayload {
-  sub: string; // userId
+  sub: string; // MongoDB ObjectId (for backward compatibility)
   email: string;
-  organizationId?: string; // active org
+  keycloakId?: string;
 }
 
 @Controller('organizations')
-@UseGuards(JwtAuthGuard)
 export class OrganizationsController {
   constructor(
     private readonly organizationsService: OrganizationsService,

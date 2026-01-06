@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, forwardRef, Global } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { EnvService } from '@/common/env';
@@ -8,7 +8,9 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { KeycloakStrategy } from './strategies/keycloak.strategy';
+import { KeycloakTokenService } from './services/keycloak-token.service';
 
+@Global()
 @Module({
   imports: [
     UsersModule,
@@ -23,7 +25,7 @@ import { KeycloakStrategy } from './strategies/keycloak.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, KeycloakStrategy],
-  exports: [AuthService],
+  providers: [AuthService, JwtStrategy, KeycloakStrategy, KeycloakTokenService],
+  exports: [AuthService, KeycloakTokenService],
 })
 export class AuthModule {}
