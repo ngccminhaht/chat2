@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Box, Toolbar, Container } from '@mui/material';
 import Header from '@/components/layout/Header';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { useKeycloak } from '@/lib/keycloak/KeycloakProvider';
 
 export default function GlobalSettingsLayout({
   children,
@@ -12,18 +13,19 @@ export default function GlobalSettingsLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const accessToken = useAuthStore((state) => state.accessToken);
+  const { initialized, authenticated, login } = useKeycloak();
   const organization = useAuthStore((state) => state.organization);
   const hasHydrated = useAuthStore((state) => state._hasHydrated);
 
   useEffect(() => {
-    // Wait for Zustand to hydrate from localStorage
-    if (!hasHydrated) return;
+    // Wait for Keycloak init and Zustand hydration
+    if (!initialized || !hasHydrated) return;
 
-    if (!accessToken) {
-      router.replace('/login');
+    // Auth check - trigger Keycloak login if not authenticated
+    if (!authenticated) {
+      login();
     }
-  }, [accessToken, hasHydrated, router]);
+  }, [initialized, authenticated, hasHydrated, login]);
 
   const handleBack = () => {
     if (organization?.slug) {
