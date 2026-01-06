@@ -23,7 +23,7 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
   const pathname = usePathname();
   const [isChecking, setIsChecking] = useState(true);
 
-  const { initialized, authenticated, isLoggingOut, login } = useKeycloak();
+  const { initialized, authenticated, isLoggingOut, isLoadingOrganizations, login } = useKeycloak();
   const { organizationId, organizations, _hasHydrated } = useAuthStore();
   const hasOrganization = organizationId || (organizations && organizations.length > 0);
 
@@ -48,6 +48,11 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
       return;
     }
 
+    // Wait for organizations to finish loading before checking
+    if (isLoadingOrganizations) {
+      return;
+    }
+
     // Authenticated but no organization - redirect to onboarding
     if (!hasOrganization) {
       if (!isOnboardingRoute) {
@@ -65,7 +70,7 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
 
     // All checks passed - render children
     setIsChecking(false);
-  }, [initialized, authenticated, isLoggingOut, hasOrganization, _hasHydrated, pathname, router, login]);
+  }, [initialized, authenticated, isLoggingOut, isLoadingOrganizations, hasOrganization, _hasHydrated, pathname, router, login]);
 
   // Always render children to preserve hook order in child components
   // Use overlay to hide content while checking

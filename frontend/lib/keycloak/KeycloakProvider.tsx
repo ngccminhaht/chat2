@@ -10,6 +10,7 @@ interface KeycloakContextType {
   initialized: boolean;
   authenticated: boolean;
   isLoggingOut: boolean;
+  isLoadingOrganizations: boolean;
   login: () => void;
   logout: () => void;
   token: string | undefined;
@@ -20,6 +21,7 @@ const KeycloakContext = createContext<KeycloakContextType>({
   initialized: false,
   authenticated: false,
   isLoggingOut: false,
+  isLoadingOrganizations: false,
   login: () => {},
   logout: () => {},
   token: undefined,
@@ -40,6 +42,7 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
   const [initialized, setInitialized] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(false);
   const didInit = useRef(false);
 
   const updateUserAndTokens = useAuthStore((state) => state.updateUserAndTokens);
@@ -48,6 +51,7 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
 
   // Fetch organizations from API and sync to authStore
   const fetchAndSyncOrganizations = useCallback(async (token: string) => {
+    setIsLoadingOrganizations(true);
     try {
       const response = await apiClient.get('/organizations', {
         headers: { Authorization: `Bearer ${token}` },
@@ -67,6 +71,8 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
       }
     } catch {
       // Failed to fetch organizations - will retry on next auth
+    } finally {
+      setIsLoadingOrganizations(false);
     }
   }, [setOrganizations]);
 
@@ -196,6 +202,7 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
         initialized,
         authenticated,
         isLoggingOut,
+        isLoadingOrganizations,
         login,
         logout,
         token: keycloak?.token,
