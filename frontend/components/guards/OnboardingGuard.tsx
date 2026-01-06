@@ -40,11 +40,8 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
 
     // Use Keycloak's authenticated state as source of truth
     if (!authenticated) {
-      // Not authenticated - trigger Keycloak login (unless on auth route showing login UI)
-      if (!isAuthRoute) {
-        login();
-      }
-      setIsChecking(false);
+      // Not authenticated - trigger Keycloak login immediately
+      login();
       return;
     }
 
