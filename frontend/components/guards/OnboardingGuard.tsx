@@ -10,12 +10,17 @@ interface OnboardingGuardProps {
   children: React.ReactNode;
 }
 
-// Routes that don't require organization
-const ONBOARDING_ROUTES = [
+// Routes for first-time onboarding (redirect away if user has org)
+const FIRST_TIME_ONBOARDING_ROUTES = [
   '/create-organization',
   '/connect-platforms',
   '/invite-members',
-  '/organizations/new',
+];
+
+// Routes that don't require organization
+const NO_ORG_REQUIRED_ROUTES = [
+  ...FIRST_TIME_ONBOARDING_ROUTES,
+  '/organizations/new',  // Allow creating additional organizations
 ];
 
 export default function OnboardingGuard({ children }: OnboardingGuardProps) {
@@ -43,7 +48,8 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
       return;
     }
 
-    const isOnboardingRoute = ONBOARDING_ROUTES.some((route) => pathname.startsWith(route));
+    const isNoOrgRequiredRoute = NO_ORG_REQUIRED_ROUTES.some((route) => pathname.startsWith(route));
+    const isFirstTimeOnboardingRoute = FIRST_TIME_ONBOARDING_ROUTES.some((route) => pathname.startsWith(route));
 
     // Not authenticated - trigger Keycloak login immediately
     if (!authenticated) {
@@ -58,15 +64,16 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
 
     // Authenticated but no organization - redirect to onboarding
     if (!hasOrganization) {
-      if (!isOnboardingRoute) {
+      if (!isNoOrgRequiredRoute) {
         router.replace('/organizations/new');
       }
       setIsChecking(false);
       return;
     }
 
-    // Has organization - redirect away from onboarding routes
-    if (isOnboardingRoute) {
+    // Has organization - redirect away from first-time onboarding routes only
+    // Allow /organizations/new for creating additional organizations
+    if (isFirstTimeOnboardingRoute) {
       router.replace('/organizations');
       return;
     }
