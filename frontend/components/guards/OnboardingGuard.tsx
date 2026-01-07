@@ -27,11 +27,14 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
   const { organizationId, organizations, _hasHydrated } = useAuthStore();
   const hasOrganization = organizationId || (organizations && organizations.length > 0);
 
+  // Check logout flag synchronously BEFORE any useEffect runs
+  // This prevents flash of onboarding page during logout redirect
+  const isLoggingOutSession = typeof window !== 'undefined'
+    && sessionStorage.getItem('keycloak_logging_out') === 'true';
+
   useEffect(() => {
-    // Check logout flag FIRST (before any other checks) - survives page redirect
-    const isLoggingOutSession = sessionStorage.getItem('keycloak_logging_out') === 'true';
+    // Skip all checks while logging out - Keycloak will handle redirect
     if (isLoggingOut || isLoggingOutSession) {
-      // Don't do anything while logging out - Keycloak will redirect to login
       return;
     }
 
@@ -70,13 +73,16 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
 
     // All checks passed - render children
     setIsChecking(false);
-  }, [initialized, authenticated, isLoggingOut, isLoadingOrganizations, hasOrganization, _hasHydrated, pathname, router, login]);
+  }, [initialized, authenticated, isLoggingOut, isLoggingOutSession, isLoadingOrganizations, hasOrganization, _hasHydrated, pathname, router, login]);
+
+  // Show loading during logout to prevent flash of onboarding page
+  const showLoading = isChecking || isLoggingOut || isLoggingOutSession;
 
   // Always render children to preserve hook order in child components
   // Use overlay to hide content while checking
   return (
     <>
-      {isChecking && (
+      {showLoading && (
         <Box
           display="flex"
           justifyContent="center"
@@ -93,7 +99,7 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
           <CircularProgress />
         </Box>
       )}
-      <Box sx={{ visibility: isChecking ? 'hidden' : 'visible' }}>
+      <Box sx={{ visibility: showLoading ? 'hidden' : 'visible' }}>
         {children}
       </Box>
     </>
