@@ -11,7 +11,9 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   // Environment validation happens automatically in EnvService constructor
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log'], // Exclude 'debug' and 'verbose'
+  });
 
   // Get EnvService (already initialized with validated config)
   const envService = app.get(EnvService);
