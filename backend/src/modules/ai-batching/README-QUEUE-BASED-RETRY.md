@@ -58,7 +58,9 @@ BullModule.registerQueue({
       type: "exponential",
       delay: 2000, // 2s initial delay
     },
-    timeout: 60000, // 60s timeout per attempt
+    removeOnComplete: true,
+    removeOnFail: 100,
+    // Note: timeout is handled by axios (60s) in processor
   },
 });
 ```
@@ -104,17 +106,17 @@ BullModule.registerQueue({
 
 ## Benefits vs Code-Based Retry
 
-| Feature                  | Code-Based Retry              | Queue-Based Retry (Current) |
-| ------------------------ | ----------------------------- | --------------------------- |
-| **Separation of Concerns** | ❌ Mixed in service code      | ✅ Separated in processor   |
-| **Persistent Retries**   | ❌ Lost on app restart        | ✅ Survives restarts        |
-| **Monitoring**           | ❌ Only via logs              | ✅ BullMQ dashboard + logs  |
-| **Configuration**        | ⚙️ Custom implementation      | ✅ Built-in BullMQ config   |
-| **Retry State**          | ❌ In-memory only             | ✅ Persistent in Redis      |
-| **Backoff Strategy**     | ⚙️ Manual implementation      | ✅ Built-in exponential     |
-| **Failed Job Management**| ❌ Lost                       | ✅ Kept in failed queue     |
-| **Distributed**          | ❌ Not scalable               | ✅ Multiple workers         |
-| **Idempotency**          | ⚙️ Must implement manually    | ✅ Job IDs prevent duplicates|
+| Feature                    | Code-Based Retry           | Queue-Based Retry (Current)   |
+| -------------------------- | -------------------------- | ----------------------------- |
+| **Separation of Concerns** | ❌ Mixed in service code   | ✅ Separated in processor     |
+| **Persistent Retries**     | ❌ Lost on app restart     | ✅ Survives restarts          |
+| **Monitoring**             | ❌ Only via logs           | ✅ BullMQ dashboard + logs    |
+| **Configuration**          | ⚙️ Custom implementation   | ✅ Built-in BullMQ config     |
+| **Retry State**            | ❌ In-memory only          | ✅ Persistent in Redis        |
+| **Backoff Strategy**       | ⚙️ Manual implementation   | ✅ Built-in exponential       |
+| **Failed Job Management**  | ❌ Lost                    | ✅ Kept in failed queue       |
+| **Distributed**            | ❌ Not scalable            | ✅ Multiple workers           |
+| **Idempotency**            | ⚙️ Must implement manually | ✅ Job IDs prevent duplicates |
 
 ## Retry Configuration
 
@@ -399,13 +401,15 @@ await queue.add(
 ### 2. Timeout Configuration
 
 ```typescript
-// Set appropriate timeout per attempt
-defaultJobOptions: {
-  timeout: 60000, // 60s per attempt
-}
+// Timeout is handled by axios in processor
+const response = await axios.post(apiEndpoint, requestData, {
+  timeout: 60000, // 60s per API call
+});
 
-// Total max time = timeout * attempts
-// = 60s * 4 = 240s (4 minutes)
+// Total max time (worst case):
+// = (60s timeout + backoff) * 4 attempts
+// = (60s + 2s) + (60s + 4s) + (60s + 8s) + 60s
+// ≈ 254s (4.2 minutes)
 ```
 
 ### 3. Failed Job Cleanup
@@ -413,9 +417,8 @@ defaultJobOptions: {
 ```typescript
 // Keep failed jobs for debugging
 removeOnFail: 100, // Keep last 100 failed jobs
-
-// Or clean up after analysis
-await queue.clean(24 * 3600 * 1000, "failed"); // Remove after 24h
+  // Or clean up after analysis
+  await queue.clean(24 * 3600 * 1000, "failed"); // Remove after 24h
 ```
 
 ### 4. Monitoring Alerts
@@ -500,4 +503,3 @@ await queue.clean(0, "active");
 6. **Consistent** - Same pattern as AI batching
 
 Retry logic giờ đây được handle bởi **BullMQ infrastructure** thay vì custom code! 🚀
-

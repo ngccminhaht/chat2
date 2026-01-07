@@ -58,7 +58,7 @@ import { KafkaModule } from "@/infra/kafka/kafka.module";
           type: "exponential",
           delay: DEFAULT_AI_RETRY_CONFIG.initialDelayMs, // 2000ms initial delay
         },
-        timeout: DEFAULT_AI_RETRY_CONFIG.timeoutMs, // 60s timeout per attempt
+        // Note: timeout is handled in axios call (60s) inside processor
       },
     }),
     MongooseModule.forFeature([

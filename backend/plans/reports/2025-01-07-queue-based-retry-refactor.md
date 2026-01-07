@@ -71,9 +71,9 @@ BullModule.registerQueue({
       type: "exponential",
       delay: 2000, // 2s base delay
     },
-    timeout: 60000, // 60s per attempt
     removeOnComplete: true,
     removeOnFail: 100,
+    // Note: timeout handled by axios (60s) in processor
   },
 });
 ```
@@ -246,11 +246,13 @@ Same as before:
 ### New Files (3)
 
 1. **`backend/src/modules/ai-batching/ai-api-call.queue.ts`** (27 lines)
+
    - Queue name constant
    - Job data interface
    - Job result interface
 
 2. **`backend/src/modules/ai-batching/ai-api-call.processor.ts`** (486 lines)
+
    - BullMQ processor with retry logic
    - Error categorization and handling
    - Lifecycle hooks (onFailed, onCompleted)
@@ -266,6 +268,7 @@ Same as before:
 ### Modified Files (2)
 
 1. **`backend/src/modules/ai-batching/ai-response.service.ts`**
+
    - **Removed:** 300+ lines of retry loop logic
    - **Removed:** `callAIAPIWithRetry()` method
    - **Removed:** `logErrorAdvice()` method (moved to processor)
@@ -535,4 +538,3 @@ Created comprehensive documentation:
 **Total Time:** ~3 hours  
 **Status:** ✅ Production Ready  
 **Breaking Changes:** None
-
