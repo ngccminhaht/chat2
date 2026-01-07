@@ -41,9 +41,12 @@ export class AIBatchingProcessor extends WorkerHost {
 
   async process(job: Job<BatchJobData>): Promise<void> {
     const { conversationId, organizationId, messageIds } = job.data;
+    const jobStartTime = Date.now();
 
     this.logger.log(
-      `Processing batch for conversation ${conversationId} with ${messageIds.length} message(s)`
+      `🔄 [AI Batch] Starting job ${job.id} | Conversation: ${conversationId} | ` +
+        `Org: ${organizationId} | Messages: ${messageIds.length} | ` +
+        `Job attempts: ${job.attemptsMade + 1}`
     );
 
     try {
@@ -51,7 +54,7 @@ export class AIBatchingProcessor extends WorkerHost {
       const conv = await this.batchingService.getConversation(conversationId);
       if (conv?.aiState === "AI_RESPONDING") {
         this.logger.warn(
-          `Skipping batch ${job.id}: conversation ${conversationId} already AI_RESPONDING`
+          `⏭️ [AI Batch] Skipping job ${job.id}: conversation ${conversationId} already AI_RESPONDING`
         );
         return;
       }
@@ -66,17 +69,25 @@ export class AIBatchingProcessor extends WorkerHost {
       );
 
       if (messages.length === 0) {
-        this.logger.warn(`No messages found for batch ${job.id}`);
+        this.logger.warn(
+          `⚠️ [AI Batch] No messages found for job ${job.id} | Conversation: ${conversationId}`
+        );
         await this.batchingService.updateAIState(conversationId, "AI_ACTIVE");
         return;
       }
+
+      this.logger.debug(
+        `📝 [AI Batch] Found ${messages.length} pending messages for conversation ${conversationId}`
+      );
 
       // Get conversation and customer for AI request
       const conversation = await this.batchingService.getConversation(
         conversationId
       );
       if (!conversation) {
-        this.logger.warn(`Conversation ${conversationId} not found`);
+        this.logger.warn(
+          `⚠️ [AI Batch] Conversation ${conversationId} not found for job ${job.id}`
+        );
         await this.batchingService.updateAIState(conversationId, "AI_ACTIVE");
         return;
       }
@@ -90,14 +101,24 @@ export class AIBatchingProcessor extends WorkerHost {
       }
 
       // Call AI service to generate response (with messages, supports streaming & continuity)
+      this.logger.debug(
+        `🤖 [AI Batch] Calling AI service for conversation ${conversationId}`
+      );
+
+      const aiCallStartTime = Date.now();
       const aiResponse = await this.aiResponseService.generateResponse(
         conversationId,
         organizationId,
         messages,
         customer
       );
+      const aiCallDuration = Date.now() - aiCallStartTime;
 
       if (aiResponse?.answer) {
+        this.logger.log(
+          `✅ [AI Batch] AI response generated in ${aiCallDuration}ms | ` +
+            `Conversation: ${conversationId} | Length: ${aiResponse.answer.length} chars`
+        );
         // Save AI response as message
         const {
           message,
@@ -109,7 +130,8 @@ export class AIBatchingProcessor extends WorkerHost {
         );
 
         this.logger.log(
-          `AI response saved for ${conversationId}: message ${message._id}`
+          `💾 [AI Batch] AI response saved | Conversation: ${conversationId} | ` +
+            `Message: ${message._id} | Platform: ${conversation.platform}`
         );
 
         // Handle message delivery based on platform
@@ -138,10 +160,14 @@ export class AIBatchingProcessor extends WorkerHost {
               "message:received",
               widgetPayload
             );
-            this.logger.log(`📤 Emitted AI message to visitor ${sessionId}`);
+            this.logger.log(
+              `📤 [AI Batch] Emitted AI message to web visitor | ` +
+                `Session: ${sessionId} | Message: ${message._id}`
+            );
           } else {
             this.logger.warn(
-              `Web chat conversation ${conversationId} has no sessionId, message saved but not delivered`
+              `⚠️ [AI Batch] Web chat conversation ${conversationId} has no sessionId | ` +
+                `Message saved but not delivered`
             );
           }
         } else {
@@ -152,7 +178,8 @@ export class AIBatchingProcessor extends WorkerHost {
 
           if (!platformConnection) {
             this.logger.error(
-              `Platform connection not found for conversation ${conversationId}`
+              `❌ [AI Batch] Platform connection not found | ` +
+                `Conversation: ${conversationId} | Connection ID: ${conversation.platformConnectionId}`
             );
           } else {
             // Build outgoing message event for Kafka
@@ -180,7 +207,9 @@ export class AIBatchingProcessor extends WorkerHost {
             });
 
             this.logger.log(
-              `📤 Published AI message to ${KAFKA_TOPICS.MESSAGES_OUTGOING}: ${message._id}`
+              `📤 [AI Batch] Published AI message to Kafka | ` +
+                `Topic: ${KAFKA_TOPICS.MESSAGES_OUTGOING} | ` +
+                `Message: ${message._id} | Platform: ${conversation.platform}`
             );
           }
         }
@@ -200,19 +229,39 @@ export class AIBatchingProcessor extends WorkerHost {
           unreadCount: 0,
         });
       } else {
-        this.logger.warn(`No AI response generated for ${conversationId}`);
+        this.logger.warn(
+          `⚠️ [AI Batch] No AI response generated | Conversation: ${conversationId} | ` +
+            `This may be due to: AI disabled, API error, or empty response`
+        );
       }
 
       // Reset to AI_ACTIVE after processing
       await this.batchingService.updateAIState(conversationId, "AI_ACTIVE");
-    } catch (error) {
-      this.logger.error(
-        `Failed to process AI batch for ${conversationId}: ${error.message}`,
-        error.stack
+
+      const jobDuration = Date.now() - jobStartTime;
+      this.logger.log(
+        `✅ [AI Batch] Job ${job.id} completed successfully | ` +
+          `Conversation: ${conversationId} | Total duration: ${jobDuration}ms`
       );
+    } catch (error) {
+      const jobDuration = Date.now() - jobStartTime;
+
+      this.logger.error(
+        `❌ [AI Batch] Job ${job.id} failed | ` +
+          `Conversation: ${conversationId} | Org: ${organizationId} | ` +
+          `Duration: ${jobDuration}ms | Error: ${error.message}`
+      );
+
+      this.logger.error(`❌ [AI Batch] Error stack trace:`, error.stack);
 
       // Reset state on error
       await this.batchingService.updateAIState(conversationId, "AI_ACTIVE");
+
+      // Log recovery advice
+      this.logger.error(
+        `💡 [AI Batch] Recovery: Conversation ${conversationId} state reset to AI_ACTIVE. ` +
+          `Next visitor message will trigger a new batch.`
+      );
 
       throw error;
     }
