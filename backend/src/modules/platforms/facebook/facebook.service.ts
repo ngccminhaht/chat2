@@ -734,6 +734,8 @@ export class FacebookService {
           _id: conversation._id.toString(),
           platform: conversation.platform,
           platformConversationId: conversation.platformConversationId,
+          customerName: conversation.customerName,
+          customerAvatar: conversation.customerAvatar,
           unreadCount: conversation.unreadCount,
           lastMessage: conversation.lastMessage,
         } as ConversationUpdatedPayload,

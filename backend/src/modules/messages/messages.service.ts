@@ -380,6 +380,8 @@ export class MessagesService {
         organizationId,
         payload: {
           _id: updatedConversation._id.toString(),
+          customerName: updatedConversation.customerName,
+          customerAvatar: updatedConversation.customerAvatar,
           unreadCount: updatedConversation.unreadCount,
           lastMessage: updatedConversation.lastMessage,
         } as ConversationUpdatedPayload,

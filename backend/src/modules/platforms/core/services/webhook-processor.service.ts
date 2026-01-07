@@ -317,6 +317,8 @@ export class WebhookProcessorService {
         _id: updatedConversation._id.toString(),
         platform: updatedConversation.platform,
         platformConversationId: updatedConversation.platformConversationId,
+        customerName: updatedConversation.customerName,
+        customerAvatar: updatedConversation.customerAvatar,
         unreadCount: updatedConversation.unreadCount,
         lastMessage: updatedConversation.lastMessage,
       } as ConversationUpdatedPayload,

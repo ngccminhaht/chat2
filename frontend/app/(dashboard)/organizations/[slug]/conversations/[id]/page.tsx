@@ -54,6 +54,7 @@ export default function ConversationDetailPage() {
     state.conversations.find((c) => c._id === conversationId)
   );
 
+  // Prefer store (has real-time data from list), fallback to API
   const conversation = conversationFromStore || conversationData;
 
   useEffect(() => {
