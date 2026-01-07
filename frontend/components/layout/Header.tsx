@@ -20,7 +20,6 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LogoutIcon from "@mui/icons-material/Logout";
 import ChatIcon from "@mui/icons-material/Chat";
 import { useAuthStore } from "@/features/auth/stores/authStore";
-import { useOrganizations } from "@/features/organizations/hooks/useOrganizations";
 import { useKeycloak } from "@/lib/keycloak/KeycloakProvider";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 
@@ -44,9 +43,8 @@ export default function Header({
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations('common');
-  const { user } = useAuthStore();
+  const { user, organizations } = useAuthStore();
   const { logout } = useKeycloak();
-  const { data: organizations } = useOrganizations();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   // Show back button to organizations if not already on organizations page
