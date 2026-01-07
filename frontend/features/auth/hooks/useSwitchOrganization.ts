@@ -21,12 +21,8 @@ export function useSwitchOrganization() {
       return response.data;
     },
     onSuccess: (data) => {
-      switchOrganization(
-        data.accessToken,
-        data.refreshToken,
-        data.organizationId,
-        data.organization,
-      );
+      // Update organization in store - tokens are managed by Keycloak
+      switchOrganization(data.organizationId, data.organization);
       // Invalidate all queries to refetch with new organization context
       queryClient.invalidateQueries();
     },

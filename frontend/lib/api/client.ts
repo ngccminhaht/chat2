@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useAuthStore } from '@/features/auth';
+import { getKeycloakToken } from '@/lib/keycloak/KeycloakProvider';
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
@@ -8,10 +8,10 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token from Keycloak
 apiClient.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().accessToken;
+    const token = getKeycloakToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

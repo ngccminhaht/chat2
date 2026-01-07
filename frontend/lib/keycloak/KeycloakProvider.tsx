@@ -37,6 +37,11 @@ interface KeycloakProviderProps {
 let keycloakInstance: Keycloak | null = null;
 let initPromise: Promise<boolean> | null = null;
 
+// Export getter for token access outside React components (e.g., apiClient, WebSocket)
+export function getKeycloakToken(): string | undefined {
+  return keycloakInstance?.token;
+}
+
 export function KeycloakProvider({ children }: KeycloakProviderProps) {
   const [keycloak, setKeycloak] = useState<Keycloak | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -45,7 +50,7 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
   const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(false);
   const didInit = useRef(false);
 
-  const updateUserAndTokens = useAuthStore((state) => state.updateUserAndTokens);
+  const setUser = useAuthStore((state) => state.setUser);
   const setOrganizations = useAuthStore((state) => state.setOrganizations);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
@@ -153,8 +158,8 @@ export function KeycloakProvider({ children }: KeycloakProviderProps) {
               avatarUrl: tokenParsed.picture || null,
             };
 
-            // Update user and tokens only, preserve organization data from localStorage
-            updateUserAndTokens(user, kcInstance.token, kcInstance.refreshToken || '');
+            // Update user only - tokens are managed by Keycloak in memory
+            setUser(user);
           }
 
           // Fetch organizations from API and sync to store

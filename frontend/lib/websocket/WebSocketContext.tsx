@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/features/auth';
+import { useKeycloak, getKeycloakToken } from '@/lib/keycloak/KeycloakProvider';
 
 interface WebSocketContextValue {
   socket: Socket | null;
@@ -16,20 +17,19 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const joinedOrgRef = useRef<string | null>(null);
-  // Select accessToken directly - calling isAuthenticated() in selector is anti-pattern
-  const accessToken = useAuthStore((state) => state.accessToken);
+  // Get auth state from Keycloak
+  const { authenticated, initialized } = useKeycloak();
   const organizationId = useAuthStore((state) => state.organizationId);
   const hasHydrated = useAuthStore((state) => state._hasHydrated);
-  const isAuthenticated = !!accessToken;
 
   useEffect(() => {
-    // Wait for auth store to hydrate before connecting
-    if (!hasHydrated) {
-      console.log('[WebSocketProvider] Waiting for auth store hydration...');
+    // Wait for auth store to hydrate and Keycloak to initialize
+    if (!hasHydrated || !initialized) {
+      console.log('[WebSocketProvider] Waiting for auth store hydration and Keycloak init...');
       return;
     }
 
-    if (!isAuthenticated) {
+    if (!authenticated) {
       // Disconnect and cleanup
       if (socketRef.current) {
         socketRef.current.removeAllListeners();
@@ -44,7 +44,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
     // Initialize socket if not already created
     if (!socketRef.current) {
-      const token = useAuthStore.getState().accessToken;
+      const token = getKeycloakToken();
       if (!token) return;
 
       console.log('[WebSocketProvider] Initializing socket');
@@ -95,7 +95,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       socketRef.current = newSocket;
       setSocket(newSocket);
     }
-  }, [hasHydrated, isAuthenticated]);
+  }, [hasHydrated, initialized, authenticated]);
 
   // Handle org switch - join new org room
   useEffect(() => {
