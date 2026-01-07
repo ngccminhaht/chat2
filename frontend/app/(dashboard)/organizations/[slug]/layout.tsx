@@ -20,7 +20,7 @@ export default function OrganizationLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
 
-  const { initialized, authenticated } = useKeycloak();
+  const { initialized, authenticated, isLoadingOrganizations } = useKeycloak();
   const organizations = useAuthStore((state) => state.organizations);
   const currentOrg = useAuthStore((state) => state.organization);
   const setOrganizations = useAuthStore((state) => state.setOrganizations);
@@ -34,6 +34,9 @@ export default function OrganizationLayout({
 
     // Auth check handled by OnboardingGuard
     if (!authenticated) return;
+
+    // Wait for organizations to finish loading before validating slug
+    if (isLoadingOrganizations) return;
 
     const targetOrg = organizations.find((org) => org.slug === slug);
 
@@ -53,7 +56,7 @@ export default function OrganizationLayout({
     }
 
     setIsValidating(false);
-  }, [slug, organizations, currentOrg, initialized, authenticated, hasHydrated, router, setOrganizations]);
+  }, [slug, organizations, currentOrg, initialized, authenticated, isLoadingOrganizations, hasHydrated, router, setOrganizations]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
