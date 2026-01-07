@@ -92,7 +92,7 @@ export class AIResponseService {
     // Get organization AI settings
     const org = await this.organizationModel.findById(organizationId).lean();
     if (!org?.aiAgentSettings?.enabled) {
-      this.logger.debug(`AI agent disabled for org ${organizationId}`);
+      this.logger.log(`⏭️ [AI API Call] AI agent disabled for org ${organizationId}`);
       return null;
     }
 

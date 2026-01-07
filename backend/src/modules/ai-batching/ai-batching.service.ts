@@ -68,8 +68,8 @@ export class AIBatchingService {
 
     // Check if AI is enabled for this conversation
     if (conversation.aiEnabled === false) {
-      this.logger.debug(
-        `Skipping AI batch for ${conversationId}: AI disabled for conversation`
+      this.logger.log(
+        `⏭️ [AI Batch] Skipping: AI disabled for conversation ${conversationId}`
       );
       return;
     }
@@ -77,16 +77,16 @@ export class AIBatchingService {
     // Check if AI agent is enabled for this organization
     const org = await this.organizationModel.findById(organizationId).lean();
     if (!org?.aiAgentSettings?.enabled) {
-      this.logger.debug(
-        `Skipping AI batch for ${conversationId}: AI agent disabled for org ${organizationId}`
+      this.logger.log(
+        `⏭️ [AI Batch] Skipping: AI agent disabled for org ${organizationId}`
       );
       return;
     }
 
     // Skip if already responding
     if (conversation.aiState === "AI_RESPONDING") {
-      this.logger.debug(
-        `Skipping AI batch for ${conversationId}: AI currently responding`
+      this.logger.log(
+        `⏭️ [AI Batch] Skipping: Already responding for conversation ${conversationId}`
       );
       return;
     }

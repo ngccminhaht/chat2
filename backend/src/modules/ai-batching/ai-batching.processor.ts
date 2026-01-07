@@ -76,7 +76,7 @@ export class AIBatchingProcessor extends WorkerHost {
         return;
       }
 
-      this.logger.debug(
+      this.logger.log(
         `📝 [AI Batch] Found ${messages.length} pending messages for conversation ${conversationId}`
       );
 
