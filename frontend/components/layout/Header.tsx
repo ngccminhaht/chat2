@@ -18,7 +18,6 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LogoutIcon from "@mui/icons-material/Logout";
-import ChatIcon from "@mui/icons-material/Chat";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useKeycloak } from "@/lib/keycloak/KeycloakProvider";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
@@ -42,15 +41,18 @@ export default function Header({
 }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const t = useTranslations('common');
-  const { user, organizations } = useAuthStore();
+  const t = useTranslations("common");
+  const { user } = useAuthStore();
   const { logout } = useKeycloak();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   // Show back button to organizations if not already on organizations page
-  const shouldShowBackToOrgs = !showBackButton && pathname !== '/organizations' && pathname.startsWith('/organizations/');
+  const shouldShowBackToOrgs =
+    !showBackButton &&
+    pathname !== "/organizations" &&
+    pathname.startsWith("/organizations/");
   const handleBackToOrganizations = () => {
-    router.push('/organizations');
+    router.push("/organizations");
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -59,11 +61,6 @@ export default function Header({
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-  };
-
-  const handleOrgSelect = (slug: string) => {
-    handleMenuClose();
-    router.push(`/organizations/${slug}/conversations`);
   };
 
   const handleProfile = () => {
@@ -88,7 +85,7 @@ export default function Header({
             edge="start"
             onClick={onBackClick}
             sx={{ mr: 2 }}
-            aria-label={t('backToOrganizations')}
+            aria-label={t("backToOrganizations")}
           >
             <ArrowBackIcon />
           </IconButton>
@@ -99,8 +96,8 @@ export default function Header({
             edge="start"
             onClick={handleBackToOrganizations}
             sx={{ mr: 2 }}
-            aria-label={t('backToOrganizations')}
-            title={t('backToOrganizations')}
+            aria-label={t("backToOrganizations")}
+            title={t("backToOrganizations")}
           >
             <ArrowBackIcon />
           </IconButton>
@@ -138,23 +135,6 @@ export default function Header({
           anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
         >
-          {/* Organizations section */}
-          {organizations?.map((org) => (
-            <MenuItem
-              key={org.id}
-              selected={org.slug === currentOrgSlug}
-              onClick={() => handleOrgSelect(org.slug)}
-            >
-              <ListItemIcon>
-                <Avatar sx={{ width: 28, height: 28 }}>
-                  <ChatIcon fontSize="small" />
-                </Avatar>
-              </ListItemIcon>
-              <ListItemText primary={org.name} />
-            </MenuItem>
-          ))}
-          {organizations && organizations.length > 0 && <Divider />}
-
           {/* Account section - Profile + Logout in one row */}
           <MenuItem onClick={handleProfile} sx={{ minWidth: 250 }}>
             <ListItemIcon>
@@ -163,10 +143,21 @@ export default function Header({
               </Avatar>
             </ListItemIcon>
             <ListItemText
-              primary={<Typography variant="caption" color="text.secondary">{t('account')}</Typography>}
+              primary={
+                <Typography variant="caption" color="text.secondary">
+                  {t("account")}
+                </Typography>
+              }
               secondary={user?.name}
             />
-            <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleLogout(); }}>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLogout();
+              }}
+            >
               <LogoutIcon fontSize="small" />
             </IconButton>
           </MenuItem>

@@ -15,7 +15,7 @@ export interface ZaloMessage {
 }
 
 export interface ZaloAttachment {
-  type: 'image' | 'video' | 'file' | 'audio' | 'sticker' | 'location';
+  type: "image" | "video" | "file" | "audio" | "sticker" | "location";
   payload: {
     url?: string;
     thumbnail?: string;
