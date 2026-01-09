@@ -115,8 +115,27 @@ export class InboundMessageHandlerService {
     const conversation = await this.findOrCreateConversation(input);
 
     // 2. Find or create customer for platform messages
-    if (input.platform !== Platform.WEB && !conversation.customerId) {
-      await this.findOrCreateCustomer(input, conversation);
+    if (input.platform !== Platform.WEB) {
+      this.logger.log(
+        `🔍 Checking customer for ${input.platform} user ${input.sender.platformUserId}, conversation.customerId: ${conversation.customerId}`
+      );
+      if (!conversation.customerId) {
+        await this.findOrCreateCustomer(input, conversation);
+        // Reload conversation to get updated customerId
+        const updatedConversation = await this.conversationModel
+          .findById(conversation._id)
+          .exec();
+        if (updatedConversation?.customerId) {
+          conversation.customerId = updatedConversation.customerId;
+          this.logger.log(
+            `✅ Customer linked: ${updatedConversation.customerId}`
+          );
+        }
+      } else {
+        this.logger.log(
+          `⏭️ Conversation already has customer: ${conversation.customerId}`
+        );
+      }
     }
 
     // 3. Save message with upsert (handles deduplication)
@@ -287,6 +306,10 @@ export class InboundMessageHandlerService {
       const { platform, organizationId, sender } = input;
       const { platformUserId, name, avatar } = sender;
 
+      this.logger.log(
+        `🔍 Finding customer for ${platform} user ${platformUserId} in org ${organizationId}`
+      );
+
       // Find existing customer by platform identity
       let customer = await this.customerModel.findOne({
         organizationId: new Types.ObjectId(organizationId),
@@ -297,6 +320,7 @@ export class InboundMessageHandlerService {
       const now = new Date();
 
       if (customer) {
+        this.logger.log(`✅ Found existing customer: ${customer._id}`);
         // Update last seen and link to conversation if not already linked
         await this.customerModel.findByIdAndUpdate(customer._id, {
           lastSeenAt: now,
@@ -304,16 +328,17 @@ export class InboundMessageHandlerService {
           $inc: { totalMessages: 1 },
         });
 
-        // Link customer to conversation if not already linked
-        if (!conversation.customerId) {
-          await this.conversationModel.findByIdAndUpdate(conversation._id, {
-            customerId: customer._id,
-          });
-          this.logger.log(
-            `✅ Linked existing customer ${customer._id} to conversation ${conversation._id}`
-          );
-        }
+        // Link customer to conversation
+        await this.conversationModel.findByIdAndUpdate(conversation._id, {
+          customerId: customer._id,
+        });
+        this.logger.log(
+          `✅ Linked existing customer ${customer._id} to conversation ${conversation._id}`
+        );
       } else {
+        this.logger.log(
+          `📝 Creating new customer for ${platform}:${platformUserId}`
+        );
         // Create new customer
         customer = await this.customerModel.create({
           organizationId: new Types.ObjectId(organizationId),
@@ -334,19 +359,23 @@ export class InboundMessageHandlerService {
           totalMessages: 1,
         });
 
+        this.logger.log(`✅ Created new customer: ${customer._id}`);
+
         // Link customer to conversation
         await this.conversationModel.findByIdAndUpdate(conversation._id, {
           customerId: customer._id,
         });
 
         this.logger.log(
-          `✅ Created new customer ${customer._id} for ${platform}:${platformUserId}`
+          `✅ Linked new customer ${customer._id} to conversation ${conversation._id}`
         );
       }
     } catch (error) {
       // Non-blocking: log error but don't fail message processing
       this.logger.error(
-        `Failed to create/link customer (non-blocking): ${error.message}`
+        `❌ Failed to create/link customer (non-blocking):`,
+        error.message,
+        error.stack
       );
     }
   }
