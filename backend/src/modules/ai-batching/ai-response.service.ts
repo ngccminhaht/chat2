@@ -92,7 +92,9 @@ export class AIResponseService {
     // Get organization AI settings
     const org = await this.organizationModel.findById(organizationId).lean();
     if (!org?.aiAgentSettings?.enabled) {
-      this.logger.log(`⏭️ [AI API Call] AI agent disabled for org ${organizationId}`);
+      this.logger.log(
+        `⏭️ [AI API Call] AI agent disabled for org ${organizationId}`
+      );
       return null;
     }
 
@@ -149,6 +151,22 @@ export class AIResponseService {
 
     // Use streaming for better UX
     requestData.response_mode = "streaming";
+
+    // Log customer info being sent to AI
+    this.logger.log(
+      `📤 [AI Request] Customer Info:`,
+      JSON.stringify(
+        {
+          customer_name: requestData.inputs?.customer_name,
+          customer_gender: requestData.inputs?.customer_gender,
+          customer_phone: requestData.inputs?.customer_phone,
+          customer_email: requestData.inputs?.customer_email,
+          customer_info: requestData.inputs?.customer_info,
+        },
+        null,
+        2
+      )
+    );
 
     // Log request
     this.logger.log(

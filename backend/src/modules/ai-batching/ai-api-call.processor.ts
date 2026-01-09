@@ -182,6 +182,22 @@ export class AIAPICallProcessor extends WorkerHost {
 
       requestData.response_mode = "streaming";
 
+      // Log customer info being sent to AI
+      this.logger.log(
+        `📤 [AI Request] Customer Info:`,
+        JSON.stringify(
+          {
+            customer_name: requestData.inputs?.customer_name,
+            customer_gender: requestData.inputs?.customer_gender,
+            customer_phone: requestData.inputs?.customer_phone,
+            customer_email: requestData.inputs?.customer_email,
+            customer_info: requestData.inputs?.customer_info,
+          },
+          null,
+          2
+        )
+      );
+
       // Log request
       this.logger.log(
         `🤖 [AI API Job] Calling API | Conversation: ${conversationId} | ` +

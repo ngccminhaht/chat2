@@ -197,6 +197,12 @@ export class MessageCombiner {
       customer_info: customerContext.join(" | "),
     };
 
+    // Chèn thông tin khách hàng trực tiếp vào đầu tin nhắn
+    const customerInfoPrefix = `[Thông tin khách hàng: ${customerContext.join(
+      " | "
+    )}]\n\n`;
+    requestData.query = customerInfoPrefix + queryText;
+
     // Add files (images) if any
     if (images.length > 0) {
       requestData.files = images
