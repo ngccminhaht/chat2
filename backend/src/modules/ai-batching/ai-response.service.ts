@@ -173,21 +173,59 @@ export class AIResponseService {
       `🤖 [AI API Call] Conversation: ${conversationId} | Org: ${organizationId} | ` +
         `Endpoint: ${apiEndpoint} | Query length: ${
           requestData.query?.length || 0
-        } chars`
+        } chars | Has conversation_id: ${!!requestData.conversation_id}`
     );
 
     try {
       const startTime = Date.now();
 
-      // Call AI API (single attempt - BullMQ queue will handle retry if needed)
-      const response = await axios.post(apiEndpoint, requestData, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        responseType: "text",
-        timeout: 60000, // 60s timeout
-      });
+      // Call AI API with retry logic for 404 errors
+      let response;
+      try {
+        response = await axios.post(apiEndpoint, requestData, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          responseType: "text",
+          timeout: 60000, // 60s timeout
+        });
+      } catch (firstError: any) {
+        // If 404 and we have conversation_id, retry without it
+        if (
+          firstError.response?.status === 404 &&
+          requestData.conversation_id &&
+          (firstError.response?.data?.includes("Conversation Not Exists") ||
+            firstError.response?.data?.includes("not_found"))
+        ) {
+          this.logger.warn(
+            `⚠️ [AI API Call] Conversation ${requestData.conversation_id} not found on AI server, retrying without conversation_id`
+          );
+
+          // Clear conversation_id and aiConversationId
+          const originalConversationId = requestData.conversation_id;
+          delete requestData.conversation_id;
+          await this.conversationModel.findByIdAndUpdate(conversationId, {
+            $unset: { aiConversationId: "" },
+          });
+
+          this.logger.log(
+            `🔄 [AI API Call] Retrying without conversation_id (cleared ${originalConversationId})`
+          );
+
+          // Retry without conversation_id
+          response = await axios.post(apiEndpoint, requestData, {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            responseType: "text",
+            timeout: 60000,
+          });
+        } else {
+          throw firstError;
+        }
+      }
 
       const duration = Date.now() - startTime;
 
