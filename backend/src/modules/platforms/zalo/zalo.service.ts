@@ -4,7 +4,11 @@ import { Model, Types } from "mongoose";
 import { createHmac, createHash, randomBytes } from "crypto";
 import axios from "axios";
 import { EnvService } from "@/common/env";
-import { ConnectionStatus, ConversationStatus, MessageStatus } from "@/common/constants";
+import {
+  ConnectionStatus,
+  ConversationStatus,
+  MessageStatus,
+} from "@/common/constants";
 import {
   Conversation,
   ConversationDocument,
@@ -43,7 +47,7 @@ export class ZaloService {
     @InjectModel(PlatformConnection.name)
     private platformConnectionModel: Model<PlatformConnectionDocument>,
     private kafkaProducer: KafkaProducerService,
-    private envService: EnvService,
+    private envService: EnvService
   ) {
     this.appId = this.envService.get("ZALO_APP_ID");
     this.appSecret = this.envService.get("ZALO_APP_SECRET");
@@ -241,7 +245,9 @@ export class ZaloService {
 
       // Update customer name if it's still default (starts with "Zalo User")
       if (conversation.customerName?.startsWith("Zalo User")) {
-        this.logger.log(`🔄 Updating default customer name for conversation ${conversation._id}`);
+        this.logger.log(
+          `🔄 Updating default customer name for conversation ${conversation._id}`
+        );
         const platformConnection = await this.platformConnectionModel
           .findById(platformConnectionId)
           .exec();
@@ -257,7 +263,9 @@ export class ZaloService {
             conversation.customerName = userProfile.displayName;
             conversation.customerAvatar = userProfile.avatar;
             await conversation.save();
-            this.logger.log(`✅ Updated customer name to: ${userProfile.displayName}`);
+            this.logger.log(
+              `✅ Updated customer name to: ${userProfile.displayName}`
+            );
           }
         }
       }
@@ -317,10 +325,12 @@ export class ZaloService {
     });
 
     // Check for duplicate
-    const existingMessage = await this.messageModel.findOne({
-      platform: "zalo",
-      platformMessageId,
-    }).exec();
+    const existingMessage = await this.messageModel
+      .findOne({
+        platform: "zalo",
+        platformMessageId,
+      })
+      .exec();
 
     if (existingMessage) {
       this.logger.log(`⏭️ Skipping duplicate message: ${platformMessageId}`);
@@ -349,7 +359,9 @@ export class ZaloService {
       });
     } catch (error) {
       if (error.code === 11000) {
-        this.logger.log(`⏭️ Skipping duplicate message (E11000): ${platformMessageId}`);
+        this.logger.log(
+          `⏭️ Skipping duplicate message (E11000): ${platformMessageId}`
+        );
         return;
       }
       throw error;
@@ -510,6 +522,9 @@ export class ZaloService {
       redirect_uri: this.redirectUri,
       code_challenge: codeChallenge,
       state: finalState,
+      // Request quyền truy cập thông tin cá nhân của user
+      // https://developers.zalo.me/docs/official-account/phan-quyen/gioi-thieu-post-4300
+      scope: "user.info", // Quyền truy cập thông tin cá nhân (bao gồm giới tính nếu user share)
     });
 
     return {
@@ -666,11 +681,15 @@ export class ZaloService {
       // Check for token expiration errors
       const errorCode = response.data.error;
       if (errorCode === -216 || errorCode === -124) {
-        this.logger.warn(`🔄 Access token expired when fetching profile, attempting refresh...`);
+        this.logger.warn(
+          `🔄 Access token expired when fetching profile, attempting refresh...`
+        );
 
         // Try to refresh token if we have platformConnectionId
         if (platformConnectionId) {
-          const refreshedToken = await this.tryRefreshToken(platformConnectionId);
+          const refreshedToken = await this.tryRefreshToken(
+            platformConnectionId
+          );
           if (refreshedToken) {
             // Retry with new token
             return this.getUserProfile(refreshedToken, userId);
@@ -715,28 +734,42 @@ export class ZaloService {
    * Try to refresh access token for a platform connection
    * @returns New access token if successful, null otherwise
    */
-  private async tryRefreshToken(platformConnectionId: string): Promise<string | null> {
+  private async tryRefreshToken(
+    platformConnectionId: string
+  ): Promise<string | null> {
     try {
       const connection = await this.platformConnectionModel
         .findById(platformConnectionId)
         .exec();
 
-      if (!connection?.credentials?.refreshToken || connection.credentials.refreshToken === 'placeholder') {
-        this.logger.error(`❌ No valid refresh token for connection ${platformConnectionId}`);
+      if (
+        !connection?.credentials?.refreshToken ||
+        connection.credentials.refreshToken === "placeholder"
+      ) {
+        this.logger.error(
+          `❌ No valid refresh token for connection ${platformConnectionId}`
+        );
         return null;
       }
 
-      const tokenResponse = await this.refreshAccessToken(connection.credentials.refreshToken);
+      const tokenResponse = await this.refreshAccessToken(
+        connection.credentials.refreshToken
+      );
 
       // Update connection with new tokens
       const expiresAt = new Date(Date.now() + tokenResponse.expires_in * 1000);
-      await this.platformConnectionModel.findByIdAndUpdate(platformConnectionId, {
-        'credentials.accessToken': tokenResponse.access_token,
-        'credentials.refreshToken': tokenResponse.refresh_token,
-        'credentials.expiresAt': expiresAt,
-      });
+      await this.platformConnectionModel.findByIdAndUpdate(
+        platformConnectionId,
+        {
+          "credentials.accessToken": tokenResponse.access_token,
+          "credentials.refreshToken": tokenResponse.refresh_token,
+          "credentials.expiresAt": expiresAt,
+        }
+      );
 
-      this.logger.log(`✅ Token refreshed successfully for connection ${platformConnectionId}`);
+      this.logger.log(
+        `✅ Token refreshed successfully for connection ${platformConnectionId}`
+      );
       return tokenResponse.access_token;
     } catch (error) {
       this.logger.error(`❌ Failed to refresh token: ${error.message}`);
@@ -975,7 +1008,9 @@ export class ZaloService {
       if (response.data.error) {
         this.logger.error(`❌ Zalo send image error:`, response.data);
         throw new BadRequestException(
-          `Zalo send image error: ${response.data.message || response.data.error}`
+          `Zalo send image error: ${
+            response.data.message || response.data.error
+          }`
         );
       }
 
@@ -986,9 +1021,14 @@ export class ZaloService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`❌ Failed to send Zalo image:`, error.response?.data || error.message);
+      this.logger.error(
+        `❌ Failed to send Zalo image:`,
+        error.response?.data || error.message
+      );
       throw new BadRequestException(
-        `Failed to send Zalo image: ${error.response?.data?.message || error.message}`
+        `Failed to send Zalo image: ${
+          error.response?.data?.message || error.message
+        }`
       );
     }
   }
@@ -1036,7 +1076,9 @@ export class ZaloService {
       if (response.data.error) {
         this.logger.error(`❌ Zalo send file error:`, response.data);
         throw new BadRequestException(
-          `Zalo send file error: ${response.data.message || response.data.error}`
+          `Zalo send file error: ${
+            response.data.message || response.data.error
+          }`
         );
       }
 
@@ -1047,9 +1089,14 @@ export class ZaloService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`❌ Failed to send Zalo file:`, error.response?.data || error.message);
+      this.logger.error(
+        `❌ Failed to send Zalo file:`,
+        error.response?.data || error.message
+      );
       throw new BadRequestException(
-        `Failed to send Zalo file: ${error.response?.data?.message || error.message}`
+        `Failed to send Zalo file: ${
+          error.response?.data?.message || error.message
+        }`
       );
     }
   }
@@ -1103,20 +1150,28 @@ export class ZaloService {
       if (response.data.error) {
         this.logger.error(`❌ Zalo send sticker error:`, response.data);
         throw new BadRequestException(
-          `Zalo send sticker error: ${response.data.message || response.data.error}`
+          `Zalo send sticker error: ${
+            response.data.message || response.data.error
+          }`
         );
       }
 
       return {
-        message_id: response.data.data?.message_id || `zalo_sticker_${Date.now()}`,
+        message_id:
+          response.data.data?.message_id || `zalo_sticker_${Date.now()}`,
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`❌ Failed to send Zalo sticker:`, error.response?.data || error.message);
+      this.logger.error(
+        `❌ Failed to send Zalo sticker:`,
+        error.response?.data || error.message
+      );
       throw new BadRequestException(
-        `Failed to send Zalo sticker: ${error.response?.data?.message || error.message}`
+        `Failed to send Zalo sticker: ${
+          error.response?.data?.message || error.message
+        }`
       );
     }
   }

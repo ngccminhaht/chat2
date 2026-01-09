@@ -160,18 +160,22 @@ export class MessageCombiner {
         zaloProfile.display_name || zaloProfile.user_alias || customerName;
 
       // Convert gender from Zalo format (0: Nam, 1: Nữ)
-      if (zaloProfile.gender !== undefined) {
+      // Check both direct field and shared_info
+      const genderValue = zaloProfile.gender ?? zaloProfile.shared_info?.gender;
+      if (genderValue !== undefined && genderValue !== null) {
         customerGender =
-          zaloProfile.gender === 0
-            ? "Nam"
-            : zaloProfile.gender === 1
-            ? "Nữ"
-            : "Khác";
+          genderValue === 0 ? "Nam" : genderValue === 1 ? "Nữ" : "Khác";
       }
 
-      customerBirthDate = zaloProfile.birth_date;
-      if (zaloProfile.phone) {
-        customerPhone = zaloProfile.phone;
+      // Get birth date from various possible fields
+      customerBirthDate =
+        zaloProfile.birth_date || zaloProfile.shared_info?.user_dob;
+      if (customerBirthDate === "") customerBirthDate = undefined;
+
+      // Get phone from shared_info (Zalo format)
+      const phoneValue = zaloProfile.phone || zaloProfile.shared_info?.phone;
+      if (phoneValue && phoneValue !== 0 && phoneValue !== "0") {
+        customerPhone = phoneValue.toString();
       }
 
       // Debug log
@@ -180,6 +184,8 @@ export class MessageCombiner {
         customerGender,
         customerPhone,
         customerBirthDate,
+        rawGender: genderValue,
+        rawPhone: phoneValue,
       });
 
       // Store full Zalo profile for additional context
