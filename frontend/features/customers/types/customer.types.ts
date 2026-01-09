@@ -3,7 +3,7 @@ export interface DeviceInfo {
   browserVersion?: string;
   os?: string;
   osVersion?: string;
-  device?: 'desktop' | 'mobile' | 'tablet';
+  device?: "desktop" | "mobile" | "tablet";
   screenWidth?: number;
   screenHeight?: number;
   language?: string;
@@ -57,10 +57,11 @@ export interface GetCustomersParams {
   search?: string;
   domain?: string;
   tag?: string;
+  platform?: string;
   page?: number;
   limit?: number;
-  sortBy?: 'lastSeenAt' | 'createdAt' | 'totalMessages';
-  sortOrder?: 'asc' | 'desc';
+  sortBy?: "lastSeenAt" | "createdAt" | "totalMessages";
+  sortOrder?: "asc" | "desc";
 }
 
 export interface CustomersResponse {

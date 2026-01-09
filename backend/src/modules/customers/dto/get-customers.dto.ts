@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import { IsOptional, IsString, IsInt, Min, Max } from "class-validator";
+import { Transform, Type } from "class-transformer";
 
 export class GetCustomersDto {
   @IsOptional()
@@ -13,6 +13,10 @@ export class GetCustomersDto {
   @IsOptional()
   @IsString()
   tag?: string;
+
+  @IsOptional()
+  @IsString()
+  platform?: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -29,9 +33,9 @@ export class GetCustomersDto {
 
   @IsOptional()
   @IsString()
-  sortBy?: 'lastSeenAt' | 'createdAt' | 'totalMessages' = 'lastSeenAt';
+  sortBy?: "lastSeenAt" | "createdAt" | "totalMessages" = "lastSeenAt";
 
   @IsOptional()
-  @Transform(({ value }) => value === 'asc' ? 1 : -1)
+  @Transform(({ value }) => (value === "asc" ? 1 : -1))
   sortOrder?: 1 | -1 = -1;
 }
