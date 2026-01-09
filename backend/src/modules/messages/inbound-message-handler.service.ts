@@ -29,6 +29,10 @@ import {
   Message,
   MessageDocument,
 } from "@/common/database/schemas/message.schema";
+import {
+  Customer,
+  CustomerDocument,
+} from "@/common/database/schemas/customer.schema";
 import { AIBatchingService } from "@/modules/ai-batching/ai-batching.service";
 
 /**
@@ -88,6 +92,8 @@ export class InboundMessageHandlerService {
     private readonly conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
+    @InjectModel(Customer.name)
+    private readonly customerModel: Model<CustomerDocument>,
     private readonly aiBatchingService: AIBatchingService
   ) {}
 
@@ -108,7 +114,12 @@ export class InboundMessageHandlerService {
     // 1. Find or create conversation
     const conversation = await this.findOrCreateConversation(input);
 
-    // 2. Save message with upsert (handles deduplication)
+    // 2. Find or create customer for platform messages
+    if (input.platform !== Platform.WEB && !conversation.customerId) {
+      await this.findOrCreateCustomer(input, conversation);
+    }
+
+    // 3. Save message with upsert (handles deduplication)
     const { message, isNew } = await this.saveMessageWithUpsert(
       input,
       conversation
@@ -120,10 +131,10 @@ export class InboundMessageHandlerService {
       return { message: null, conversation, isNew: false };
     }
 
-    // 3. Update conversation lastMessage
+    // 4. Update conversation lastMessage
     await this.updateConversationLastMessage(conversation, message, input);
 
-    // 4. Trigger AI batching for inbound messages
+    // 5. Trigger AI batching for inbound messages
     if (input.direction === MessageDirection.INBOUND) {
       await this.triggerAiBatching(message, conversation);
     }
@@ -263,6 +274,81 @@ export class InboundMessageHandlerService {
       },
       { timestamps: true }
     );
+  }
+
+  /**
+   * Find or create customer for platform messages
+   */
+  private async findOrCreateCustomer(
+    input: InboundMessageInput,
+    conversation: ConversationDocument
+  ): Promise<void> {
+    try {
+      const { platform, organizationId, sender } = input;
+      const { platformUserId, name, avatar } = sender;
+
+      // Find existing customer by platform identity
+      let customer = await this.customerModel.findOne({
+        organizationId: new Types.ObjectId(organizationId),
+        "platformIdentities.platform": platform,
+        "platformIdentities.platformUserId": platformUserId,
+      });
+
+      const now = new Date();
+
+      if (customer) {
+        // Update last seen and link to conversation if not already linked
+        await this.customerModel.findByIdAndUpdate(customer._id, {
+          lastSeenAt: now,
+          lastContactedAt: now,
+          $inc: { totalMessages: 1 },
+        });
+
+        // Link customer to conversation if not already linked
+        if (!conversation.customerId) {
+          await this.conversationModel.findByIdAndUpdate(conversation._id, {
+            customerId: customer._id,
+          });
+          this.logger.log(
+            `✅ Linked existing customer ${customer._id} to conversation ${conversation._id}`
+          );
+        }
+      } else {
+        // Create new customer
+        customer = await this.customerModel.create({
+          organizationId: new Types.ObjectId(organizationId),
+          name: name || `${platform} User ${platformUserId.substring(0, 8)}`,
+          avatar,
+          platformIdentities: [
+            {
+              platform,
+              platformUserId,
+              displayName: name,
+              avatar,
+            },
+          ],
+          firstSeenAt: now,
+          lastSeenAt: now,
+          lastContactedAt: now,
+          totalConversations: 1,
+          totalMessages: 1,
+        });
+
+        // Link customer to conversation
+        await this.conversationModel.findByIdAndUpdate(conversation._id, {
+          customerId: customer._id,
+        });
+
+        this.logger.log(
+          `✅ Created new customer ${customer._id} for ${platform}:${platformUserId}`
+        );
+      }
+    } catch (error) {
+      // Non-blocking: log error but don't fail message processing
+      this.logger.error(
+        `Failed to create/link customer (non-blocking): ${error.message}`
+      );
+    }
   }
 
   /**
