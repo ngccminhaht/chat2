@@ -140,6 +140,15 @@ export class MessageCombiner {
 
     // Add Zalo profile information from conversation metadata if available
     const conversation = combinedData.latestMessage?.conversation;
+
+    // Debug log
+    console.log("🔍 [MessageCombiner] Conversation metadata:", {
+      hasConversation: !!conversation,
+      hasMetadata: !!conversation?.metadata,
+      hasZaloProfile: !!conversation?.metadata?.zaloProfile,
+      zaloProfile: conversation?.metadata?.zaloProfile,
+    });
+
     if (conversation?.metadata?.zaloProfile) {
       const zaloProfile = conversation.metadata.zaloProfile as Record<
         string,
@@ -165,8 +174,20 @@ export class MessageCombiner {
         customerPhone = zaloProfile.phone;
       }
 
+      // Debug log
+      console.log("🔍 [MessageCombiner] Extracted customer info:", {
+        customerName,
+        customerGender,
+        customerPhone,
+        customerBirthDate,
+      });
+
       // Store full Zalo profile for additional context
       requestData.inputs.zalo_profile = zaloProfile;
+    } else {
+      console.log(
+        "⚠️ [MessageCombiner] No Zalo profile found in conversation metadata"
+      );
     }
 
     // Build customer context string for AI

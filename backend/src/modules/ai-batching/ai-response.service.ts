@@ -331,7 +331,9 @@ export class AIResponseService {
             .join("\n");
 
           if (chatHistory && combinedData.texts.length > 0) {
-            combinedData.texts[0].content = `[Previous conversation history]\n${chatHistory}\n\n[Current message]\n${combinedData.texts[0].content}`;
+            // Bỏ [Previous conversation history] vì hệ thống AI tự thêm
+            // Chỉ thêm chat history không có wrapper
+            combinedData.texts[0].content = `${chatHistory}\n\n${combinedData.texts[0].content}`;
 
             // Mark as sent
             await this.conversationModel.findByIdAndUpdate(conversation._id, {
