@@ -3,30 +3,26 @@
  * Implements IPlatformAdapter for Zalo-specific logic
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { createHmac } from 'crypto';
-import axios from 'axios';
-import FormData from 'form-data';
-import {
-  Platform,
-  MessageType,
-  MessageDirection,
-} from '@/common/constants';
-import { EnvService } from '@/common/env';
-import { PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
+import { Injectable, Logger } from "@nestjs/common";
+import { createHmac } from "crypto";
+import axios from "axios";
+import FormData from "form-data";
+import { Platform, MessageType, MessageDirection } from "@/common/constants";
+import { EnvService } from "@/common/env";
+import { PlatformConnectionDocument } from "@/common/database/schemas/platform-connection.schema";
 
 // Zalo error codes that indicate token expiration
 const ZALO_TOKEN_EXPIRED_ERRORS = [-216, -124]; // -216: access token expired, -124: invalid access token
 
 // Common Zalo API error codes
 const ZALO_ERROR_CODES: Record<number, string> = {
-  [-216]: 'Access token expired',
-  [-124]: 'Invalid access token',
-  [-201]: 'Missing required parameter',
-  [-214]: 'User not found or blocked the OA',
-  [-229]: 'User ID not found',
-  [-218]: 'Insufficient permission',
-  0: 'Success',
+  [-216]: "Access token expired",
+  [-124]: "Invalid access token",
+  [-201]: "Missing required parameter",
+  [-214]: "User not found or blocked the OA",
+  [-229]: "User ID not found",
+  [-218]: "Insufficient permission",
+  0: "Success",
 };
 import {
   IPlatformAdapter,
@@ -40,8 +36,8 @@ import {
   PlatformPayload,
   SendResult,
   UserProfile,
-} from '../core/interfaces';
-import { ZaloWebhookDto, ZaloAttachment } from '../zalo/dto/zalo-webhook.dto';
+} from "../core/interfaces";
+import { ZaloWebhookDto, ZaloAttachment } from "../zalo/dto/zalo-webhook.dto";
 
 @Injectable()
 export class ZaloAdapter extends BasePlatformAdapter {
@@ -51,7 +47,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
 
   constructor(private readonly envService: EnvService) {
     super();
-    this.appSecret = this.envService.get('ZALO_APP_SECRET');
+    this.appSecret = this.envService.get("ZALO_APP_SECRET");
   }
 
   // ==================== Webhook Verification ====================
@@ -61,9 +57,9 @@ export class ZaloAdapter extends BasePlatformAdapter {
       return false;
     }
 
-    const hmac = createHmac('sha256', secret || this.appSecret);
+    const hmac = createHmac("sha256", secret || this.appSecret);
     hmac.update(rawBody);
-    const calculatedSignature = hmac.digest('hex');
+    const calculatedSignature = hmac.digest("hex");
 
     return calculatedSignature === signature;
   }
@@ -73,7 +69,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
   extractAccountId(payload: unknown): string {
     const zaloPayload = payload as ZaloWebhookDto;
     // OA ID is in recipient.id
-    return zaloPayload.recipient?.id || zaloPayload.app_id || 'unknown';
+    return zaloPayload.recipient?.id || zaloPayload.app_id || "unknown";
   }
 
   extractEvents(payload: unknown): PlatformEvent[] {
@@ -90,12 +86,12 @@ export class ZaloAdapter extends BasePlatformAdapter {
     }
 
     // Message events
-    if (eventName?.startsWith('user_send_')) {
+    if (eventName?.startsWith("user_send_")) {
       const messageType = this.mapZaloEventToMessageType(eventName);
       const content = this.extractMessageContent(zaloPayload);
 
       events.push({
-        type: 'message',
+        type: "message",
         senderId,
         recipientId,
         timestamp,
@@ -107,21 +103,23 @@ export class ZaloAdapter extends BasePlatformAdapter {
     }
 
     // Delivery event
-    if (eventName === 'user_received_message') {
+    if (eventName === "user_received_message") {
       events.push({
-        type: 'delivery',
+        type: "delivery",
         senderId,
         recipientId,
         timestamp,
-        messageIds: zaloPayload.message?.msg_id ? [zaloPayload.message.msg_id] : [],
+        messageIds: zaloPayload.message?.msg_id
+          ? [zaloPayload.message.msg_id]
+          : [],
         rawPayload: zaloPayload,
       } as DeliveryEvent);
     }
 
     // Read event
-    if (eventName === 'user_seen_message') {
+    if (eventName === "user_seen_message") {
       events.push({
-        type: 'read',
+        type: "read",
         senderId,
         recipientId,
         timestamp,
@@ -135,21 +133,23 @@ export class ZaloAdapter extends BasePlatformAdapter {
 
   private mapZaloEventToMessageType(eventName: string): MessageType {
     const typeMap: Record<string, MessageType> = {
-      'user_send_text': MessageType.TEXT,
-      'user_send_image': MessageType.IMAGE,
-      'user_send_video': MessageType.VIDEO,
-      'user_send_audio': MessageType.AUDIO,
-      'user_send_file': MessageType.FILE,
-      'user_send_sticker': MessageType.STICKER,
-      'user_send_location': MessageType.LOCATION,
-      'user_send_gif': MessageType.IMAGE,
-      'user_send_link': MessageType.TEXT,
+      user_send_text: MessageType.TEXT,
+      user_send_image: MessageType.IMAGE,
+      user_send_video: MessageType.VIDEO,
+      user_send_audio: MessageType.AUDIO,
+      user_send_file: MessageType.FILE,
+      user_send_sticker: MessageType.STICKER,
+      user_send_location: MessageType.LOCATION,
+      user_send_gif: MessageType.IMAGE,
+      user_send_link: MessageType.TEXT,
     };
     return typeMap[eventName] || MessageType.UNKNOWN;
   }
 
-  private extractMessageContent(payload: ZaloWebhookDto): MessageEvent['content'] {
-    const content: MessageEvent['content'] = {};
+  private extractMessageContent(
+    payload: ZaloWebhookDto
+  ): MessageEvent["content"] {
+    const content: MessageEvent["content"] = {};
     const message = payload.message;
 
     if (message?.text) {
@@ -162,18 +162,18 @@ export class ZaloAdapter extends BasePlatformAdapter {
       content.mediaType = attachment.type;
       content.thumbnailUrl = attachment.payload?.thumbnail;
 
-      if (attachment.type === 'location' && attachment.payload?.coordinates) {
+      if (attachment.type === "location" && attachment.payload?.coordinates) {
         content.location = {
           latitude: attachment.payload.coordinates.latitude,
           longitude: attachment.payload.coordinates.longitude,
         };
         content.text = `[Location: ${content.location.latitude}, ${content.location.longitude}]`;
-      } else if (attachment.type === 'file') {
+      } else if (attachment.type === "file") {
         content.fileName = attachment.payload?.name;
         content.fileSize = attachment.payload?.size;
         content.text = `[File: ${content.fileName || content.mediaUrl}]`;
       } else if (!content.text) {
-        content.text = `[${attachment.type}: ${content.mediaUrl || ''}]`;
+        content.text = `[${attachment.type}: ${content.mediaUrl || ""}]`;
       }
     }
 
@@ -185,7 +185,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
   normalizeMessage(event: MessageEvent): NormalizedMessage {
     const conversationKey = this.getConversationKey(
       event.senderId,
-      event.recipientId,
+      event.recipientId
     );
 
     return {
@@ -224,12 +224,12 @@ export class ZaloAdapter extends BasePlatformAdapter {
       return {
         message: {
           attachment: {
-            type: 'template',
+            type: "template",
             payload: {
-              template_type: 'media',
+              template_type: "media",
               elements: [
                 {
-                  media_type: 'image',
+                  media_type: "image",
                   url: message.content.mediaUrl,
                 },
               ],
@@ -244,7 +244,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
       return {
         message: {
           attachment: {
-            type: 'file',
+            type: "file",
             payload: {
               url: message.content.mediaUrl,
             },
@@ -269,31 +269,31 @@ export class ZaloAdapter extends BasePlatformAdapter {
 
     return {
       message: {
-        text: message.content.text || '',
+        text: message.content.text || "",
       },
     };
   }
 
   private mapMessageTypeToZalo(type: MessageType): string {
     const typeMap: Record<MessageType, string> = {
-      [MessageType.TEXT]: 'text',
-      [MessageType.IMAGE]: 'image',
-      [MessageType.VIDEO]: 'video',
-      [MessageType.AUDIO]: 'audio',
-      [MessageType.FILE]: 'file',
-      [MessageType.STICKER]: 'sticker',
-      [MessageType.LOCATION]: 'template',
-      [MessageType.TEMPLATE]: 'template',
-      [MessageType.QUICK_REPLY]: 'text',
-      [MessageType.UNKNOWN]: 'text',
+      [MessageType.TEXT]: "text",
+      [MessageType.IMAGE]: "image",
+      [MessageType.VIDEO]: "video",
+      [MessageType.AUDIO]: "audio",
+      [MessageType.FILE]: "file",
+      [MessageType.STICKER]: "sticker",
+      [MessageType.LOCATION]: "template",
+      [MessageType.TEMPLATE]: "template",
+      [MessageType.QUICK_REPLY]: "text",
+      [MessageType.UNKNOWN]: "text",
     };
-    return typeMap[type] || 'text';
+    return typeMap[type] || "text";
   }
 
   async send(
     connection: PlatformConnectionDocument,
     recipientId: string,
-    payload: PlatformPayload,
+    payload: PlatformPayload
   ): Promise<SendResult> {
     try {
       const accessToken = connection.credentials.accessToken;
@@ -310,28 +310,34 @@ export class ZaloAdapter extends BasePlatformAdapter {
         ...payload,
       };
 
-      this.logger.debug('Zalo API request:', JSON.stringify(requestBody, null, 2));
+      this.logger.debug(
+        "Zalo API request:",
+        JSON.stringify(requestBody, null, 2)
+      );
 
       const response = await axios.post(
-        'https://openapi.zalo.me/v3.0/oa/message/cs',
+        "https://openapi.zalo.me/v3.0/oa/message/cs",
         requestBody,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             access_token: accessToken,
           },
-        },
+        }
       );
 
       this.logger.log(`📨 Zalo API response:`, response.data);
 
       if (response.data.error !== 0) {
         const errorCode = response.data.error;
-        const errorMessage = response.data.message || `Zalo error: ${errorCode}`;
+        const errorMessage =
+          response.data.message || `Zalo error: ${errorCode}`;
 
         // Check if token expired - return special error for retry with refresh
         if (ZALO_TOKEN_EXPIRED_ERRORS.includes(errorCode)) {
-          this.logger.warn(`🔄 Zalo access token expired (error ${errorCode}), needs refresh`);
+          this.logger.warn(
+            `🔄 Zalo access token expired (error ${errorCode}), needs refresh`
+          );
           return {
             success: false,
             error: errorMessage,
@@ -346,13 +352,18 @@ export class ZaloAdapter extends BasePlatformAdapter {
         };
       }
 
-      this.logger.log(`✅ Zalo message sent successfully: ${response.data.data?.message_id}`);
+      this.logger.log(
+        `✅ Zalo message sent successfully: ${response.data.data?.message_id}`
+      );
       return {
         success: true,
         platformMessageId: response.data.data?.message_id,
       };
     } catch (error) {
-      this.logger.error('❌ Zalo send failed:', error.response?.data || error.message);
+      this.logger.error(
+        "❌ Zalo send failed:",
+        error.response?.data || error.message
+      );
       return {
         success: false,
         error: error.response?.data?.message || error.message,
@@ -371,36 +382,36 @@ export class ZaloAdapter extends BasePlatformAdapter {
    */
   async uploadImage(
     accessToken: string,
-    imageUrl: string,
+    imageUrl: string
   ): Promise<{ attachmentId: string } | null> {
     try {
       this.logger.log(`📤 Uploading image to Zalo: ${imageUrl}`);
 
       // Download image from URL
       const imageResponse = await axios.get(imageUrl, {
-        responseType: 'arraybuffer',
+        responseType: "arraybuffer",
       });
 
       const imageBuffer = Buffer.from(imageResponse.data);
-      const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+      const contentType = imageResponse.headers["content-type"] || "image/jpeg";
 
       // Create form data
       const formData = new FormData();
-      formData.append('file', imageBuffer, {
-        filename: 'image.jpg',
+      formData.append("file", imageBuffer, {
+        filename: "image.jpg",
         contentType,
       });
 
       // Upload to Zalo image endpoint
       const response = await axios.post(
-        'https://openapi.zalo.me/v2.0/oa/upload/image',
+        "https://openapi.zalo.me/v2.0/oa/upload/image",
         formData,
         {
           headers: {
             ...formData.getHeaders(),
             access_token: accessToken,
           },
-        },
+        }
       );
 
       this.logger.log(`📥 Zalo image upload response:`, response.data);
@@ -416,10 +427,15 @@ export class ZaloAdapter extends BasePlatformAdapter {
         return null;
       }
 
-      this.logger.log(`✅ Image uploaded to Zalo, attachment_id: ${attachmentId}`);
+      this.logger.log(
+        `✅ Image uploaded to Zalo, attachment_id: ${attachmentId}`
+      );
       return { attachmentId };
     } catch (error) {
-      this.logger.error(`❌ Failed to upload image to Zalo:`, error.response?.data || error.message);
+      this.logger.error(
+        `❌ Failed to upload image to Zalo:`,
+        error.response?.data || error.message
+      );
       return null;
     }
   }
@@ -430,7 +446,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
   async sendImageWithAttachmentId(
     connection: PlatformConnectionDocument,
     recipientId: string,
-    attachmentId: string,
+    attachmentId: string
   ): Promise<SendResult> {
     try {
       const accessToken = connection.credentials.accessToken;
@@ -441,12 +457,12 @@ export class ZaloAdapter extends BasePlatformAdapter {
         },
         message: {
           attachment: {
-            type: 'template',
+            type: "template",
             payload: {
-              template_type: 'media',
+              template_type: "media",
               elements: [
                 {
-                  media_type: 'image',
+                  media_type: "image",
                   attachment_id: attachmentId,
                 },
               ],
@@ -455,24 +471,27 @@ export class ZaloAdapter extends BasePlatformAdapter {
         },
       };
 
-      this.logger.log(`📤 Sending Zalo image message with attachment_id to ${recipientId}`);
+      this.logger.log(
+        `📤 Sending Zalo image message with attachment_id to ${recipientId}`
+      );
 
       const response = await axios.post(
-        'https://openapi.zalo.me/v3.0/oa/message/cs',
+        "https://openapi.zalo.me/v3.0/oa/message/cs",
         requestBody,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             access_token: accessToken,
           },
-        },
+        }
       );
 
       this.logger.log(`📨 Zalo image send response:`, response.data);
 
       if (response.data.error !== 0) {
         const errorCode = response.data.error;
-        const errorMessage = response.data.message || `Zalo error: ${errorCode}`;
+        const errorMessage =
+          response.data.message || `Zalo error: ${errorCode}`;
 
         // Check if token expired
         if (ZALO_TOKEN_EXPIRED_ERRORS.includes(errorCode)) {
@@ -494,7 +513,10 @@ export class ZaloAdapter extends BasePlatformAdapter {
         platformMessageId: response.data.data?.message_id,
       };
     } catch (error) {
-      this.logger.error('❌ Zalo image send failed:', error.response?.data || error.message);
+      this.logger.error(
+        "❌ Zalo image send failed:",
+        error.response?.data || error.message
+      );
       return {
         success: false,
         error: error.response?.data?.message || error.message,
@@ -513,36 +535,37 @@ export class ZaloAdapter extends BasePlatformAdapter {
   async uploadFile(
     accessToken: string,
     fileUrl: string,
-    fileName?: string,
+    fileName?: string
   ): Promise<{ token: string } | null> {
     try {
       this.logger.log(`📤 Uploading file to Zalo: ${fileUrl}`);
 
       // Download file from URL
       const fileResponse = await axios.get(fileUrl, {
-        responseType: 'arraybuffer',
+        responseType: "arraybuffer",
       });
 
       const fileBuffer = Buffer.from(fileResponse.data);
-      const contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
+      const contentType =
+        fileResponse.headers["content-type"] || "application/octet-stream";
 
       // Create form data
       const formData = new FormData();
-      formData.append('file', fileBuffer, {
-        filename: fileName || 'file',
+      formData.append("file", fileBuffer, {
+        filename: fileName || "file",
         contentType,
       });
 
       // Upload to Zalo
       const response = await axios.post(
-        'https://openapi.zalo.me/v2.0/oa/upload/file',
+        "https://openapi.zalo.me/v2.0/oa/upload/file",
         formData,
         {
           headers: {
             ...formData.getHeaders(),
             access_token: accessToken,
           },
-        },
+        }
       );
 
       this.logger.log(`📥 Zalo upload response:`, response.data);
@@ -558,10 +581,15 @@ export class ZaloAdapter extends BasePlatformAdapter {
         return null;
       }
 
-      this.logger.log(`✅ File uploaded to Zalo, token: ${token.substring(0, 20)}...`);
+      this.logger.log(
+        `✅ File uploaded to Zalo, token: ${token.substring(0, 20)}...`
+      );
       return { token };
     } catch (error) {
-      this.logger.error(`❌ Failed to upload file to Zalo:`, error.response?.data || error.message);
+      this.logger.error(
+        `❌ Failed to upload file to Zalo:`,
+        error.response?.data || error.message
+      );
       return null;
     }
   }
@@ -572,7 +600,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
   async sendFileWithToken(
     connection: PlatformConnectionDocument,
     recipientId: string,
-    fileToken: string,
+    fileToken: string
   ): Promise<SendResult> {
     try {
       const accessToken = connection.credentials.accessToken;
@@ -583,7 +611,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
         },
         message: {
           attachment: {
-            type: 'file',
+            type: "file",
             payload: {
               token: fileToken,
             },
@@ -591,17 +619,19 @@ export class ZaloAdapter extends BasePlatformAdapter {
         },
       };
 
-      this.logger.log(`📤 Sending Zalo file message with token to ${recipientId}`);
+      this.logger.log(
+        `📤 Sending Zalo file message with token to ${recipientId}`
+      );
 
       const response = await axios.post(
-        'https://openapi.zalo.me/v3.0/oa/message/cs',
+        "https://openapi.zalo.me/v3.0/oa/message/cs",
         requestBody,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             access_token: accessToken,
           },
-        },
+        }
       );
 
       this.logger.log(`📨 Zalo file send response:`, response.data);
@@ -618,7 +648,10 @@ export class ZaloAdapter extends BasePlatformAdapter {
         platformMessageId: response.data.data?.message_id,
       };
     } catch (error) {
-      this.logger.error('❌ Zalo file send failed:', error.response?.data || error.message);
+      this.logger.error(
+        "❌ Zalo file send failed:",
+        error.response?.data || error.message
+      );
       return {
         success: false,
         error: error.response?.data?.message || error.message,
@@ -630,7 +663,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
 
   async fetchUserProfile(
     connection: PlatformConnectionDocument,
-    userId: string,
+    userId: string
   ): Promise<UserProfile> {
     try {
       const accessToken = connection.credentials.accessToken;
@@ -640,7 +673,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
       // Use v3.0 API (v2.0/oa/getprofile has been shut down as of June 2024)
       // See: https://go.zalo.me/upgrade-api-06_2024
       const response = await axios.get(
-        'https://openapi.zalo.me/v3.0/oa/user/detail',
+        "https://openapi.zalo.me/v3.0/oa/user/detail",
         {
           headers: {
             access_token: accessToken,
@@ -648,32 +681,54 @@ export class ZaloAdapter extends BasePlatformAdapter {
           params: {
             data: JSON.stringify({ user_id: userId }),
           },
-        },
+        }
       );
 
       this.logger.debug(`Zalo getprofile response:`, response.data);
 
       if (response.data.error !== 0) {
         const errorCode = response.data.error;
-        const errorMessage = response.data.message || ZALO_ERROR_CODES[errorCode] || 'Unknown error';
+        const errorMessage =
+          response.data.message ||
+          ZALO_ERROR_CODES[errorCode] ||
+          "Unknown error";
 
-        this.logger.warn(`⚠️ Zalo getprofile error ${errorCode}: ${errorMessage}`, {
-          userId,
-          errorCode,
-          errorMessage,
-          knownError: ZALO_ERROR_CODES[errorCode],
-        });
-        return this.createDefaultProfile(userId, 'Zalo');
+        this.logger.warn(
+          `⚠️ Zalo getprofile error ${errorCode}: ${errorMessage}`,
+          {
+            userId,
+            errorCode,
+            errorMessage,
+            knownError: ZALO_ERROR_CODES[errorCode],
+          }
+        );
+        return this.createDefaultProfile(userId, "Zalo");
       }
 
       const userData = response.data.data;
       const profile = {
         id: userId,
         name: userData.display_name || userData.user_alias || `Zalo User`,
-        avatar: userData.avatars?.['120'] || userData.avatar,
+        avatar: userData.avatars?.["120"] || userData.avatar,
+        // Extract thông tin cơ bản từ Zalo
+        gender: userData.gender, // 0: Nam, 1: Nữ theo Zalo API
+        phone: userData.phone,
+        birthDate: userData.birth_date,
+        // Lưu toàn bộ thông tin Zalo trả về vào metadata để cung cấp thêm cho AI
+        metadata: {
+          zaloProfile: userData, // Toàn bộ response từ Zalo API
+        },
       };
 
-      this.logger.log(`✅ Zalo profile fetched: ${profile.name}`);
+      this.logger.log(
+        `✅ Zalo profile fetched: ${profile.name}${
+          profile.gender !== undefined ? ` (gender: ${profile.gender})` : ""
+        }`
+      );
+      this.logger.debug(
+        `📋 Zalo profile data:`,
+        JSON.stringify(userData, null, 2)
+      );
       return profile;
     } catch (error) {
       this.logger.error(`❌ Failed to fetch Zalo profile for ${userId}:`, {
@@ -681,7 +736,7 @@ export class ZaloAdapter extends BasePlatformAdapter {
         response: error.response?.data,
         status: error.response?.status,
       });
-      return this.createDefaultProfile(userId, 'Zalo');
+      return this.createDefaultProfile(userId, "Zalo");
     }
   }
 }

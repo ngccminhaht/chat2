@@ -125,14 +125,77 @@ export class MessageCombiner {
       user: user._id,
     };
 
+    // Collect customer information for AI context
+    let customerName = customer?.name || user.username;
+    let customerGender: string | undefined;
+    let customerPhone: string | undefined;
+    let customerEmail: string | undefined;
+    let customerBirthDate: string | undefined;
+
     // Add customer information to inputs if available
     if (customer) {
-      requestData.inputs = {
-        customer_name: customer.name || user.username,
-        customer_email: customer.email,
-        customer_phone: customer.phone,
-      };
+      customerEmail = customer.email;
+      customerPhone = customer.phone;
     }
+
+    // Add Zalo profile information from conversation metadata if available
+    const conversation = combinedData.latestMessage?.conversation;
+    if (conversation?.metadata?.zaloProfile) {
+      const zaloProfile = conversation.metadata.zaloProfile as Record<
+        string,
+        any
+      >;
+
+      // Override with Zalo profile data (more accurate)
+      customerName =
+        zaloProfile.display_name || zaloProfile.user_alias || customerName;
+
+      // Convert gender from Zalo format (0: Nam, 1: Nữ)
+      if (zaloProfile.gender !== undefined) {
+        customerGender =
+          zaloProfile.gender === 0
+            ? "Nam"
+            : zaloProfile.gender === 1
+            ? "Nữ"
+            : "Khác";
+      }
+
+      customerBirthDate = zaloProfile.birth_date;
+      if (zaloProfile.phone) {
+        customerPhone = zaloProfile.phone;
+      }
+
+      // Store full Zalo profile for additional context
+      requestData.inputs.zalo_profile = zaloProfile;
+    }
+
+    // Build customer context string for AI
+    const customerContext: string[] = [];
+    customerContext.push(`Tên: ${customerName}`);
+    if (customerGender) {
+      customerContext.push(`Giới tính: ${customerGender}`);
+    }
+    if (customerPhone) {
+      customerContext.push(`SĐT: ${customerPhone}`);
+    }
+    if (customerEmail) {
+      customerContext.push(`Email: ${customerEmail}`);
+    }
+    if (customerBirthDate) {
+      customerContext.push(`Ngày sinh: ${customerBirthDate}`);
+    }
+
+    // Add customer info to inputs
+    requestData.inputs = {
+      ...requestData.inputs,
+      customer_name: customerName,
+      customer_gender: customerGender,
+      customer_phone: customerPhone,
+      customer_email: customerEmail,
+      customer_birth_date: customerBirthDate,
+      // Thông tin khách hàng dạng text để AI dễ hiểu
+      customer_info: customerContext.join(" | "),
+    };
 
     // Add files (images) if any
     if (images.length > 0) {

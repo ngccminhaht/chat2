@@ -11,25 +11,25 @@
  * - Trigger AI batching
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 import {
   Platform,
   ConversationStatus,
   MessageStatus,
   MessageDirection,
   MessageType,
-} from '@/common/constants';
+} from "@/common/constants";
 import {
   Conversation,
   ConversationDocument,
-} from '@/common/database/schemas/conversation.schema';
+} from "@/common/database/schemas/conversation.schema";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
-import { AIBatchingService } from '@/modules/ai-batching/ai-batching.service';
+} from "@/common/database/schemas/message.schema";
+import { AIBatchingService } from "@/modules/ai-batching/ai-batching.service";
 
 /**
  * Input for processing an inbound message
@@ -54,6 +54,10 @@ export interface InboundMessageInput {
     platformUserId: string;
     name: string;
     avatar?: string;
+    gender?: string;
+    phone?: string;
+    email?: string;
+    birthDate?: string;
   };
   timestamp: Date;
   metadata?: Record<string, unknown>;
@@ -62,6 +66,8 @@ export interface InboundMessageInput {
   customerAvatar?: string;
   platformConnectionId?: string;
   platformAccountId?: string;
+  // User profile metadata (e.g., full Zalo profile data)
+  userProfileMetadata?: Record<string, unknown>;
 }
 
 /**
@@ -82,23 +88,31 @@ export class InboundMessageHandlerService {
     private readonly conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
-    private readonly aiBatchingService: AIBatchingService,
+    private readonly aiBatchingService: AIBatchingService
   ) {}
 
   /**
    * Process an inbound message from any source (webhook or web widget)
    * Handles: conversation find/create, message save with dedup, lastMessage update, AI batching
    */
-  async processInboundMessage(input: InboundMessageInput): Promise<InboundMessageResult> {
-    const { platform, organizationId, conversationKey, platformMessageId } = input;
+  async processInboundMessage(
+    input: InboundMessageInput
+  ): Promise<InboundMessageResult> {
+    const { platform, organizationId, conversationKey, platformMessageId } =
+      input;
 
-    this.logger.log(`Processing inbound message: ${platform}/${platformMessageId}`);
+    this.logger.log(
+      `Processing inbound message: ${platform}/${platformMessageId}`
+    );
 
     // 1. Find or create conversation
     const conversation = await this.findOrCreateConversation(input);
 
     // 2. Save message with upsert (handles deduplication)
-    const { message, isNew } = await this.saveMessageWithUpsert(input, conversation);
+    const { message, isNew } = await this.saveMessageWithUpsert(
+      input,
+      conversation
+    );
 
     // Skip further processing if duplicate
     if (!isNew) {
@@ -122,38 +136,65 @@ export class InboundMessageHandlerService {
    * Find existing conversation or create new one
    */
   private async findOrCreateConversation(
-    input: InboundMessageInput,
+    input: InboundMessageInput
   ): Promise<ConversationDocument> {
-    const { platform, organizationId, conversationKey, customerName, customerAvatar, platformConnectionId, platformAccountId, sender } = input;
-
-    let conversation = await this.conversationModel.findOne({
+    const {
       platform,
-      platformConversationId: conversationKey,
-    }).exec();
+      organizationId,
+      conversationKey,
+      customerName,
+      customerAvatar,
+      platformConnectionId,
+      platformAccountId,
+      sender,
+      userProfileMetadata,
+    } = input;
+
+    let conversation = await this.conversationModel
+      .findOne({
+        platform,
+        platformConversationId: conversationKey,
+      })
+      .exec();
 
     if (conversation) {
       // Update customer info if it was placeholder
-      if (customerName && conversation.customerName.startsWith(`${platform} User`)) {
+      if (
+        customerName &&
+        conversation.customerName.startsWith(`${platform} User`)
+      ) {
         conversation.customerName = customerName;
         if (customerAvatar) conversation.customerAvatar = customerAvatar;
+        await conversation.save();
+      }
+      // Update metadata with user profile data if available (e.g., Zalo profile)
+      if (userProfileMetadata && Object.keys(userProfileMetadata).length > 0) {
+        conversation.metadata = {
+          ...conversation.metadata,
+          ...userProfileMetadata,
+        };
         await conversation.save();
       }
       return conversation;
     }
 
-    // Create new conversation
+    // Create new conversation with user profile metadata
     conversation = await this.conversationModel.create({
       platform,
       platformConversationId: conversationKey,
-      platformConnectionId: platformConnectionId ? new Types.ObjectId(platformConnectionId) : new Types.ObjectId(),
+      platformConnectionId: platformConnectionId
+        ? new Types.ObjectId(platformConnectionId)
+        : new Types.ObjectId(),
       organizationId: new Types.ObjectId(organizationId),
       platformAccountId: platformAccountId || organizationId,
       customerPlatformUserId: sender.platformUserId,
-      customerName: customerName || `${platform} User ${sender.platformUserId.substring(0, 8)}`,
+      customerName:
+        customerName ||
+        `${platform} User ${sender.platformUserId.substring(0, 8)}`,
       customerAvatar: customerAvatar,
       status: ConversationStatus.OPEN,
       unreadCount: 0,
-      metadata: {},
+      metadata: userProfileMetadata || {}, // Lưu thông tin Zalo profile vào conversation metadata
     });
 
     this.logger.log(`Created new conversation: ${conversation._id}`);
@@ -166,7 +207,7 @@ export class InboundMessageHandlerService {
    */
   private async saveMessageWithUpsert(
     input: InboundMessageInput,
-    conversation: ConversationDocument,
+    conversation: ConversationDocument
   ): Promise<{ message: MessageDocument; isNew: boolean }> {
     const messageData = {
       conversationId: conversation._id,
@@ -181,15 +222,17 @@ export class InboundMessageHandlerService {
       metadata: input.metadata || {},
     };
 
-    const result = await this.messageModel.findOneAndUpdate(
-      {
-        organizationId: conversation.organizationId,
-        platform: input.platform,
-        platformMessageId: input.platformMessageId,
-      },
-      { $setOnInsert: messageData },
-      { upsert: true, new: true, includeResultMetadata: true },
-    ).exec();
+    const result = await this.messageModel
+      .findOneAndUpdate(
+        {
+          organizationId: conversation.organizationId,
+          platform: input.platform,
+          platformMessageId: input.platformMessageId,
+        },
+        { $setOnInsert: messageData },
+        { upsert: true, new: true, includeResultMetadata: true }
+      )
+      .exec();
 
     // Check if document already existed (duplicate)
     const isNew = !result.lastErrorObject?.updatedExisting;
@@ -203,7 +246,7 @@ export class InboundMessageHandlerService {
   private async updateConversationLastMessage(
     conversation: ConversationDocument,
     message: MessageDocument,
-    input: InboundMessageInput,
+    input: InboundMessageInput
   ): Promise<void> {
     const text = input.content.text || `[${input.type}]`;
 
@@ -218,7 +261,7 @@ export class InboundMessageHandlerService {
         },
         $inc: { unreadCount: 1 },
       },
-      { timestamps: true },
+      { timestamps: true }
     );
   }
 
@@ -227,7 +270,7 @@ export class InboundMessageHandlerService {
    */
   private async triggerAiBatching(
     message: MessageDocument,
-    conversation: ConversationDocument,
+    conversation: ConversationDocument
   ): Promise<void> {
     try {
       await this.aiBatchingService.onVisitorMessage(message, conversation);

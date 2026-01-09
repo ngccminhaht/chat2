@@ -4,34 +4,30 @@
  * Uses InboundMessageHandlerService for message CRUD + AI batching
  */
 
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import {
-  Platform,
-  MessageStatus,
-  MessageDirection,
-} from '@/common/constants';
+import { Injectable } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { Platform, MessageStatus, MessageDirection } from "@/common/constants";
 import {
   Conversation,
   ConversationDocument,
-} from '@/common/database/schemas/conversation.schema';
+} from "@/common/database/schemas/conversation.schema";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
+} from "@/common/database/schemas/message.schema";
 import {
   PlatformConnection,
   PlatformConnectionDocument,
-} from '@/common/database/schemas/platform-connection.schema';
-import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
-import { KAFKA_TOPICS } from '@/infra/kafka/kafka.config';
+} from "@/common/database/schemas/platform-connection.schema";
+import { KafkaProducerService } from "@/infra/kafka/kafka-producer.service";
+import { KAFKA_TOPICS } from "@/infra/kafka/kafka.config";
 import {
   WebSocketNotificationEvent,
   NewMessagePayload,
   ConversationUpdatedPayload,
-} from '@/infra/kafka/types/webhook.types';
-import { PlatformRegistry } from './platform.registry';
+} from "@/infra/kafka/types/webhook.types";
+import { PlatformRegistry } from "./platform.registry";
 import {
   IPlatformAdapter,
   PlatformEvent,
@@ -39,10 +35,8 @@ import {
   DeliveryEvent,
   ReadEvent,
   UserProfile,
-} from '../interfaces';
-import {
-  InboundMessageHandlerService,
-} from '@/modules/messages/inbound-message-handler.service';
+} from "../interfaces";
+import { InboundMessageHandlerService } from "@/modules/messages/inbound-message-handler.service";
 
 export interface WebhookProcessResult {
   success: boolean;
@@ -61,14 +55,17 @@ export class WebhookProcessorService {
     @InjectModel(PlatformConnection.name)
     private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
     private readonly kafkaProducer: KafkaProducerService,
-    private readonly inboundMessageHandler: InboundMessageHandlerService,
+    private readonly inboundMessageHandler: InboundMessageHandlerService
   ) {}
 
   /**
    * Process webhook payload for any platform
    * Uses adapter pattern to handle platform-specific logic
    */
-  async process(platform: Platform, payload: unknown): Promise<WebhookProcessResult> {
+  async process(
+    platform: Platform,
+    payload: unknown
+  ): Promise<WebhookProcessResult> {
     const result: WebhookProcessResult = {
       success: true,
       messagesProcessed: 0,
@@ -85,7 +82,9 @@ export class WebhookProcessorService {
       const connection = await this.findConnection(platform, accountId);
       if (!connection) {
         result.success = false;
-        result.errors.push(`Platform connection not found: ${platform}:${accountId}`);
+        result.errors.push(
+          `Platform connection not found: ${platform}:${accountId}`
+        );
         return result;
       }
 
@@ -100,14 +99,15 @@ export class WebhookProcessorService {
             result.messagesProcessed++;
           }
         } catch (error) {
-          result.errors.push(`Failed to process ${event.type} event: ${error.message}`);
+          result.errors.push(
+            `Failed to process ${event.type} event: ${error.message}`
+          );
         }
       }
 
       if (result.errors.length > 0) {
         result.success = false;
       }
-
     } catch (error) {
       result.success = false;
       result.errors.push(`Webhook processing failed: ${error.message}`);
@@ -123,21 +123,21 @@ export class WebhookProcessorService {
   private async processEvent(
     adapter: IPlatformAdapter,
     event: PlatformEvent,
-    connection: PlatformConnectionDocument,
+    connection: PlatformConnectionDocument
   ): Promise<boolean> {
     switch (event.type) {
-      case 'message':
+      case "message":
         return this.handleMessage(adapter, event as MessageEvent, connection);
-      case 'delivery':
+      case "delivery":
         await this.handleDelivery(event as DeliveryEvent);
         return false;
-      case 'read':
+      case "read":
         await this.handleRead(event as ReadEvent);
         return false;
-      case 'postback':
+      case "postback":
         // Handle postback as message with type 'postback'
         return this.handleMessage(adapter, event as MessageEvent, connection);
-      case 'comment':
+      case "comment":
         // Handle comment as message with type 'comment'
         return this.handleMessage(adapter, event as MessageEvent, connection);
       default:
@@ -153,7 +153,7 @@ export class WebhookProcessorService {
   private async handleMessage(
     adapter: IPlatformAdapter,
     event: MessageEvent,
-    connection: PlatformConnectionDocument,
+    connection: PlatformConnectionDocument
   ): Promise<boolean> {
     const { senderId } = event;
 
@@ -166,9 +166,19 @@ export class WebhookProcessorService {
     const normalized = adapter.normalizeMessage(event);
 
     // 2. Fetch user profile
-    const userProfile = await this.fetchUserProfileSafe(adapter, connection, senderId);
+    const userProfile = await this.fetchUserProfileSafe(
+      adapter,
+      connection,
+      senderId
+    );
 
     // 3. Process via shared handler (conversation CRUD + message save + AI batching)
+    // Merge userProfile metadata (e.g., Zalo profile data) into message metadata
+    const mergedMetadata = {
+      ...normalized.metadata,
+      ...(userProfile.metadata || {}), // Include Zalo profile data if available
+    };
+
     const result = await this.inboundMessageHandler.processInboundMessage({
       platform: adapter.platform,
       organizationId: connection.organizationId.toString(),
@@ -181,13 +191,19 @@ export class WebhookProcessorService {
         platformUserId: normalized.senderId,
         name: userProfile.name,
         avatar: userProfile.avatar,
+        gender: userProfile.gender,
+        phone: userProfile.phone,
+        email: userProfile.email,
+        birthDate: userProfile.birthDate,
       },
       timestamp: normalized.timestamp,
-      metadata: normalized.metadata,
+      metadata: mergedMetadata,
       customerName: userProfile.name,
       customerAvatar: userProfile.avatar,
       platformConnectionId: connection._id.toString(),
       platformAccountId: connection.platformAccountId,
+      // Pass userProfile metadata for saving to conversation/customer
+      userProfileMetadata: userProfile.metadata,
     });
 
     // Skip if duplicate
@@ -196,7 +212,11 @@ export class WebhookProcessorService {
     }
 
     // 4. Publish WebSocket notification (webhook-specific, keep here)
-    await this.publishNotification(connection, result.conversation, result.message);
+    await this.publishNotification(
+      connection,
+      result.conversation,
+      result.message
+    );
 
     return true;
   }
@@ -212,10 +232,12 @@ export class WebhookProcessorService {
     }
 
     for (const mid of messageIds) {
-      await this.messageModel.findOneAndUpdate(
-        { platformMessageId: mid },
-        { status: MessageStatus.DELIVERED },
-      ).exec();
+      await this.messageModel
+        .findOneAndUpdate(
+          { platformMessageId: mid },
+          { status: MessageStatus.DELIVERED }
+        )
+        .exec();
     }
   }
 
@@ -230,14 +252,16 @@ export class WebhookProcessorService {
     }
 
     // Find messages before watermark and mark as read
-    await this.messageModel.updateMany(
-      {
-        direction: MessageDirection.OUTBOUND,
-        createdAt: { $lte: new Date(watermark) },
-        status: { $ne: MessageStatus.READ },
-      },
-      { status: MessageStatus.READ },
-    ).exec();
+    await this.messageModel
+      .updateMany(
+        {
+          direction: MessageDirection.OUTBOUND,
+          createdAt: { $lte: new Date(watermark) },
+          status: { $ne: MessageStatus.READ },
+        },
+        { status: MessageStatus.READ }
+      )
+      .exec();
   }
 
   // ==================== Helper Methods ====================
@@ -247,12 +271,14 @@ export class WebhookProcessorService {
    */
   private async findConnection(
     platform: Platform,
-    accountId: string,
+    accountId: string
   ): Promise<PlatformConnectionDocument | null> {
-    return this.platformConnectionModel.findOne({
-      platform,
-      platformAccountId: accountId,
-    }).exec();
+    return this.platformConnectionModel
+      .findOne({
+        platform,
+        platformAccountId: accountId,
+      })
+      .exec();
   }
 
   /**
@@ -261,7 +287,7 @@ export class WebhookProcessorService {
   private async fetchUserProfileSafe(
     adapter: IPlatformAdapter,
     connection: PlatformConnectionDocument,
-    userId: string,
+    userId: string
   ): Promise<UserProfile> {
     try {
       return await adapter.fetchUserProfile(connection, userId);
@@ -279,16 +305,18 @@ export class WebhookProcessorService {
   private async publishNotification(
     connection: PlatformConnectionDocument,
     conversation: ConversationDocument,
-    message: MessageDocument,
+    message: MessageDocument
   ): Promise<void> {
     const organizationId = conversation.organizationId.toString();
 
     // Reload conversation to get updated unreadCount
-    const updatedConversation = await this.conversationModel.findById(conversation._id).exec();
+    const updatedConversation = await this.conversationModel
+      .findById(conversation._id)
+      .exec();
 
     // Publish new message event (broadcast to all org agents)
     const messageEvent: WebSocketNotificationEvent = {
-      type: 'message:new',
+      type: "message:new",
       organizationId,
       payload: {
         _id: message._id.toString(),
@@ -311,7 +339,7 @@ export class WebhookProcessorService {
 
     // Publish conversation updated event
     const conversationEvent: WebSocketNotificationEvent = {
-      type: 'conversation:updated',
+      type: "conversation:updated",
       organizationId,
       payload: {
         _id: updatedConversation._id.toString(),

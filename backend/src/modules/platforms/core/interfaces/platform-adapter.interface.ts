@@ -3,14 +3,21 @@
  * Defines the contract for all platform integrations
  */
 
-import { Platform, MessageType, MessageDirection } from '@/common/constants';
-import { PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
+import { Platform, MessageType, MessageDirection } from "@/common/constants";
+import { PlatformConnectionDocument } from "@/common/database/schemas/platform-connection.schema";
 
 // ============================================================================
 // Platform Event Types
 // ============================================================================
 
-export type PlatformEventType = 'message' | 'delivery' | 'read' | 'postback' | 'comment' | 'follow' | 'unfollow';
+export type PlatformEventType =
+  | "message"
+  | "delivery"
+  | "read"
+  | "postback"
+  | "comment"
+  | "follow"
+  | "unfollow";
 
 export interface PlatformEvent {
   type: PlatformEventType;
@@ -22,7 +29,7 @@ export interface PlatformEvent {
 }
 
 export interface MessageEvent extends PlatformEvent {
-  type: 'message';
+  type: "message";
   messageId: string;
   messageType: MessageType;
   content: {
@@ -40,18 +47,18 @@ export interface MessageEvent extends PlatformEvent {
 }
 
 export interface DeliveryEvent extends PlatformEvent {
-  type: 'delivery';
+  type: "delivery";
   messageIds: string[];
   watermark?: number;
 }
 
 export interface ReadEvent extends PlatformEvent {
-  type: 'read';
+  type: "read";
   watermark?: number;
 }
 
 export interface PostbackEvent extends PlatformEvent {
-  type: 'postback';
+  type: "postback";
   title: string;
   payload: string;
 }
@@ -117,7 +124,11 @@ export interface UserProfile {
   id: string;
   name: string;
   avatar?: string;
-  metadata?: Record<string, unknown>;
+  gender?: string; // Giới tính (male/female/other hoặc theo format của từng platform)
+  phone?: string; // Số điện thoại
+  email?: string; // Email
+  birthDate?: string; // Ngày sinh
+  metadata?: Record<string, unknown>; // Thông tin bổ sung khác
 }
 
 // ============================================================================
@@ -174,7 +185,11 @@ export interface IPlatformAdapter {
    * - Zalo: `${senderId}_${oaId}`
    * - Shopee: conversation_id from payload
    */
-  getConversationKey(senderId: string, recipientId: string, payload?: unknown): string;
+  getConversationKey(
+    senderId: string,
+    recipientId: string,
+    payload?: unknown
+  ): string;
 
   // ==================== Outbound Messages ====================
 
@@ -193,7 +208,7 @@ export interface IPlatformAdapter {
   send(
     connection: PlatformConnectionDocument,
     recipientId: string,
-    payload: PlatformPayload,
+    payload: PlatformPayload
   ): Promise<SendResult>;
 
   // ==================== User Profile ====================
@@ -206,7 +221,7 @@ export interface IPlatformAdapter {
    */
   fetchUserProfile(
     connection: PlatformConnectionDocument,
-    userId: string,
+    userId: string
   ): Promise<UserProfile>;
 }
 
@@ -217,20 +232,28 @@ export interface IPlatformAdapter {
 export abstract class BasePlatformAdapter implements IPlatformAdapter {
   abstract readonly platform: Platform;
 
-  abstract verifySignature(rawBody: string, signature: string, secret: string): boolean;
+  abstract verifySignature(
+    rawBody: string,
+    signature: string,
+    secret: string
+  ): boolean;
   abstract extractAccountId(payload: unknown): string;
   abstract extractEvents(payload: unknown): PlatformEvent[];
   abstract normalizeMessage(event: MessageEvent): NormalizedMessage;
-  abstract getConversationKey(senderId: string, recipientId: string, payload?: unknown): string;
+  abstract getConversationKey(
+    senderId: string,
+    recipientId: string,
+    payload?: unknown
+  ): string;
   abstract formatOutbound(message: OutboundMessage): PlatformPayload;
   abstract send(
     connection: PlatformConnectionDocument,
     recipientId: string,
-    payload: PlatformPayload,
+    payload: PlatformPayload
   ): Promise<SendResult>;
   abstract fetchUserProfile(
     connection: PlatformConnectionDocument,
-    userId: string,
+    userId: string
   ): Promise<UserProfile>;
 
   /**
@@ -252,7 +275,10 @@ export abstract class BasePlatformAdapter implements IPlatformAdapter {
   /**
    * Helper: Create default user profile
    */
-  protected createDefaultProfile(userId: string, platform: string): UserProfile {
+  protected createDefaultProfile(
+    userId: string,
+    platform: string
+  ): UserProfile {
     return {
       id: userId,
       name: `${platform} User ${userId.substring(0, 8)}`,
