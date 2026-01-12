@@ -212,7 +212,12 @@ export default function MessageList({
               </Avatar>
             )}
 
-            <Box sx={{ maxWidth: "70%" }}>
+            <Box
+              sx={{
+                maxWidth: "70%",
+                minWidth: 0, // Allow flexbox to shrink below content size
+              }}
+            >
               {!isOutbound && (
                 <Typography
                   variant="caption"
@@ -228,10 +233,22 @@ export default function MessageList({
                   p: 1.5,
                   bgcolor: isOutbound ? "primary.main" : "background.paper",
                   color: isOutbound ? "primary.contrastText" : "text.primary",
+                  maxWidth: "100%",
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                  wordBreak: "break-word",
                 }}
               >
                 {message.type === "text" && (
-                  <Typography variant="body1">
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
                     {message.content.text}
                   </Typography>
                 )}
@@ -253,7 +270,16 @@ export default function MessageList({
                     )}
                     {message.content.text &&
                       !isMediaLinkPattern(message.content.text) && (
-                        <Typography variant="body1" sx={{ mt: 1 }}>
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            mt: 1,
+                            wordWrap: "break-word",
+                            overflowWrap: "break-word",
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
                           {message.content.text}
                         </Typography>
                       )}
@@ -334,7 +360,14 @@ export default function MessageList({
                   </Box>
                 )}
                 {message.type === "location" && (
-                  <Typography variant="body2">
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
+                    }}
+                  >
                     {message.content.text || "[Location]"}
                   </Typography>
                 )}
