@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useTranslations } from 'next-intl';
+import { useState, useCallback, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import {
   Box,
   Paper,
@@ -13,27 +13,33 @@ import {
   InputAdornment,
   IconButton,
   Badge,
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import ConversationItem from './ConversationItem';
-import LoadingSpinner from '@/components/common/LoadingSpinner';
-import EmptyState from '@/components/common/EmptyState';
-import { useConversations } from '../hooks/useConversations';
-import { useConversationStore } from '../stores/conversationStore';
-import { useWebSocketEvent } from '@/lib/websocket/useWebSocketEvent';
-import ConversationFilters, { ConversationFiltersState, getActiveFilterCount } from './ConversationFilters';
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import ConversationItem from "./ConversationItem";
+import LoadingSpinner from "@/components/common/LoadingSpinner";
+import EmptyState from "@/components/common/EmptyState";
+import { useConversations } from "../hooks/useConversations";
+import { useConversationStore } from "../stores/conversationStore";
+import { useWebSocketEvent } from "@/lib/websocket/useWebSocketEvent";
+import ConversationFilters, {
+  ConversationFiltersState,
+  getActiveFilterCount,
+} from "./ConversationFilters";
 
 interface ConversationListProps {
   activeConversationId?: string;
   orgSlug: string;
 }
 
-export default function ConversationList({ activeConversationId, orgSlug }: ConversationListProps) {
-  const t = useTranslations('conversations');
-  const [status, setStatus] = useState<'open' | 'closed' | 'archived'>('open');
-  const [searchInput, setSearchInput] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+export default function ConversationList({
+  activeConversationId,
+  orgSlug,
+}: ConversationListProps) {
+  const t = useTranslations("conversations");
+  const [status, setStatus] = useState<"open" | "closed" | "archived">("open");
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filters, setFilters] = useState<ConversationFiltersState>({});
   const [filterAnchor, setFilterAnchor] = useState<HTMLElement | null>(null);
   const queryClient = useQueryClient();
@@ -59,37 +65,43 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
 
   // Listen for connection deletion events and refetch conversations
   const handleConnectionDeleted = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    queryClient.invalidateQueries({ queryKey: ["conversations"] });
   }, [queryClient]);
 
   // Listen for connection creation events and refetch conversations
   const handleConnectionCreated = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    queryClient.invalidateQueries({ queryKey: ["conversations"] });
   }, [queryClient]);
 
   // Listen for conversation updates from new messages
-  const handleConversationUpdated = useCallback((conversation: any) => {
-    useConversationStore.getState().addConversation(conversation);
-    queryClient.invalidateQueries({ queryKey: ['conversations'] });
-  }, [queryClient]);
+  const handleConversationUpdated = useCallback(
+    (conversation: any) => {
+      useConversationStore.getState().addConversation(conversation);
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    [queryClient]
+  );
 
-  useWebSocketEvent('connection:deleted', handleConnectionDeleted);
-  useWebSocketEvent('connection:created', handleConnectionCreated);
-  useWebSocketEvent('conversation:updated', handleConversationUpdated);
+  useWebSocketEvent("connection:deleted", handleConnectionDeleted);
+  useWebSocketEvent("connection:created", handleConnectionCreated);
+  useWebSocketEvent("conversation:updated", handleConversationUpdated);
 
-  const handleStatusChange = (_event: React.SyntheticEvent, newValue: string) => {
-    setStatus(newValue as 'open' | 'closed' | 'archived');
+  const handleStatusChange = (
+    _event: React.SyntheticEvent,
+    newValue: string
+  ) => {
+    setStatus(newValue as "open" | "closed" | "archived");
   };
 
   const conversations = data?.data;
 
   return (
-    <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+    <Paper sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Tabs value={status} onChange={handleStatusChange}>
-          <Tab label={t('open')} value="open" />
-          <Tab label={t('closed')} value="closed" />
-          <Tab label={t('archived')} value="archived" />
+          <Tab label={t("open")} value="open" />
+          <Tab label={t("closed")} value="closed" />
+          <Tab label={t("archived")} value="archived" />
         </Tabs>
       </Box>
 
@@ -97,7 +109,7 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
         <TextField
           fullWidth
           size="small"
-          placeholder={t('searchPlaceholder')}
+          placeholder={t("searchPlaceholder")}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           slotProps={{
@@ -112,7 +124,7 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
                   <IconButton
                     size="small"
                     onClick={(e) => setFilterAnchor(e.currentTarget)}
-                    color={filterCount > 0 ? 'primary' : 'default'}
+                    color={filterCount > 0 ? "primary" : "default"}
                   >
                     <Badge badgeContent={filterCount} color="primary">
                       <FilterListIcon fontSize="small" />
@@ -131,11 +143,11 @@ export default function ConversationList({ activeConversationId, orgSlug }: Conv
         />
       </Box>
 
-      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+      <Box sx={{ flexGrow: 1, overflow: "auto" }}>
         {isLoading && <LoadingSpinner />}
-        {error && <EmptyState message={t('errorLoading')} />}
+        {error && <EmptyState message={t("errorLoading")} />}
         {!isLoading && !error && conversations?.length === 0 && (
-          <EmptyState message={t('noConversations')} />
+          <EmptyState message={t("noConversations")} />
         )}
         {!isLoading && !error && conversations && conversations.length > 0 && (
           <List>
