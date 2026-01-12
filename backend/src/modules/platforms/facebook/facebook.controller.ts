@@ -144,6 +144,7 @@ export class FacebookController {
    * GET /api/facebook/callback?code=xxx&state=xxx
    */
   @Get('callback')
+  @Public() // Facebook callback is external, no authentication needed
   async callback(@Query() dto: FacebookCallbackDto, @Res() res: Response) {
     this.logger.log('🔙 Facebook callback received:', {
       code: dto.code?.substring(0, 20) + '...',
