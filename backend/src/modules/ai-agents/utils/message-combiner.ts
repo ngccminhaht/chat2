@@ -62,12 +62,20 @@ export class MessageCombiner {
     sortedMessages.forEach((item, index) => {
       const { message } = item;
 
-      // Extract text content
+      // Extract text content (skip media link patterns like [image: ...])
       if (message.content?.text) {
-        texts.push({
-          content: message.content.text,
-          timestamp: (message as any).createdAt?.getTime() || Date.now(),
-        });
+        const text = message.content.text.trim();
+        // Skip if text is just a media link pattern (e.g., [image: ...], [Image: ...])
+        const isMediaLinkPattern =
+          /^\[(image|Image|video|Video|audio|Audio|file|File):\s*https?:\/\/.+\]$/i.test(
+            text
+          );
+        if (!isMediaLinkPattern) {
+          texts.push({
+            content: text,
+            timestamp: (message as any).createdAt?.getTime() || Date.now(),
+          });
+        }
       }
 
       // Extract image/media content
@@ -116,7 +124,12 @@ export class MessageCombiner {
     customer?: CustomerDocument | null
   ): AIRequestData {
     const { texts, images } = combinedData;
-    const queryText = texts[0]?.content || "";
+    let queryText = texts[0]?.content || "";
+
+    // If there are images but no text query, add a default prompt to analyze the image
+    if (images.length > 0 && !queryText.trim()) {
+      queryText = "Hãy mô tả ảnh này và trả lời câu hỏi của khách hàng về ảnh.";
+    }
 
     const requestData: AIRequestData = {
       query: queryText,
