@@ -8,20 +8,20 @@ export interface LastMessage {
 export interface Conversation {
   _id: string;
   organizationId: string;
-  platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee' | 'web';
+  platform: "facebook" | "zalo" | "tiktok" | "shopee" | "web";
   platformConversationId: string;
   platformConnectionId: string;
   customerPlatformUserId: string;
   customerName: string;
   customerAvatar?: string;
-  status: 'open' | 'closed' | 'archived';
+  status: "open" | "closed" | "archived";
   tags: string[];
   lastMessage?: LastMessage;
   unreadCount: number;
   metadata: Record<string, any>;
   // AI settings
   aiEnabled: boolean;
-  aiState?: 'AI_ACTIVE' | 'BATCHING' | 'AI_RESPONDING';
+  aiState?: "AI_ACTIVE" | "BATCHING" | "AI_RESPONDING";
   createdAt: string;
   updatedAt: string;
 }
@@ -46,13 +46,13 @@ export interface Message {
   _id: string;
   conversationId: string;
   organizationId: string;
-  platform: 'facebook' | 'zalo' | 'tiktok' | 'shopee';
+  platform: "facebook" | "zalo" | "tiktok" | "shopee";
   platformMessageId: string;
-  direction: 'inbound' | 'outbound';
-  type: 'text' | 'image' | 'video' | 'file' | 'sticker' | 'audio' | 'location';
+  direction: "inbound" | "outbound";
+  type: "text" | "image" | "video" | "file" | "sticker" | "audio" | "location";
   content: MessageContent;
   sender: MessageSender;
-  status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
+  status: "pending" | "sent" | "delivered" | "read" | "failed";
   metadata: Record<string, any>;
   createdAt: string;
   updatedAt: string;
@@ -76,4 +76,23 @@ export interface MessagesResponse {
     limit: number;
     totalPages: number;
   };
+}
+
+export interface ConversationNoteUser {
+  _id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+}
+
+export interface ConversationNote {
+  _id: string;
+  organizationId: string;
+  conversationId: string;
+  userId: string | ConversationNoteUser;
+  content: string;
+  isPrivate: boolean;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
 }

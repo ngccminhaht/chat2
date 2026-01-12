@@ -1,16 +1,29 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 import {
   Conversation,
   ConversationDocument,
-} from '@/common/database/schemas/conversation.schema';
+} from "@/common/database/schemas/conversation.schema";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
-import { GetConversationsDto } from './dto/get-conversations.dto';
-import { UpdateConversationDto } from './dto/update-conversation.dto';
+} from "@/common/database/schemas/message.schema";
+import {
+  ConversationNote,
+  ConversationNoteDocument,
+} from "@/common/database/schemas/conversation-note.schema";
+import { GetConversationsDto } from "./dto/get-conversations.dto";
+import { UpdateConversationDto } from "./dto/update-conversation.dto";
+import { CreateConversationNoteDto } from "./dto/create-conversation-note.dto";
+import { UpdateConversationNoteDto } from "./dto/update-conversation-note.dto";
+import { OrganizationsService } from "../organizations/organizations.service";
+import { OrganizationRole } from "@/common/database/schemas";
 
 @Injectable()
 export class ConversationsService {
@@ -21,6 +34,9 @@ export class ConversationsService {
     private conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name)
     private messageModel: Model<MessageDocument>,
+    @InjectModel(ConversationNote.name)
+    private conversationNoteModel: Model<ConversationNoteDocument>,
+    private organizationsService: OrganizationsService
   ) {}
 
   /**
@@ -46,8 +62,8 @@ export class ConversationsService {
     if (search) {
       // Search in customer name or last message text
       filter.$or = [
-        { customerName: { $regex: search, $options: 'i' } },
-        { 'lastMessage.text': { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: "i" } },
+        { "lastMessage.text": { $regex: search, $options: "i" } },
       ];
     }
 
@@ -88,7 +104,7 @@ export class ConversationsService {
       .exec();
 
     if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
     return conversation;
@@ -110,13 +126,13 @@ export class ConversationsService {
           organizationId: new Types.ObjectId(organizationId),
         },
         updateData,
-        { new: true },
+        { new: true }
       )
       .lean()
       .exec();
 
     if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
     this.logger.log(`Updated conversation ${id}: ${JSON.stringify(dto)}`);
@@ -147,7 +163,7 @@ export class ConversationsService {
             messageId: message._id,
           },
         },
-        { new: true },
+        { new: true }
       )
       .exec();
   }
@@ -165,7 +181,7 @@ export class ConversationsService {
       .exec();
 
     if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
     // Delete all messages in this conversation
@@ -177,7 +193,7 @@ export class ConversationsService {
       .exec();
 
     this.logger.log(
-      `Deleted conversation ${id} and ${deleteResult.deletedCount} messages`,
+      `Deleted conversation ${id} and ${deleteResult.deletedCount} messages`
     );
 
     return {
@@ -202,7 +218,7 @@ export class ConversationsService {
       .exec();
 
     this.logger.warn(
-      `Deleted ALL data for org ${organizationId}: ${conversationResult.deletedCount} conversations and ${messageResult.deletedCount} messages`,
+      `Deleted ALL data for org ${organizationId}: ${conversationResult.deletedCount} conversations and ${messageResult.deletedCount} messages`
     );
 
     return {
@@ -210,5 +226,179 @@ export class ConversationsService {
       deletedConversations: conversationResult.deletedCount,
       deletedMessages: messageResult.deletedCount,
     };
+  }
+
+  /**
+   * Get all notes for a conversation
+   * Returns all notes if user is admin/owner, or only non-private notes + user's own notes
+   */
+  async getNotes(
+    organizationId: string,
+    conversationId: string,
+    userId: string
+  ) {
+    // Verify conversation exists and belongs to org
+    const conversation = await this.conversationModel
+      .findOne({
+        _id: new Types.ObjectId(conversationId),
+        organizationId: new Types.ObjectId(organizationId),
+      })
+      .lean()
+      .exec();
+
+    if (!conversation) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    // Get user role
+    const userRole = await this.organizationsService.getUserRole(
+      organizationId,
+      userId
+    );
+    const isAdminOrOwner =
+      userRole === OrganizationRole.ADMIN ||
+      userRole === OrganizationRole.OWNER;
+
+    // Build query: if admin/owner, show all notes; otherwise show non-private + user's own
+    const filter: any = {
+      organizationId: new Types.ObjectId(organizationId),
+      conversationId: new Types.ObjectId(conversationId),
+    };
+
+    if (!isAdminOrOwner) {
+      filter.$or = [
+        { isPrivate: false },
+        { userId: new Types.ObjectId(userId) },
+      ];
+    }
+
+    const notes = await this.conversationNoteModel
+      .find(filter)
+      .populate("userId", "name email avatarUrl")
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    return notes;
+  }
+
+  /**
+   * Create a new note for a conversation
+   */
+  async createNote(
+    organizationId: string,
+    conversationId: string,
+    userId: string,
+    dto: CreateConversationNoteDto
+  ) {
+    // Verify conversation exists and belongs to org
+    const conversation = await this.conversationModel
+      .findOne({
+        _id: new Types.ObjectId(conversationId),
+        organizationId: new Types.ObjectId(organizationId),
+      })
+      .lean()
+      .exec();
+
+    if (!conversation) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    const note = new this.conversationNoteModel({
+      organizationId: new Types.ObjectId(organizationId),
+      conversationId: new Types.ObjectId(conversationId),
+      userId: new Types.ObjectId(userId),
+      content: dto.content,
+      isPrivate: dto.isPrivate ?? false,
+    });
+
+    const savedNote = await note.save();
+    await savedNote.populate("userId", "name email avatarUrl");
+
+    this.logger.log(
+      `Created note ${savedNote._id} for conversation ${conversationId}`
+    );
+    return savedNote;
+  }
+
+  /**
+   * Update a note
+   * Only the creator or admin/owner can update
+   */
+  async updateNote(
+    organizationId: string,
+    noteId: string,
+    userId: string,
+    dto: UpdateConversationNoteDto
+  ) {
+    const note = await this.conversationNoteModel
+      .findOne({
+        _id: new Types.ObjectId(noteId),
+        organizationId: new Types.ObjectId(organizationId),
+      })
+      .exec();
+
+    if (!note) {
+      throw new NotFoundException("Note not found");
+    }
+
+    // Check permission: creator or admin/owner
+    const isCreator = note.userId.toString() === userId.toString();
+    const userRole = await this.organizationsService.getUserRole(
+      organizationId,
+      userId
+    );
+    const isAdminOrOwner =
+      userRole === OrganizationRole.ADMIN ||
+      userRole === OrganizationRole.OWNER;
+
+    if (!isCreator && !isAdminOrOwner) {
+      throw new ForbiddenException("You can only update your own notes");
+    }
+
+    if (dto.content !== undefined) note.content = dto.content;
+    if (dto.isPrivate !== undefined) note.isPrivate = dto.isPrivate;
+
+    const updatedNote = await note.save();
+    await updatedNote.populate("userId", "name email avatarUrl");
+
+    this.logger.log(`Updated note ${noteId}`);
+    return updatedNote;
+  }
+
+  /**
+   * Delete a note
+   * Only the creator or admin/owner can delete
+   */
+  async deleteNote(organizationId: string, noteId: string, userId: string) {
+    const note = await this.conversationNoteModel
+      .findOne({
+        _id: new Types.ObjectId(noteId),
+        organizationId: new Types.ObjectId(organizationId),
+      })
+      .exec();
+
+    if (!note) {
+      throw new NotFoundException("Note not found");
+    }
+
+    // Check permission: creator or admin/owner
+    const isCreator = note.userId.toString() === userId.toString();
+    const userRole = await this.organizationsService.getUserRole(
+      organizationId,
+      userId
+    );
+    const isAdminOrOwner =
+      userRole === OrganizationRole.ADMIN ||
+      userRole === OrganizationRole.OWNER;
+
+    if (!isCreator && !isAdminOrOwner) {
+      throw new ForbiddenException("You can only delete your own notes");
+    }
+
+    await this.conversationNoteModel.findByIdAndDelete(noteId).exec();
+
+    this.logger.log(`Deleted note ${noteId}`);
+    return { success: true };
   }
 }

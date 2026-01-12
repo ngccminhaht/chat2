@@ -13,6 +13,7 @@ import MessageInput from '@/features/conversations/components/MessageInput';
 import ConversationList from '@/features/conversations/components/ConversationList';
 import CustomerInfoPopover from '@/features/conversations/components/CustomerInfoPopover';
 import ConversationSettingsModal from '@/features/conversations/components/ConversationSettingsModal';
+import NotesPanel from '@/features/conversations/components/NotesPanel';
 
 const EMPTY_MESSAGES: any[] = [];
 
@@ -179,6 +180,10 @@ export default function ConversationDetailPage() {
               <MessageInput conversationId={conversationId} />
             </Box>
           </Paper>
+        </Box>
+
+        <Box sx={{ width: '28%', minWidth: 280, display: { xs: 'none', lg: 'block' } }}>
+          <NotesPanel conversationId={conversationId} />
         </Box>
       </Stack>
 
