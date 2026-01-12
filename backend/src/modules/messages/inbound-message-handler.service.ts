@@ -188,11 +188,24 @@ export class InboundMessageHandlerService {
       .exec();
 
     if (conversation) {
-      // Update customer info if it was placeholder
+      // Update customer info if:
+      // 1. It was a placeholder (starts with "Platform User")
+      // 2. Or we have a new name that's different and not a placeholder
+      const isPlaceholder = conversation.customerName.startsWith(
+        `${platform} User`
+      );
+      const hasNewName =
+        customerName && customerName !== conversation.customerName;
+      const newNameIsNotPlaceholder =
+        customerName && !customerName.startsWith(`${platform} User`);
+
       if (
         customerName &&
-        conversation.customerName.startsWith(`${platform} User`)
+        (isPlaceholder || (hasNewName && newNameIsNotPlaceholder))
       ) {
+        this.logger.log(
+          `🔄 Updating customer name from "${conversation.customerName}" to "${customerName}"`
+        );
         conversation.customerName = customerName;
         if (customerAvatar) conversation.customerAvatar = customerAvatar;
         await conversation.save();
