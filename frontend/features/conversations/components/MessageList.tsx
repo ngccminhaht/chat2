@@ -1,16 +1,24 @@
-'use client';
+"use client";
 
-import { useRef, useEffect, useCallback } from 'react';
-import { Box, Paper, Typography, Avatar, Stack, Link, CircularProgress } from '@mui/material';
-import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import ScheduleIcon from '@mui/icons-material/Schedule';
-import CheckIcon from '@mui/icons-material/Check';
-import DoneAllIcon from '@mui/icons-material/DoneAll';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { format } from 'date-fns';
-import { Message, MessageContent } from '../types/conversation.types';
-import LoadingSpinner from '@/components/common/LoadingSpinner';
-import EmptyState from '@/components/common/EmptyState';
+import { useRef, useEffect, useCallback } from "react";
+import {
+  Box,
+  Paper,
+  Typography,
+  Avatar,
+  Stack,
+  Link,
+  CircularProgress,
+} from "@mui/material";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import ScheduleIcon from "@mui/icons-material/Schedule";
+import CheckIcon from "@mui/icons-material/Check";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import { format } from "date-fns";
+import { Message, MessageContent } from "../types/conversation.types";
+import LoadingSpinner from "@/components/common/LoadingSpinner";
+import EmptyState from "@/components/common/EmptyState";
 
 // Helper to extract media URL from various formats (Zalo uses attachments array)
 function getMediaUrl(content: MessageContent): string | undefined {
@@ -19,7 +27,11 @@ function getMediaUrl(content: MessageContent): string | undefined {
   if (content.url) return content.url;
 
   // Zalo inbound format: attachments[].payload.url or attachments[].payload.thumbnail
-  if (content.attachments && Array.isArray(content.attachments) && content.attachments.length > 0) {
+  if (
+    content.attachments &&
+    Array.isArray(content.attachments) &&
+    content.attachments.length > 0
+  ) {
     const attachment = content.attachments[0];
     if (attachment?.payload?.url) return attachment.payload.url;
     if (attachment?.payload?.thumbnail) return attachment.payload.thumbnail;
@@ -28,11 +40,23 @@ function getMediaUrl(content: MessageContent): string | undefined {
   return undefined;
 }
 
+// Helper to check if text is just a media link pattern (e.g., [image: ...], [Image: ...])
+function isMediaLinkPattern(text: string | undefined): boolean {
+  if (!text) return false;
+  const pattern =
+    /^\[(image|Image|video|Video|audio|Audio|file|File):\s*https?:\/\/.+\]$/i;
+  return pattern.test(text.trim());
+}
+
 // Helper to get file name
 function getFileName(content: MessageContent): string | undefined {
   if (content.fileName) return content.fileName;
 
-  if (content.attachments && Array.isArray(content.attachments) && content.attachments.length > 0) {
+  if (
+    content.attachments &&
+    Array.isArray(content.attachments) &&
+    content.attachments.length > 0
+  ) {
     const attachment = content.attachments[0];
     if (attachment?.payload?.name) return attachment.payload.name;
   }
@@ -44,7 +68,11 @@ function getFileName(content: MessageContent): string | undefined {
 function getFileSize(content: MessageContent): number | undefined {
   if (content.fileSize) return content.fileSize;
 
-  if (content.attachments && Array.isArray(content.attachments) && content.attachments.length > 0) {
+  if (
+    content.attachments &&
+    Array.isArray(content.attachments) &&
+    content.attachments.length > 0
+  ) {
     const attachment = content.attachments[0];
     if (attachment?.payload?.size) return attachment.payload.size;
   }
@@ -54,7 +82,7 @@ function getFileSize(content: MessageContent): number | undefined {
 
 // Format file size
 function formatFileSize(bytes?: number): string {
-  if (!bytes) return '';
+  if (!bytes) return "";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -64,19 +92,19 @@ function formatFileSize(bytes?: number): string {
 function getStatusIcon(status: string, isOutbound: boolean) {
   if (!isOutbound) return null;
 
-  const iconStyle = { fontSize: 14, ml: 0.5, verticalAlign: 'middle' };
+  const iconStyle = { fontSize: 14, ml: 0.5, verticalAlign: "middle" };
 
   switch (status) {
-    case 'pending':
+    case "pending":
       return <ScheduleIcon sx={iconStyle} />;
-    case 'sent':
+    case "sent":
       return <CheckIcon sx={iconStyle} />;
-    case 'delivered':
+    case "delivered":
       return <DoneAllIcon sx={iconStyle} />;
-    case 'read':
-      return <DoneAllIcon sx={{ ...iconStyle, color: 'info.light' }} />;
-    case 'failed':
-      return <ErrorOutlineIcon sx={{ ...iconStyle, color: 'error.light' }} />;
+    case "read":
+      return <DoneAllIcon sx={{ ...iconStyle, color: "info.light" }} />;
+    case "failed":
+      return <ErrorOutlineIcon sx={{ ...iconStyle, color: "error.light" }} />;
     default:
       return null;
   }
@@ -102,7 +130,7 @@ export default function MessageList({
   const prevScrollHeight = useRef<number>(0);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   // Scroll to bottom on initial load and new messages
@@ -116,14 +144,16 @@ export default function MessageList({
   useEffect(() => {
     if (containerRef.current && prevScrollHeight.current > 0) {
       const newScrollHeight = containerRef.current.scrollHeight;
-      containerRef.current.scrollTop = newScrollHeight - prevScrollHeight.current;
+      containerRef.current.scrollTop =
+        newScrollHeight - prevScrollHeight.current;
       prevScrollHeight.current = 0;
     }
   }, [messages]);
 
   // Handle scroll to detect when user scrolls to top
   const handleScroll = useCallback(() => {
-    if (!containerRef.current || !onLoadMore || !hasMore || isFetchingMore) return;
+    if (!containerRef.current || !onLoadMore || !hasMore || isFetchingMore)
+      return;
 
     const { scrollTop } = containerRef.current;
     // Load more when scrolled near top (within 100px)
@@ -146,22 +176,22 @@ export default function MessageList({
       ref={containerRef}
       onScroll={handleScroll}
       sx={{
-        height: '100%',
-        overflowY: 'auto',
+        height: "100%",
+        overflowY: "auto",
         p: 2,
-        display: 'flex',
-        flexDirection: 'column',
+        display: "flex",
+        flexDirection: "column",
         gap: 2,
       }}
     >
       {/* Loading indicator for older messages */}
       {isFetchingMore && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
           <CircularProgress size={24} />
         </Box>
       )}
       {messages.map((message) => {
-        const isOutbound = message.direction === 'outbound';
+        const isOutbound = message.direction === "outbound";
 
         return (
           <Stack
@@ -169,7 +199,7 @@ export default function MessageList({
             direction="row"
             spacing={1}
             sx={{
-              justifyContent: isOutbound ? 'flex-end' : 'flex-start',
+              justifyContent: isOutbound ? "flex-end" : "flex-start",
             }}
           >
             {!isOutbound && (
@@ -182,9 +212,13 @@ export default function MessageList({
               </Avatar>
             )}
 
-            <Box sx={{ maxWidth: '70%' }}>
+            <Box sx={{ maxWidth: "70%" }}>
               {!isOutbound && (
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ ml: 1 }}
+                >
                   {message.sender.name}
                 </Typography>
               )}
@@ -192,33 +226,41 @@ export default function MessageList({
               <Paper
                 sx={{
                   p: 1.5,
-                  bgcolor: isOutbound ? 'primary.main' : 'background.paper',
-                  color: isOutbound ? 'primary.contrastText' : 'text.primary',
+                  bgcolor: isOutbound ? "primary.main" : "background.paper",
+                  color: isOutbound ? "primary.contrastText" : "text.primary",
                 }}
               >
-                {message.type === 'text' && (
-                  <Typography variant="body1">{message.content.text}</Typography>
+                {message.type === "text" && (
+                  <Typography variant="body1">
+                    {message.content.text}
+                  </Typography>
                 )}
-                {message.type === 'image' && (
+                {message.type === "image" && (
                   <Box>
                     {getMediaUrl(message.content) ? (
                       <img
                         src={getMediaUrl(message.content)}
                         alt="Message attachment"
-                        style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4, objectFit: 'contain' }}
+                        style={{
+                          maxWidth: "100%",
+                          maxHeight: 300,
+                          borderRadius: 4,
+                          objectFit: "contain",
+                        }}
                       />
                     ) : (
                       <Typography variant="body2">[Image]</Typography>
                     )}
-                    {message.content.text && (
-                      <Typography variant="body1" sx={{ mt: 1 }}>
-                        {message.content.text}
-                      </Typography>
-                    )}
+                    {message.content.text &&
+                      !isMediaLinkPattern(message.content.text) && (
+                        <Typography variant="body1" sx={{ mt: 1 }}>
+                          {message.content.text}
+                        </Typography>
+                      )}
                   </Box>
                 )}
-                {message.type === 'file' && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {message.type === "file" && (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <InsertDriveFileIcon />
                     <Box>
                       {getMediaUrl(message.content) ? (
@@ -226,46 +268,59 @@ export default function MessageList({
                           href={getMediaUrl(message.content)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          sx={{ color: isOutbound ? 'inherit' : 'primary.main' }}
+                          sx={{
+                            color: isOutbound ? "inherit" : "primary.main",
+                          }}
                         >
-                          {getFileName(message.content) || 'Download file'}
+                          {getFileName(message.content) || "Download file"}
                         </Link>
                       ) : (
                         <Typography variant="body2">
-                          {getFileName(message.content) || 'File attachment'}
+                          {getFileName(message.content) || "File attachment"}
                         </Typography>
                       )}
                       {getFileSize(message.content) && (
-                        <Typography variant="caption" sx={{ display: 'block', opacity: 0.7 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{ display: "block", opacity: 0.7 }}
+                        >
                           {formatFileSize(getFileSize(message.content))}
                         </Typography>
                       )}
                     </Box>
                   </Box>
                 )}
-                {message.type === 'video' && (
+                {message.type === "video" && (
                   <Box>
                     {getMediaUrl(message.content) ? (
                       <video
                         src={getMediaUrl(message.content)}
                         controls
-                        style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
+                        style={{
+                          maxWidth: "100%",
+                          maxHeight: 300,
+                          borderRadius: 4,
+                        }}
                       />
                     ) : (
                       <Typography variant="body2">[Video]</Typography>
                     )}
                   </Box>
                 )}
-                {message.type === 'audio' && (
+                {message.type === "audio" && (
                   <Box>
                     {getMediaUrl(message.content) ? (
-                      <audio src={getMediaUrl(message.content)} controls style={{ width: '100%' }} />
+                      <audio
+                        src={getMediaUrl(message.content)}
+                        controls
+                        style={{ width: "100%" }}
+                      />
                     ) : (
                       <Typography variant="body2">[Audio]</Typography>
                     )}
                   </Box>
                 )}
-                {message.type === 'sticker' && (
+                {message.type === "sticker" && (
                   <Box>
                     {getMediaUrl(message.content) ? (
                       <img
@@ -278,24 +333,31 @@ export default function MessageList({
                     )}
                   </Box>
                 )}
-                {message.type === 'location' && (
-                  <Typography variant="body2">{message.content.text || '[Location]'}</Typography>
+                {message.type === "location" && (
+                  <Typography variant="body2">
+                    {message.content.text || "[Location]"}
+                  </Typography>
                 )}
 
                 <Typography
                   variant="caption"
                   component="span"
-                  color={isOutbound ? 'primary.contrastText' : 'text.secondary'}
-                  sx={{ display: 'flex', alignItems: 'center', mt: 0.5, opacity: 0.7 }}
+                  color={isOutbound ? "primary.contrastText" : "text.secondary"}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    mt: 0.5,
+                    opacity: 0.7,
+                  }}
                 >
-                  {format(new Date(message.createdAt), 'HH:mm')}
+                  {format(new Date(message.createdAt), "HH:mm")}
                   {getStatusIcon(message.status, isOutbound)}
                 </Typography>
               </Paper>
             </Box>
 
             {isOutbound && (
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+              <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main" }}>
                 A
               </Avatar>
             )}
