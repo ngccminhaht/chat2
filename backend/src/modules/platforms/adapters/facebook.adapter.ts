@@ -3,16 +3,12 @@
  * Implements IPlatformAdapter for Facebook-specific logic
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { createHmac } from 'crypto';
-import axios from 'axios';
-import {
-  Platform,
-  MessageType,
-  MessageDirection,
-} from '@/common/constants';
-import { EnvService } from '@/common/env';
-import { PlatformConnectionDocument } from '@/common/database/schemas/platform-connection.schema';
+import { Injectable, Logger } from "@nestjs/common";
+import { createHmac } from "crypto";
+import axios from "axios";
+import { Platform, MessageType, MessageDirection } from "@/common/constants";
+import { EnvService } from "@/common/env";
+import { PlatformConnectionDocument } from "@/common/database/schemas/platform-connection.schema";
 import {
   IPlatformAdapter,
   BasePlatformAdapter,
@@ -26,23 +22,23 @@ import {
   PlatformPayload,
   SendResult,
   UserProfile,
-} from '../core/interfaces';
+} from "../core/interfaces";
 import {
   FacebookWebhookDto,
   FacebookMessagingEvent,
   FacebookAttachment,
-} from '../facebook/dto/facebook-webhook.dto';
+} from "../facebook/dto/facebook-webhook.dto";
 
 @Injectable()
 export class FacebookAdapter extends BasePlatformAdapter {
   readonly platform = Platform.FACEBOOK;
   private readonly logger = new Logger(FacebookAdapter.name);
-  private readonly graphApiVersion = 'v19.0';
+  private readonly graphApiVersion = "v19.0";
   private readonly appSecret: string;
 
   constructor(private readonly envService: EnvService) {
     super();
-    this.appSecret = this.envService.get('FACEBOOK_APP_SECRET');
+    this.appSecret = this.envService.get("FACEBOOK_APP_SECRET");
   }
 
   // ==================== Webhook Verification ====================
@@ -53,14 +49,14 @@ export class FacebookAdapter extends BasePlatformAdapter {
     }
 
     // Facebook signature format: sha256=<hash>
-    const parts = signature.split('=');
-    if (parts.length !== 2 || parts[0] !== 'sha256') {
+    const parts = signature.split("=");
+    if (parts.length !== 2 || parts[0] !== "sha256") {
       return false;
     }
 
-    const hmac = createHmac('sha256', secret || this.appSecret);
+    const hmac = createHmac("sha256", secret || this.appSecret);
     hmac.update(rawBody);
-    const calculatedSignature = hmac.digest('hex');
+    const calculatedSignature = hmac.digest("hex");
 
     return calculatedSignature === parts[1];
   }
@@ -69,14 +65,14 @@ export class FacebookAdapter extends BasePlatformAdapter {
 
   extractAccountId(payload: unknown): string {
     const fbPayload = payload as FacebookWebhookDto;
-    return fbPayload.entry?.[0]?.id || 'unknown';
+    return fbPayload.entry?.[0]?.id || "unknown";
   }
 
   extractEvents(payload: unknown): PlatformEvent[] {
     const fbPayload = payload as FacebookWebhookDto;
     const events: PlatformEvent[] = [];
 
-    if (fbPayload.object !== 'page') {
+    if (fbPayload.object !== "page") {
       return events;
     }
 
@@ -94,7 +90,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
 
       // Process feed/comments events
       for (const change of entry.changes || []) {
-        if (change.field === 'comments' || change.field === 'feed') {
+        if (change.field === "comments" || change.field === "feed") {
           const event = this.parseCommentEvent(change.value, pageId, timestamp);
           if (event) {
             events.push(event);
@@ -109,7 +105,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
   private parseMessagingEvent(
     messaging: FacebookMessagingEvent,
     pageId: string,
-    timestamp: Date,
+    timestamp: Date
   ): PlatformEvent | null {
     const senderId = messaging.sender.id;
     const recipientId = messaging.recipient.id;
@@ -125,7 +121,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
       const content = this.extractMessageContent(messaging.message);
 
       return {
-        type: 'message',
+        type: "message",
         senderId,
         recipientId,
         timestamp: eventTimestamp,
@@ -138,7 +134,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
 
     if (messaging.delivery) {
       return {
-        type: 'delivery',
+        type: "delivery",
         senderId,
         recipientId,
         timestamp: eventTimestamp,
@@ -150,7 +146,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
 
     if (messaging.read) {
       return {
-        type: 'read',
+        type: "read",
         senderId,
         recipientId,
         timestamp: eventTimestamp,
@@ -161,7 +157,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
 
     if (messaging.postback) {
       return {
-        type: 'postback',
+        type: "postback",
         senderId,
         recipientId,
         timestamp: eventTimestamp,
@@ -182,10 +178,10 @@ export class FacebookAdapter extends BasePlatformAdapter {
   private parseCommentEvent(
     value: any,
     pageId: string,
-    timestamp: Date,
+    timestamp: Date
   ): PlatformEvent | null {
     // Only handle new comments
-    if (value.verb !== 'add' && value.verb !== undefined) {
+    if (value.verb !== "add" && value.verb !== undefined) {
       return null;
     }
 
@@ -199,14 +195,14 @@ export class FacebookAdapter extends BasePlatformAdapter {
 
     // Return as PlatformEvent with message-like properties for unified processing
     return {
-      type: 'message',  // Treat comments as messages for unified processing
+      type: "message", // Treat comments as messages for unified processing
       senderId: commenterId,
       recipientId: pageId,
       timestamp,
       messageId: commentId || `comment_${commenterId}_${timestamp.getTime()}`,
       messageType: MessageType.TEXT,
       content: {
-        text: value.message || '[Comment]',
+        text: value.message || "[Comment]",
       },
       rawPayload: { ...value, postId, isComment: true },
     } as MessageEvent;
@@ -222,8 +218,8 @@ export class FacebookAdapter extends BasePlatformAdapter {
     return MessageType.TEXT;
   }
 
-  private extractMessageContent(message: any): MessageEvent['content'] {
-    const content: MessageEvent['content'] = {};
+  private extractMessageContent(message: any): MessageEvent["content"] {
+    const content: MessageEvent["content"] = {};
 
     if (message.text) {
       content.text = message.text;
@@ -234,15 +230,15 @@ export class FacebookAdapter extends BasePlatformAdapter {
       content.mediaUrl = attachment.payload?.url;
       content.mediaType = attachment.type;
 
-      if (attachment.type === 'location' && attachment.payload?.coordinates) {
+      if (attachment.type === "location" && attachment.payload?.coordinates) {
         content.location = {
           latitude: attachment.payload.coordinates.lat,
           longitude: attachment.payload.coordinates.long,
         };
         content.text = `[Location: ${content.location.latitude}, ${content.location.longitude}]`;
-      } else if (!content.text) {
-        content.text = `[${attachment.type}: ${content.mediaUrl || ''}]`;
       }
+      // Don't set text for image/video/audio/file attachments - let frontend handle display
+      // Only keep text if user actually sent text along with the attachment
     }
 
     return content;
@@ -254,7 +250,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
     const conversationKey = this.getConversationKey(
       event.senderId,
       event.recipientId,
-      event.rawPayload,
+      event.rawPayload
     );
 
     return {
@@ -272,7 +268,11 @@ export class FacebookAdapter extends BasePlatformAdapter {
     };
   }
 
-  getConversationKey(senderId: string, recipientId: string, payload?: unknown): string {
+  getConversationKey(
+    senderId: string,
+    recipientId: string,
+    payload?: unknown
+  ): string {
     // For comments, use post-based conversation key
     if (payload && (payload as any).postId) {
       return `post_${(payload as any).postId}_${recipientId}`;
@@ -307,24 +307,24 @@ export class FacebookAdapter extends BasePlatformAdapter {
 
   private mapMessageTypeToFacebook(type: MessageType): string {
     const typeMap: Record<MessageType, string> = {
-      [MessageType.TEXT]: 'text',
-      [MessageType.IMAGE]: 'image',
-      [MessageType.VIDEO]: 'video',
-      [MessageType.AUDIO]: 'audio',
-      [MessageType.FILE]: 'file',
-      [MessageType.STICKER]: 'image',
-      [MessageType.LOCATION]: 'template',
-      [MessageType.TEMPLATE]: 'template',
-      [MessageType.QUICK_REPLY]: 'text',
-      [MessageType.UNKNOWN]: 'text',
+      [MessageType.TEXT]: "text",
+      [MessageType.IMAGE]: "image",
+      [MessageType.VIDEO]: "video",
+      [MessageType.AUDIO]: "audio",
+      [MessageType.FILE]: "file",
+      [MessageType.STICKER]: "image",
+      [MessageType.LOCATION]: "template",
+      [MessageType.TEMPLATE]: "template",
+      [MessageType.QUICK_REPLY]: "text",
+      [MessageType.UNKNOWN]: "text",
     };
-    return typeMap[type] || 'text';
+    return typeMap[type] || "text";
   }
 
   async send(
     connection: PlatformConnectionDocument,
     recipientId: string,
-    payload: PlatformPayload,
+    payload: PlatformPayload
   ): Promise<SendResult> {
     try {
       const accessToken = connection.credentials.accessToken;
@@ -339,7 +339,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        },
+        }
       );
 
       if (response.data.error) {
@@ -354,7 +354,10 @@ export class FacebookAdapter extends BasePlatformAdapter {
         platformMessageId: response.data.message_id,
       };
     } catch (error) {
-      this.logger.error('Facebook send failed:', error.response?.data || error.message);
+      this.logger.error(
+        "Facebook send failed:",
+        error.response?.data || error.message
+      );
       return {
         success: false,
         error: error.response?.data?.error?.message || error.message,
@@ -366,7 +369,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
 
   async fetchUserProfile(
     connection: PlatformConnectionDocument,
-    userId: string,
+    userId: string
   ): Promise<UserProfile> {
     try {
       const accessToken = connection.credentials.accessToken;
@@ -378,13 +381,13 @@ export class FacebookAdapter extends BasePlatformAdapter {
             Authorization: `Bearer ${accessToken}`,
           },
           params: {
-            fields: 'id,name,profile_pic',
+            fields: "id,name,profile_pic",
           },
-        },
+        }
       );
 
       if (response.data.error) {
-        return this.createDefaultProfile(userId, 'Facebook');
+        return this.createDefaultProfile(userId, "Facebook");
       }
 
       return {
@@ -393,8 +396,10 @@ export class FacebookAdapter extends BasePlatformAdapter {
         avatar: response.data.profile_pic,
       };
     } catch (error) {
-      this.logger.warn(`Failed to fetch Facebook profile for ${userId}: ${error.message}`);
-      return this.createDefaultProfile(userId, 'Facebook');
+      this.logger.warn(
+        `Failed to fetch Facebook profile for ${userId}: ${error.message}`
+      );
+      return this.createDefaultProfile(userId, "Facebook");
     }
   }
 }
