@@ -237,8 +237,7 @@ export default function MessageList({
                   maxWidth: "100%",
                   overflow: "hidden", // Prevent content from overflowing
                   wordWrap: "break-word",
-                  overflowWrap: "anywhere", // Break even without spaces
-                  wordBreak: "break-all", // Break at any character when needed
+                  wordBreak: "break-all", // Break at any character when needed (even without spaces)
                 }}
               >
                 {message.type === "text" && (
@@ -246,8 +245,7 @@ export default function MessageList({
                     variant="body1"
                     sx={{
                       wordWrap: "break-word",
-                      overflowWrap: "anywhere", // Break even without spaces
-                      wordBreak: "break-all", // Break at any character when needed
+                      wordBreak: "break-all", // Break at any character when needed (even without spaces)
                       whiteSpace: "pre-wrap",
                       overflow: "hidden",
                       maxWidth: "100%",
@@ -279,8 +277,7 @@ export default function MessageList({
                           sx={{
                             mt: 1,
                             wordWrap: "break-word",
-                            overflowWrap: "anywhere", // Break even without spaces
-                            wordBreak: "break-all", // Break at any character when needed
+                            wordBreak: "break-all", // Break at any character when needed (even without spaces)
                             whiteSpace: "pre-wrap",
                             overflow: "hidden",
                             maxWidth: "100%",
@@ -370,8 +367,7 @@ export default function MessageList({
                     variant="body2"
                     sx={{
                       wordWrap: "break-word",
-                      overflowWrap: "break-word",
-                      wordBreak: "break-word",
+                      wordBreak: "break-all", // Break at any character when needed
                     }}
                   >
                     {message.content.text || "[Location]"}
