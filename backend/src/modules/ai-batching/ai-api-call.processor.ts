@@ -200,20 +200,34 @@ export class AIAPICallProcessor extends WorkerHost {
         )
       );
 
-      // Log request
+      // Log full request (input)
+      this.logger.log(
+        `📥 [AI API Input] Full Request Data:`,
+        JSON.stringify(
+          {
+            query: requestData.query,
+            inputs: requestData.inputs,
+            response_mode: requestData.response_mode,
+            user: requestData.user,
+            conversation_id: requestData.conversation_id,
+            files: requestData.files?.map((f) => ({
+              type: f.type,
+              url: f.url?.substring(0, 100) + (f.url?.length > 100 ? "..." : ""),
+              transfer_method: f.transfer_method,
+            })),
+          },
+          null,
+          2
+        )
+      );
+
+      // Log request summary
       this.logger.log(
         `🤖 [AI API Job] Calling API | Conversation: ${conversationId} | ` +
           `Endpoint: ${apiEndpoint} | Query length: ${
             requestData.query?.length || 0
           } | ` +
           `Files: ${requestData.files?.length || 0}`
-      );
-
-      this.logger.debug(
-        `🤖 [AI API Job] Query preview: "${requestData.query?.substring(
-          0,
-          100
-        )}..."`
       );
 
       // Call AI API (single attempt - BullMQ handles retry)
@@ -270,6 +284,29 @@ export class AIAPICallProcessor extends WorkerHost {
       const assembled = agentMessages.reduce(
         (acc, cur) => acc + (cur.answer || ""),
         ""
+      );
+
+      // Log full response (output)
+      this.logger.log(
+        `📤 [AI API Output] Full Response Data:`,
+        JSON.stringify(
+          {
+            rawResponseLength: rawData.length,
+            totalChunks: chunks.length,
+            parseErrors,
+            conversationId: aiConversationId,
+            agentMessagesCount: agentMessages.length,
+            assembledAnswer: assembled,
+            allChunks: chunks.map((chunk) => ({
+              event: chunk.event,
+              message_id: chunk.message_id,
+              conversation_id: chunk.conversation_id,
+              answer: chunk.answer?.substring(0, 100) + (chunk.answer?.length > 100 ? "..." : ""),
+            })),
+          },
+          null,
+          2
+        )
       );
 
       // Check if response is empty
