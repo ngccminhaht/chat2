@@ -266,18 +266,53 @@ export class InboundMessageHandlerService {
     input: InboundMessageInput,
     conversation: ConversationDocument
   ): Promise<{ message: MessageDocument; isNew: boolean }> {
-    // Add source to text content for inbound text messages
+    // Add source to all inbound messages for AI processing
     let content = { ...input.content };
-    if (
-      input.direction === MessageDirection.INBOUND &&
-      input.type === MessageType.TEXT &&
-      content.text &&
-      !content.text.startsWith(`[${this.getPlatformLabel(input.platform)}]`)
-    ) {
-      content = {
-        ...content,
-        text: `[${this.getPlatformLabel(input.platform)}] ${content.text}`,
-      };
+    const platformLabel = this.getPlatformLabel(input.platform);
+    const sourcePrefix = `[${platformLabel}]`;
+
+    if (input.direction === MessageDirection.INBOUND) {
+      if (input.type === MessageType.TEXT) {
+        // For text messages, add source prefix to text
+        if (content.text && !content.text.startsWith(sourcePrefix)) {
+          content = {
+            ...content,
+            text: `${sourcePrefix} ${content.text}`,
+          };
+        } else if (!content.text) {
+          // If no text, add source with message type
+          content = {
+            ...content,
+            text: `${sourcePrefix} [${input.type}]`,
+          };
+        }
+      } else {
+        // For non-text messages (image, video, file, etc.), add source to text if exists
+        // or create new text with source and message type
+        if (content.text) {
+          if (!content.text.startsWith(sourcePrefix)) {
+            content = {
+              ...content,
+              text: `${sourcePrefix} ${content.text}`,
+            };
+          }
+        } else {
+          // Add source prefix with message type for non-text messages
+          const typeLabels: Record<string, string> = {
+            image: "Ảnh",
+            video: "Video",
+            file: "File",
+            audio: "Audio",
+            sticker: "Sticker",
+            location: "Vị trí",
+          };
+          const typeLabel = typeLabels[input.type] || input.type;
+          content = {
+            ...content,
+            text: `${sourcePrefix} [${typeLabel}]`,
+          };
+        }
+      }
     }
 
     const messageData = {
