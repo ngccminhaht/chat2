@@ -80,7 +80,7 @@ export class MessageCombiner {
         (message as any)?.platform ||
         "web") as string;
       const platformLabel = this.getPlatformLabel(platform);
-      const sourcePrefix = `[${platformLabel}]`;
+      const sourcePrefix = `[from: ${platformLabel}]`;
 
       // Only add source for inbound messages
       const isInbound = (message as any).direction === "inbound";
@@ -95,8 +95,8 @@ export class MessageCombiner {
           );
         if (!isMediaLinkPattern && text) {
           // Add source prefix for inbound messages when sending to AI
-          if (isInbound && !text.startsWith(sourcePrefix)) {
-            text = `${sourcePrefix} ${text}`;
+          if (isInbound && !text.startsWith(`[from: ${platformLabel}]`)) {
+            text = `${sourcePrefix}\n${text}`;
           }
           texts.push({
             content: text,
@@ -115,7 +115,7 @@ export class MessageCombiner {
         };
         const typeLabel = typeLabels[message.type] || message.type;
         texts.push({
-          content: `${sourcePrefix} [${typeLabel}]`,
+          content: `${sourcePrefix}\n[${typeLabel}]`,
           timestamp: (message as any).createdAt?.getTime() || Date.now(),
         });
       }
