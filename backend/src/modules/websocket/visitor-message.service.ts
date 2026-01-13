@@ -1,24 +1,24 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 import {
   Conversation,
   ConversationDocument,
-} from '@/common/database/schemas/conversation.schema';
+} from "@/common/database/schemas/conversation.schema";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
+} from "@/common/database/schemas/message.schema";
 import {
   Platform,
   MessageDirection,
   MessageType,
   MessageStatus,
-} from '@/common/constants';
-import { WebsocketGateway } from './websocket.gateway';
-import { VisitorGateway } from './visitor.gateway';
-import { nanoid } from 'nanoid';
-import { InboundMessageHandlerService } from '@/modules/messages/inbound-message-handler.service';
+} from "@/common/constants";
+import { WebsocketGateway } from "./websocket.gateway";
+import { VisitorGateway } from "./visitor.gateway";
+import { nanoid } from "nanoid";
+import { InboundMessageHandlerService } from "@/modules/messages/inbound-message-handler.service";
 
 interface VisitorMessagePayload {
   sessionId: string;
@@ -50,7 +50,7 @@ export class VisitorMessageService {
     private readonly websocketGateway: WebsocketGateway,
     @Inject(forwardRef(() => VisitorGateway))
     private readonly visitorGateway: VisitorGateway,
-    private readonly inboundMessageHandler: InboundMessageHandlerService,
+    private readonly inboundMessageHandler: InboundMessageHandlerService
   ) {}
 
   /**
@@ -80,7 +80,7 @@ export class VisitorMessageService {
       direction: MessageDirection.INBOUND,
       type: (type as MessageType) || MessageType.TEXT,
       content: { text, mediaUrl, fileName },
-      sender: { platformUserId: sessionId, name: visitorName || 'Visitor' },
+      sender: { platformUserId: sessionId, name: visitorName || "Visitor" },
       timestamp: new Date(),
       customerName: visitorName || `Visitor ${sessionId.substring(0, 8)}`,
       platformConnectionId: new Types.ObjectId().toString(), // Virtual for web
@@ -89,7 +89,9 @@ export class VisitorMessageService {
 
     // Direct WebSocket notification (web-specific, keep here)
     const conversationIdStr = result.conversation._id.toString();
-    const serializedMessage = JSON.parse(JSON.stringify(result.message.toObject()));
+    const serializedMessage = JSON.parse(
+      JSON.stringify(result.message.toObject())
+    );
     const messagePayload = {
       conversationId: conversationIdStr,
       message: serializedMessage,
@@ -97,18 +99,26 @@ export class VisitorMessageService {
     const conversationUpdatePayload = {
       _id: conversationIdStr,
       lastMessage: {
-        text: text || '[Media]',
+        text: text || "[Media]",
         timestamp: new Date(),
       },
       unreadCount: result.conversation.unreadCount + 1,
     };
 
     // Broadcast to org agents room (admin/owner/agents who joined)
-    this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', messagePayload);
-    this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', conversationUpdatePayload);
+    this.websocketGateway.emitToOrgAgents(
+      organizationId,
+      "message:new",
+      messagePayload
+    );
+    this.websocketGateway.emitToOrgAgents(
+      organizationId,
+      "conversation:updated",
+      conversationUpdatePayload
+    );
 
     this.logger.log(
-      `Processed visitor message: ${result.message._id} in conversation ${conversationIdStr}`,
+      `Processed visitor message: ${result.message._id} in conversation ${conversationIdStr}`
     );
 
     return {
@@ -151,7 +161,7 @@ export class VisitorMessageService {
   async updateVisitorInfo(
     organizationId: string,
     sessionId: string,
-    info: VisitorInfo,
+    info: VisitorInfo
   ) {
     const conversationKey = `web_${organizationId}_${sessionId}`;
 
@@ -162,9 +172,9 @@ export class VisitorMessageService {
       },
       {
         ...(info.name && { customerName: info.name }),
-        'metadata.visitorEmail': info.email,
-        'metadata.visitorPhone': info.phone,
-      },
+        "metadata.visitorEmail": info.email,
+        "metadata.visitorPhone": info.phone,
+      }
     );
 
     this.logger.log(`Updated visitor info for session ${sessionId}`);
@@ -178,18 +188,28 @@ export class VisitorMessageService {
     conversationId: string,
     agentId: string,
     agentName: string,
-    content: { text?: string; mediaUrl?: string },
+    content: { text?: string; mediaUrl?: string; type?: string }
   ) {
     const conversation = await this.conversationModel.findById(conversationId);
     if (!conversation || conversation.platform !== Platform.WEB) {
-      throw new Error('Conversation not found or not a web chat');
+      throw new Error("Conversation not found or not a web chat");
     }
 
     // Extract sessionId from platformConversationId
     // Format: web_{orgId}_{sessionId}
     // Note: sessionId may contain underscores (e.g., v_xxx), so we join remaining parts
-    const parts = conversation.platformConversationId.split('_');
-    const sessionId = parts.slice(2).join('_');
+    const parts = conversation.platformConversationId.split("_");
+    const sessionId = parts.slice(2).join("_");
+
+    // Determine message type: use provided type, or infer from content
+    let messageType: MessageType;
+    if (content.type) {
+      messageType = content.type as MessageType;
+    } else if (content.mediaUrl) {
+      messageType = MessageType.FILE;
+    } else {
+      messageType = MessageType.TEXT;
+    }
 
     // Create message
     const messageId = nanoid();
@@ -199,7 +219,7 @@ export class VisitorMessageService {
       platform: Platform.WEB,
       platformMessageId: messageId,
       direction: MessageDirection.OUTBOUND,
-      type: content.mediaUrl ? MessageType.FILE : MessageType.TEXT,
+      type: messageType,
       content: {
         text: content.text,
         mediaUrl: content.mediaUrl,
@@ -215,17 +235,17 @@ export class VisitorMessageService {
     await this.conversationModel.findByIdAndUpdate(
       conversationId,
       {
-        'lastMessage.text': content.text || '[Media]',
-        'lastMessage.timestamp': new Date(),
-        'lastMessage.senderId': agentId,
-        'lastMessage.messageId': message._id,
+        "lastMessage.text": content.text || "[Media]",
+        "lastMessage.timestamp": new Date(),
+        "lastMessage.senderId": agentId,
+        "lastMessage.messageId": message._id,
         unreadCount: 0, // Reset unread when agent replies
       },
-      { timestamps: true },
+      { timestamps: true }
     );
 
     this.logger.log(
-      `Agent ${agentId} sent message to visitor ${sessionId}: ${message._id}`,
+      `Agent ${agentId} sent message to visitor ${sessionId}: ${message._id}`
     );
 
     // Payload for widget (expects { message: ServerMessage } format)
@@ -240,31 +260,40 @@ export class VisitorMessageService {
           name: agentName,
           platformUserId: agentId,
         },
-        direction: 'outbound' as const,
-        createdAt: (message as any).createdAt?.toISOString() || new Date().toISOString(),
+        direction: "outbound" as const,
+        createdAt:
+          (message as any).createdAt?.toISOString() || new Date().toISOString(),
       },
     };
 
     // Emit message to visitor via WebSocket (widget listens to 'message:received')
-    this.visitorGateway.emitToVisitor(sessionId, 'message:received', widgetPayload);
+    this.visitorGateway.emitToVisitor(
+      sessionId,
+      "message:received",
+      widgetPayload
+    );
     this.logger.log(`📤 Emitted message:received to visitor ${sessionId}`);
 
     // Broadcast to org agents so other agents see the reply in real-time
     const organizationId = conversation.organizationId.toString();
     const convIdStr = conversation._id.toString();
     const serializedMsg = JSON.parse(JSON.stringify(message.toObject()));
-    this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', {
+    this.websocketGateway.emitToOrgAgents(organizationId, "message:new", {
       conversationId: convIdStr,
       message: serializedMsg,
     });
-    this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', {
-      _id: convIdStr,
-      lastMessage: {
-        text: content.text || '[Media]',
-        timestamp: new Date(),
-      },
-      unreadCount: 0,
-    });
+    this.websocketGateway.emitToOrgAgents(
+      organizationId,
+      "conversation:updated",
+      {
+        _id: convIdStr,
+        lastMessage: {
+          text: content.text || "[Media]",
+          timestamp: new Date(),
+        },
+        unreadCount: 0,
+      }
+    );
 
     // Return sessionId for any additional processing
     return {

@@ -5,40 +5,40 @@ import {
   Logger,
   Inject,
   forwardRef,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
+} from "@/common/database/schemas/message.schema";
 import {
   Conversation,
   ConversationDocument,
-} from '@/common/database/schemas/conversation.schema';
+} from "@/common/database/schemas/conversation.schema";
 import {
   PlatformConnection,
   PlatformConnectionDocument,
-} from '@/common/database/schemas/platform-connection.schema';
-import { GetMessagesDto } from './dto/get-messages.dto';
-import { SendMessageDto } from './dto/send-message.dto';
+} from "@/common/database/schemas/platform-connection.schema";
+import { GetMessagesDto } from "./dto/get-messages.dto";
+import { SendMessageDto } from "./dto/send-message.dto";
 import {
   MessageStatus,
   KAFKA_TOPICS,
   Platform,
   MessageType,
-} from '@/common/constants';
-import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
+} from "@/common/constants";
+import { KafkaProducerService } from "@/infra/kafka/kafka-producer.service";
 import {
   OutgoingMessageEvent,
   WebSocketNotificationEvent,
   NewMessagePayload,
   ConversationUpdatedPayload,
   MessagesReadPayload,
-} from '@/infra/kafka/types/webhook.types';
-import { VisitorMessageService } from '@/modules/websocket/visitor-message.service';
-import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
-import { AIBatchingService } from '@/modules/ai-batching/ai-batching.service';
+} from "@/infra/kafka/types/webhook.types";
+import { VisitorMessageService } from "@/modules/websocket/visitor-message.service";
+import { WebsocketGateway } from "@/modules/websocket/websocket.gateway";
+import { AIBatchingService } from "@/modules/ai-batching/ai-batching.service";
 
 @Injectable()
 export class MessagesService {
@@ -56,7 +56,7 @@ export class MessagesService {
     private visitorMessageService: VisitorMessageService,
     @Inject(forwardRef(() => WebsocketGateway))
     private websocketGateway: WebsocketGateway,
-    private aiBatchingService: AIBatchingService,
+    private aiBatchingService: AIBatchingService
   ) {}
 
   /**
@@ -65,7 +65,7 @@ export class MessagesService {
   async findByConversation(
     organizationId: string,
     conversationId: string,
-    dto: GetMessagesDto,
+    dto: GetMessagesDto
   ) {
     const { page = 1, limit = 50 } = dto;
 
@@ -78,7 +78,7 @@ export class MessagesService {
       .exec();
 
     if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
     const skip = (page - 1) * limit;
@@ -142,7 +142,7 @@ export class MessagesService {
       .exec();
 
     if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
     // Agent reply - cancel any pending AI batch and disable AI for this conversation
@@ -150,15 +150,20 @@ export class MessagesService {
       await this.aiBatchingService.cancelBatch(conversationId);
       await this.conversationModel.findByIdAndUpdate(
         conversationId,
-        { aiEnabled: false, aiState: 'AI_ACTIVE' },
-        { timestamps: true },
+        { aiEnabled: false, aiState: "AI_ACTIVE" },
+        { timestamps: true }
       );
-      this.logger.log(`🤖 AI disabled for conversation ${conversationId} (agent replied)`);
+      this.logger.log(
+        `🤖 AI disabled for conversation ${conversationId} (agent replied)`
+      );
     }
 
     // Handle web chat conversations differently - they don't have platform connections
     if (conversation.platform === Platform.WEB) {
-      return this.sendWebMessage(organizationId, userId, conversation, content);
+      return this.sendWebMessage(organizationId, userId, conversation, {
+        ...content,
+        type,
+      });
     }
 
     // Get platform connection for access token (also verify org)
@@ -170,7 +175,7 @@ export class MessagesService {
       .exec();
 
     if (!platformConnection) {
-      throw new NotFoundException('Platform connection not found');
+      throw new NotFoundException("Platform connection not found");
     }
 
     this.logger.log(`📧 Queuing message for conversation: ${conversationId}`);
@@ -179,8 +184,8 @@ export class MessagesService {
 
     // Sender info for outbound message (agent/system)
     const senderInfo = {
-      platformUserId: platformConnection.platformAccountId || 'system',
-      name: platformConnection.platformAccountName || 'Agent',
+      platformUserId: platformConnection.platformAccountId || "system",
+      name: platformConnection.platformAccountName || "Agent",
       avatar: platformConnection.metadata?.avatar,
     };
 
@@ -189,8 +194,10 @@ export class MessagesService {
       organizationId: new Types.ObjectId(organizationId),
       conversationId: new Types.ObjectId(conversationId),
       platform: conversation.platform,
-      platformMessageId: `pending_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      direction: 'outbound',
+      platformMessageId: `pending_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`,
+      direction: "outbound",
       type,
       content,
       sender: senderInfo,
@@ -211,7 +218,8 @@ export class MessagesService {
       message: {
         type: type as MessageType,
         text: content.text,
-        mediaUrl: content.mediaUrl || content.url || content.attachments?.[0]?.url,
+        mediaUrl:
+          content.mediaUrl || content.url || content.attachments?.[0]?.url,
         mediaType: content.mediaType || content.attachments?.[0]?.type,
         fileName: content.fileName || content.attachments?.[0]?.name,
         stickerId: content.stickerId || content.attachments?.[0]?.stickerId,
@@ -229,7 +237,9 @@ export class MessagesService {
         value: outgoingEvent,
       });
 
-      this.logger.log(`📤 Published to ${KAFKA_TOPICS.MESSAGES_OUTGOING}: ${message._id}`);
+      this.logger.log(
+        `📤 Published to ${KAFKA_TOPICS.MESSAGES_OUTGOING}: ${message._id}`
+      );
     } catch (error) {
       this.logger.error(`Failed to publish outgoing message: ${error.message}`);
 
@@ -241,7 +251,7 @@ export class MessagesService {
       };
       await message.save();
 
-      throw new BadRequestException('Failed to queue message for sending');
+      throw new BadRequestException("Failed to queue message for sending");
     }
 
     // Immediately publish pending message to WebSocket so UI shows it
@@ -249,7 +259,7 @@ export class MessagesService {
       await this.publishPendingMessageNotification(
         platformConnection.connectedBy.toString(),
         conversation,
-        message,
+        message
       );
     }
 
@@ -264,17 +274,28 @@ export class MessagesService {
     organizationId: string,
     userId: string,
     conversation: ConversationDocument,
-    content: { text?: string; mediaUrl?: string; [key: string]: any },
+    content: {
+      text?: string;
+      mediaUrl?: string;
+      type?: string;
+      [key: string]: any;
+    }
   ) {
-    this.logger.log(`📧 Sending web message for conversation: ${conversation._id}`);
+    this.logger.log(
+      `📧 Sending web message for conversation: ${conversation._id}`
+    );
     this.logger.log(`  Visitor: ${conversation.customerPlatformUserId}`);
 
     // Use VisitorMessageService to send and emit via WebSocket
     const result = await this.visitorMessageService.sendToVisitor(
       conversation._id.toString(),
       userId,
-      'Agent', // Agent name - could be fetched from user service
-      { text: content.text, mediaUrl: content.mediaUrl },
+      "Agent", // Agent name - could be fetched from user service
+      {
+        text: content.text,
+        mediaUrl: content.mediaUrl,
+        type: content.type, // Pass message type (image, file, etc.)
+      }
     );
 
     this.logger.log(`📤 Web message sent: ${result.message._id}`);
@@ -297,7 +318,7 @@ export class MessagesService {
   async markAsRead(
     organizationId: string,
     conversationId: string,
-    _userId: string,
+    _userId: string
   ) {
     // Verify conversation exists and belongs to org
     const conversation = await this.conversationModel
@@ -305,22 +326,23 @@ export class MessagesService {
         _id: new Types.ObjectId(conversationId),
         organizationId: new Types.ObjectId(organizationId),
       })
-      .populate('platformConnectionId')
+      .populate("platformConnectionId")
       .exec();
 
     if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
     // Get userId from platform connection, fallback to authenticated user
     const platformConnection = conversation.platformConnectionId as any;
-    const connectionUserId = platformConnection?.connectedBy?.toString() || _userId;
+    const connectionUserId =
+      platformConnection?.connectedBy?.toString() || _userId;
 
     // Find all inbound messages that are not read yet
     const messagesToUpdate = await this.messageModel
       .find({
         conversationId: new Types.ObjectId(conversationId),
-        direction: 'inbound',
+        direction: "inbound",
         status: { $ne: MessageStatus.READ },
       })
       .exec();
@@ -331,10 +353,9 @@ export class MessagesService {
 
     // Update all messages to 'read' status
     const messageIds = messagesToUpdate.map((m) => m._id);
-    await this.messageModel.updateMany(
-      { _id: { $in: messageIds } },
-      { status: MessageStatus.READ },
-    ).exec();
+    await this.messageModel
+      .updateMany({ _id: { $in: messageIds } }, { status: MessageStatus.READ })
+      .exec();
 
     // Get updated messages
     const updatedMessages = await this.messageModel
@@ -342,14 +363,18 @@ export class MessagesService {
       .lean()
       .exec();
 
-    this.logger.log(`Marked ${updatedMessages.length} messages as read in conversation ${conversationId}`);
+    this.logger.log(
+      `Marked ${updatedMessages.length} messages as read in conversation ${conversationId}`
+    );
 
     // Reset conversation unread count to 0
-    await this.conversationModel.findByIdAndUpdate(
-      conversationId,
-      { unreadCount: 0 },
-      { timestamps: true },
-    ).exec();
+    await this.conversationModel
+      .findByIdAndUpdate(
+        conversationId,
+        { unreadCount: 0 },
+        { timestamps: true }
+      )
+      .exec();
 
     // Get updated conversation
     const updatedConversation = await this.conversationModel
@@ -359,7 +384,7 @@ export class MessagesService {
 
     // Publish messages read event to Kafka (broadcast to organization)
     const messagesReadEvent: WebSocketNotificationEvent = {
-      type: 'message:read',
+      type: "message:read",
       organizationId,
       payload: {
         conversationId,
@@ -376,7 +401,7 @@ export class MessagesService {
     // Publish conversation update to Kafka (broadcast to organization)
     if (updatedConversation) {
       const conversationEvent: WebSocketNotificationEvent = {
-        type: 'conversation:updated',
+        type: "conversation:updated",
         organizationId,
         payload: {
           _id: updatedConversation._id.toString(),
@@ -394,7 +419,9 @@ export class MessagesService {
       });
     }
 
-    this.logger.log(`📤 Published mark-as-read events to organization ${organizationId}`);
+    this.logger.log(
+      `📤 Published mark-as-read events to organization ${organizationId}`
+    );
 
     return {
       updated: updatedMessages.length,
@@ -410,7 +437,7 @@ export class MessagesService {
   private async publishPendingMessageNotification(
     userId: string,
     conversation: ConversationDocument,
-    message: MessageDocument,
+    message: MessageDocument
   ): Promise<void> {
     try {
       const messagePayload = {
@@ -428,7 +455,7 @@ export class MessagesService {
       // Broadcast to all org agents so everyone sees the new message
       const organizationId = conversation.organizationId?.toString();
       if (organizationId) {
-        this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', {
+        this.websocketGateway.emitToOrgAgents(organizationId, "message:new", {
           conversationId: conversation._id.toString(),
           message: messagePayload,
         });
@@ -437,7 +464,7 @@ export class MessagesService {
       // Also publish via Kafka for horizontal scaling (broadcast to org)
       if (organizationId) {
         const newMessageEvent: WebSocketNotificationEvent = {
-          type: 'message:new',
+          type: "message:new",
           organizationId,
           payload: messagePayload as NewMessagePayload,
           timestamp: Date.now(),
@@ -448,10 +475,15 @@ export class MessagesService {
           value: newMessageEvent,
         });
 
-        this.logger.log(`📤 Published pending message notification for org ${organizationId}`);
+        this.logger.log(
+          `📤 Published pending message notification for org ${organizationId}`
+        );
       }
     } catch (error) {
-      this.logger.error('Failed to publish pending message notification:', error);
+      this.logger.error(
+        "Failed to publish pending message notification:",
+        error
+      );
     }
   }
 }
