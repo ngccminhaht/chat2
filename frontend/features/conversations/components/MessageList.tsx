@@ -9,6 +9,7 @@ import {
   Stack,
   Link,
   CircularProgress,
+  Chip,
 } from "@mui/material";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -108,6 +109,18 @@ function getStatusIcon(status: string, isOutbound: boolean) {
     default:
       return null;
   }
+}
+
+// Get platform display name
+function getPlatformLabel(platform: string): string {
+  const labels: Record<string, string> = {
+    facebook: "Facebook",
+    zalo: "Zalo",
+    tiktok: "TikTok",
+    shopee: "Shopee",
+    web: "Web",
+  };
+  return labels[platform] || platform;
 }
 
 interface MessageListProps {
@@ -220,13 +233,28 @@ export default function MessageList({
               }}
             >
               {!isOutbound && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  alignItems="center"
+                  sx={{ ml: 1, mb: 0.5 }}
                 >
-                  {message.sender.name}
-                </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {message.sender.name}
+                  </Typography>
+                  <Chip
+                    label={getPlatformLabel(message.platform)}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      height: 18,
+                      fontSize: "0.65rem",
+                      "& .MuiChip-label": {
+                        px: 0.75,
+                      },
+                    }}
+                  />
+                </Stack>
               )}
 
               <Paper

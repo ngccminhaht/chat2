@@ -51,6 +51,7 @@ export default function NotesPanel({ conversationId }: NotesPanelProps) {
   const [anchorEl, setAnchorEl] = useState<{ el: HTMLElement; noteId: string } | null>(null);
 
   const currentUser = useAuthStore((state) => state.user);
+  const currentRole = useAuthStore((state) => state.getCurrentRole());
   const { data: notes = [], isLoading } = useConversationNotes({ conversationId });
   const { mutate: createNote, isPending: isCreating } = useCreateNote();
   const { mutate: updateNote, isPending: isUpdating } = useUpdateNote();
@@ -145,10 +146,18 @@ export default function NotesPanel({ conversationId }: NotesPanelProps) {
   };
 
   const canEditNote = (note: ConversationNote): boolean => {
+    // Admin and owner can edit any note, others can only edit their own
+    if (currentRole === 'admin' || currentRole === 'owner') {
+      return true;
+    }
     return isNoteOwner(note);
   };
 
   const canDeleteNote = (note: ConversationNote): boolean => {
+    // Admin and owner can delete any note, others can only delete their own
+    if (currentRole === 'admin' || currentRole === 'owner') {
+      return true;
+    }
     return isNoteOwner(note);
   };
 
