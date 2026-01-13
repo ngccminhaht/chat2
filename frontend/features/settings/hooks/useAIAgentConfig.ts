@@ -7,6 +7,7 @@ export interface AIAgentConfig {
   apiKey?: string;
   endpoint?: string;
   batchDelayMs?: number;
+  maxImages?: number;
 }
 
 export interface UpdateAIAgentDto {
@@ -14,6 +15,7 @@ export interface UpdateAIAgentDto {
   apiKey?: string;
   endpoint?: string;
   batchDelayMs?: number;
+  maxImages?: number;
 }
 
 export function useAIAgentConfig() {

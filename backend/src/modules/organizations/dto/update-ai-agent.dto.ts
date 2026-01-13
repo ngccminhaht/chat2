@@ -28,4 +28,10 @@ export class UpdateAIAgentDto {
   @Min(1000)
   @Max(30000)
   batchDelayMs?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(10)
+  maxImages?: number;
 }

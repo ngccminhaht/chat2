@@ -19,6 +19,7 @@ import {
   SmartToy as SmartToyIcon,
   Key as KeyIcon,
   Timer as TimerIcon,
+  Image as ImageIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
 } from "@mui/icons-material";
@@ -64,6 +65,7 @@ export default function AIAgentTab() {
     apiKey: "",
     endpoint: "https://api.miagent.io/v1/chat-messages",
     batchDelayMs: 3000,
+    maxImages: 3,
   });
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -75,6 +77,7 @@ export default function AIAgentTab() {
         apiKey: config.apiKey ?? "",
         endpoint: config.endpoint ?? "https://api.miagent.io/v1/chat-messages",
         batchDelayMs: config.batchDelayMs ?? 3000,
+        maxImages: config.maxImages ?? 3,
       });
     }
   }, [config]);
@@ -204,6 +207,33 @@ export default function AIAgentTab() {
                 ),
               }}
               helperText="Thời gian chờ để gộp nhiều tin nhắn thành 1 batch (1000-30000ms)"
+            />
+          </Box>
+        </Section>
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* Image Configuration */}
+        <Section
+          icon={<ImageIcon />}
+          title="Image Configuration"
+          description="Cấu hình số lượng ảnh tối đa gửi cho AI mỗi lần"
+        >
+          <Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Số lượng ảnh tối đa
+            </Typography>
+            <TextField
+              size="small"
+              type="number"
+              value={form.maxImages}
+              onChange={(e) =>
+                setForm({ ...form, maxImages: Number(e.target.value) })
+              }
+              InputProps={{
+                inputProps: { min: 1, max: 10 },
+              }}
+              helperText="Số lượng ảnh tối đa gửi cho AI trong mỗi request (1-10, mặc định: 3)"
             />
           </Box>
         </Section>
