@@ -75,12 +75,15 @@ export class MessageCombiner {
 
     sortedMessages.forEach((item, index) => {
       const { message, conversation } = item;
-      const platform = conversation.platform || message.platform;
+      // Get platform from conversation or message, with fallback
+      const platform = (conversation?.platform ||
+        (message as any)?.platform ||
+        "web") as string;
       const platformLabel = this.getPlatformLabel(platform);
       const sourcePrefix = `[${platformLabel}]`;
 
       // Only add source for inbound messages
-      const isInbound = message.direction === "inbound";
+      const isInbound = (message as any).direction === "inbound";
 
       // Extract text content (skip media link patterns like [image: ...])
       if (message.content?.text) {
@@ -90,7 +93,7 @@ export class MessageCombiner {
           /^\[(image|Image|video|Video|audio|Audio|file|File):\s*https?:\/\/.+\]$/i.test(
             text
           );
-        if (!isMediaLinkPattern) {
+        if (!isMediaLinkPattern && text) {
           // Add source prefix for inbound messages when sending to AI
           if (isInbound && !text.startsWith(sourcePrefix)) {
             text = `${sourcePrefix} ${text}`;
@@ -100,7 +103,7 @@ export class MessageCombiner {
             timestamp: (message as any).createdAt?.getTime() || Date.now(),
           });
         }
-      } else if (isInbound && message.type !== "text") {
+      } else if (isInbound && (message as any).type !== "text") {
         // For non-text inbound messages without text, add source with message type
         const typeLabels: Record<string, string> = {
           image: "Ảnh",
