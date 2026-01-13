@@ -67,6 +67,13 @@ export class AIBatchingService {
     const conversationId = conversation._id.toString();
     const organizationId = conversation.organizationId.toString();
 
+    this.logger.log(
+      `🔍 [AI Batch] onVisitorMessage called | ` +
+        `Message: ${message._id} | Conversation: ${conversationId} | ` +
+        `Org: ${organizationId} | Type: ${message.type} | ` +
+        `AI Enabled: ${conversation.aiEnabled} | AI State: ${conversation.aiState}`
+    );
+
     // Check if AI is enabled for this conversation
     if (conversation.aiEnabled === false) {
       this.logger.log(
@@ -77,6 +84,13 @@ export class AIBatchingService {
 
     // Check if AI agent is enabled for this organization
     const org = await this.organizationModel.findById(organizationId).lean();
+    this.logger.log(
+      `🔍 [AI Batch] Organization check | ` +
+        `Org found: ${!!org} | AI enabled: ${
+          org?.aiAgentSettings?.enabled
+        } | ` +
+        `API key: ${!!org?.aiAgentSettings?.apiKey}`
+    );
     if (!org?.aiAgentSettings?.enabled) {
       this.logger.log(
         `⏭️ [AI Batch] Skipping: AI agent disabled for org ${organizationId}`

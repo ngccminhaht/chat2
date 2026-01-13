@@ -44,8 +44,10 @@ export class AIBatchingProcessor extends WorkerHost {
     const jobStartTime = Date.now();
 
     this.logger.log(
-      `🔄 [AI Batch] Starting job ${job.id} | Conversation: ${conversationId} | ` +
+      `🔄 [AI Batch] ========== STARTING JOB ========== | ` +
+        `Job ID: ${job.id} | Conversation: ${conversationId} | ` +
         `Org: ${organizationId} | Messages: ${messageIds.length} | ` +
+        `Message IDs: ${messageIds.join(", ")} | ` +
         `Job attempts: ${job.attemptsMade + 1}`
     );
 

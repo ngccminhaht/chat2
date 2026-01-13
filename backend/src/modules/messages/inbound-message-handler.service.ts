@@ -401,10 +401,22 @@ export class InboundMessageHandlerService {
     conversation: ConversationDocument
   ): Promise<void> {
     try {
+      this.logger.log(
+        `🤖 [AI Trigger] Attempting to trigger AI batching | ` +
+          `Message: ${message._id} | Conversation: ${conversation._id} | ` +
+          `Direction: ${message.direction} | Type: ${message.type} | ` +
+          `AI Enabled: ${conversation.aiEnabled} | AI State: ${conversation.aiState}`
+      );
       await this.aiBatchingService.onVisitorMessage(message, conversation);
+      this.logger.log(
+        `✅ [AI Trigger] Successfully triggered AI batching for message ${message._id}`
+      );
     } catch (error) {
       // Non-blocking: log error but don't fail message processing
-      this.logger.error(`AI batching failed (non-blocking): ${error.message}`);
+      this.logger.error(
+        `❌ [AI Trigger] AI batching failed (non-blocking): ${error.message}`,
+        error.stack
+      );
     }
   }
 }
