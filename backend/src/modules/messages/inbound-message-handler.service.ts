@@ -245,6 +245,20 @@ export class InboundMessageHandlerService {
   }
 
   /**
+   * Get platform display name
+   */
+  private getPlatformLabel(platform: Platform): string {
+    const labels: Record<string, string> = {
+      facebook: "Facebook",
+      zalo: "Zalo",
+      tiktok: "TikTok",
+      shopee: "Shopee",
+      web: "Web",
+    };
+    return labels[platform] || platform;
+  }
+
+  /**
    * Save message using atomic upsert pattern
    * Handles deduplication and race conditions in a single operation
    */
@@ -252,6 +266,20 @@ export class InboundMessageHandlerService {
     input: InboundMessageInput,
     conversation: ConversationDocument
   ): Promise<{ message: MessageDocument; isNew: boolean }> {
+    // Add source to text content for inbound text messages
+    let content = { ...input.content };
+    if (
+      input.direction === MessageDirection.INBOUND &&
+      input.type === MessageType.TEXT &&
+      content.text &&
+      !content.text.startsWith(`[${this.getPlatformLabel(input.platform)}]`)
+    ) {
+      content = {
+        ...content,
+        text: `[${this.getPlatformLabel(input.platform)}] ${content.text}`,
+      };
+    }
+
     const messageData = {
       conversationId: conversation._id,
       organizationId: conversation.organizationId,
@@ -259,7 +287,7 @@ export class InboundMessageHandlerService {
       platformMessageId: input.platformMessageId,
       direction: input.direction,
       type: input.type,
-      content: input.content,
+      content: content,
       sender: input.sender,
       status: MessageStatus.SENT,
       metadata: input.metadata || {},
