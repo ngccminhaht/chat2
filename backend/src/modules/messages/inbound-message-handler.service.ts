@@ -245,20 +245,6 @@ export class InboundMessageHandlerService {
   }
 
   /**
-   * Get platform display name
-   */
-  private getPlatformLabel(platform: Platform): string {
-    const labels: Record<string, string> = {
-      facebook: "Facebook",
-      zalo: "Zalo",
-      tiktok: "TikTok",
-      shopee: "Shopee",
-      web: "Web",
-    };
-    return labels[platform] || platform;
-  }
-
-  /**
    * Save message using atomic upsert pattern
    * Handles deduplication and race conditions in a single operation
    */
@@ -266,55 +252,6 @@ export class InboundMessageHandlerService {
     input: InboundMessageInput,
     conversation: ConversationDocument
   ): Promise<{ message: MessageDocument; isNew: boolean }> {
-    // Add source to all inbound messages for AI processing
-    let content = { ...input.content };
-    const platformLabel = this.getPlatformLabel(input.platform);
-    const sourcePrefix = `[${platformLabel}]`;
-
-    if (input.direction === MessageDirection.INBOUND) {
-      if (input.type === MessageType.TEXT) {
-        // For text messages, add source prefix to text
-        if (content.text && !content.text.startsWith(sourcePrefix)) {
-          content = {
-            ...content,
-            text: `${sourcePrefix} ${content.text}`,
-          };
-        } else if (!content.text) {
-          // If no text, add source with message type
-          content = {
-            ...content,
-            text: `${sourcePrefix} [${input.type}]`,
-          };
-        }
-      } else {
-        // For non-text messages (image, video, file, etc.), add source to text if exists
-        // or create new text with source and message type
-        if (content.text) {
-          if (!content.text.startsWith(sourcePrefix)) {
-            content = {
-              ...content,
-              text: `${sourcePrefix} ${content.text}`,
-            };
-          }
-        } else {
-          // Add source prefix with message type for non-text messages
-          const typeLabels: Record<string, string> = {
-            image: "Ảnh",
-            video: "Video",
-            file: "File",
-            audio: "Audio",
-            sticker: "Sticker",
-            location: "Vị trí",
-          };
-          const typeLabel = typeLabels[input.type] || input.type;
-          content = {
-            ...content,
-            text: `${sourcePrefix} [${typeLabel}]`,
-          };
-        }
-      }
-    }
-
     const messageData = {
       conversationId: conversation._id,
       organizationId: conversation.organizationId,
@@ -322,7 +259,7 @@ export class InboundMessageHandlerService {
       platformMessageId: input.platformMessageId,
       direction: input.direction,
       type: input.type,
-      content: content,
+      content: input.content,
       sender: input.sender,
       status: MessageStatus.SENT,
       metadata: input.metadata || {},

@@ -32,6 +32,20 @@ export interface AIRequestData {
 
 export class MessageCombiner {
   /**
+   * Get platform display name
+   */
+  private static getPlatformLabel(platform: string): string {
+    const labels: Record<string, string> = {
+      facebook: "Facebook",
+      zalo: "Zalo",
+      tiktok: "TikTok",
+      shopee: "Shopee",
+      web: "Web",
+    };
+    return labels[platform] || platform;
+  }
+
+  /**
    * Combine batched messages into structured data
    */
   static combineMessages(
@@ -60,22 +74,47 @@ export class MessageCombiner {
     );
 
     sortedMessages.forEach((item, index) => {
-      const { message } = item;
+      const { message, conversation } = item;
+      const platform = conversation.platform || message.platform;
+      const platformLabel = this.getPlatformLabel(platform);
+      const sourcePrefix = `[${platformLabel}]`;
+
+      // Only add source for inbound messages
+      const isInbound = message.direction === "inbound";
 
       // Extract text content (skip media link patterns like [image: ...])
       if (message.content?.text) {
-        const text = message.content.text.trim();
+        let text = message.content.text.trim();
         // Skip if text is just a media link pattern (e.g., [image: ...], [Image: ...])
         const isMediaLinkPattern =
           /^\[(image|Image|video|Video|audio|Audio|file|File):\s*https?:\/\/.+\]$/i.test(
             text
           );
         if (!isMediaLinkPattern) {
+          // Add source prefix for inbound messages when sending to AI
+          if (isInbound && !text.startsWith(sourcePrefix)) {
+            text = `${sourcePrefix} ${text}`;
+          }
           texts.push({
             content: text,
             timestamp: (message as any).createdAt?.getTime() || Date.now(),
           });
         }
+      } else if (isInbound && message.type !== "text") {
+        // For non-text inbound messages without text, add source with message type
+        const typeLabels: Record<string, string> = {
+          image: "Ảnh",
+          video: "Video",
+          file: "File",
+          audio: "Audio",
+          sticker: "Sticker",
+          location: "Vị trí",
+        };
+        const typeLabel = typeLabels[message.type] || message.type;
+        texts.push({
+          content: `${sourcePrefix} [${typeLabel}]`,
+          timestamp: (message as any).createdAt?.getTime() || Date.now(),
+        });
       }
 
       // Extract image/media content
