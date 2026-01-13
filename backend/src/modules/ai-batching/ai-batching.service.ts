@@ -36,6 +36,7 @@ import {
   DEFAULT_AI_SETTINGS,
   AIState,
 } from "./dto/batch-job.dto";
+import { MessageType } from "@/common/constants";
 
 export const AI_BATCH_QUEUE = "ai-batch";
 
@@ -92,11 +93,19 @@ export class AIBatchingService {
     }
 
     // Get delay from org config or use default
-    const batchDelayMs =
+    const baseBatchDelayMs =
       org.aiAgentSettings?.batchDelayMs || DEFAULT_AI_SETTINGS.batchDelayMs;
 
     const jobId = `batch_${conversationId}`;
     const existingJob = await this.batchQueue.getJob(jobId);
+
+    // If message is image and no existing batch, skip (wait for text)
+    if (!existingJob && message.type === MessageType.IMAGE) {
+      this.logger.log(
+        `⏭️ [AI Batch] Skipping image-only message ${message._id} - waiting for text message`
+      );
+      return;
+    }
 
     if (existingJob) {
       // Extend existing batch with new message
@@ -105,26 +114,46 @@ export class AIBatchingService {
 
       // Remove and recreate with updated data (debounce)
       await existingJob.remove();
-      await this.createBatchJob(jobId, data, batchDelayMs);
+      await this.createBatchJob(jobId, data, baseBatchDelayMs);
 
       this.logger.debug(
-        `Extended batch ${jobId} with message ${message._id}, total: ${data.messageIds.length}`
+        `Extended batch ${jobId} with message ${message._id} (type: ${message.type}), ` +
+          `total: ${data.messageIds.length}, delay: ${baseBatchDelayMs}ms`
       );
     } else {
       // Create new batch
+      // If message is text, include all unsent images in conversation
+      let messageIds = [message._id.toString()];
+
+      if (message.type === MessageType.TEXT) {
+        const unsentImages = await this.getUnsentImages(conversationId);
+        if (unsentImages.length > 0) {
+          messageIds = [
+            ...unsentImages.map((img) => img._id.toString()),
+            ...messageIds,
+          ];
+          this.logger.log(
+            `📷 [AI Batch] Including ${unsentImages.length} unsent image(s) with text message`
+          );
+        }
+      }
+
       const data: BatchJobData = {
         conversationId,
         organizationId,
-        messageIds: [message._id.toString()],
+        messageIds,
         createdAt: Date.now(),
       };
 
-      await this.createBatchJob(jobId, data, batchDelayMs);
+      await this.createBatchJob(jobId, data, baseBatchDelayMs);
 
       // Update conversation state
       await this.updateAIState(conversationId, "BATCHING");
 
-      this.logger.log(`Created new batch ${jobId} for message ${message._id}`);
+      this.logger.log(
+        `Created new batch ${jobId} for message ${message._id} (type: ${message.type}), ` +
+          `total messages: ${messageIds.length}, delay: ${baseBatchDelayMs}ms`
+      );
     }
   }
 
@@ -184,6 +213,49 @@ export class AIBatchingService {
     await this.conversationModel.findByIdAndUpdate(conversationId, {
       aiState: state,
     });
+  }
+
+  /**
+   * Get all unsent image messages in conversation
+   * Images are marked as sent when included in a batch that's sent to AI
+   */
+  private async getUnsentImages(
+    conversationId: string
+  ): Promise<MessageDocument[]> {
+    return this.messageModel
+      .find({
+        conversationId: new Types.ObjectId(conversationId),
+        type: MessageType.IMAGE,
+        direction: "inbound",
+        $or: [
+          { "metadata.sentToAI": { $ne: true } },
+          { "metadata.sentToAI": { $exists: false } },
+        ],
+      })
+      .sort({ createdAt: 1 }) // Oldest first
+      .limit(10) // Max 10 images per batch
+      .exec();
+  }
+
+  /**
+   * Mark image messages as sent to AI
+   */
+  async markImagesAsSent(messageIds: Types.ObjectId[]): Promise<void> {
+    if (messageIds.length === 0) return;
+
+    await this.messageModel.updateMany(
+      {
+        _id: { $in: messageIds },
+        type: MessageType.IMAGE,
+      },
+      {
+        $set: { "metadata.sentToAI": true },
+      }
+    );
+
+    this.logger.debug(
+      `Marked ${messageIds.length} image message(s) as sent to AI`
+    );
   }
 
   /**

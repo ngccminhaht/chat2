@@ -6,7 +6,7 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger, Inject, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { Job } from "bullmq";
 import { AIBatchingService, AI_BATCH_QUEUE } from "./ai-batching.service";
 import { AIResponseService } from "./ai-response.service";
@@ -80,6 +80,19 @@ export class AIBatchingProcessor extends WorkerHost {
         `📝 [AI Batch] Found ${messages.length} pending messages for conversation ${conversationId}`
       );
 
+      // Check if batch has any text messages - skip if only images
+      const hasTextMessage = messages.some(
+        (msg) => msg.type === MessageType.TEXT
+      );
+      if (!hasTextMessage) {
+        this.logger.log(
+          `⏭️ [AI Batch] Skipping batch with only images (no text) - waiting for text message | ` +
+            `Conversation: ${conversationId}`
+        );
+        await this.batchingService.updateAIState(conversationId, "AI_ACTIVE");
+        return;
+      }
+
       // Get conversation and customer for AI request
       const conversation = await this.batchingService.getConversation(
         conversationId
@@ -119,6 +132,21 @@ export class AIBatchingProcessor extends WorkerHost {
           `✅ [AI Batch] AI response generated in ${aiCallDuration}ms | ` +
             `Conversation: ${conversationId} | Length: ${aiResponse.answer.length} chars`
         );
+
+        // Mark all image messages in batch as sent to AI
+        const imageMessages = messages.filter(
+          (msg) => msg.type === MessageType.IMAGE
+        );
+        if (imageMessages.length > 0) {
+          const imageIds = imageMessages.map(
+            (msg) => msg._id as Types.ObjectId
+          );
+          await this.batchingService.markImagesAsSent(imageIds);
+          this.logger.log(
+            `✅ [AI Batch] Marked ${imageMessages.length} image(s) as sent to AI`
+          );
+        }
+
         // Save AI response as message
         const {
           message,
