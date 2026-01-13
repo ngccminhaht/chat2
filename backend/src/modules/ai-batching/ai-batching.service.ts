@@ -77,7 +77,9 @@ export class AIBatchingService {
     // Check if AI is enabled for this conversation
     if (conversation.aiEnabled === false) {
       this.logger.log(
-        `⏭️ [AI Batch] Skipping: AI disabled for conversation ${conversationId}`
+        `⏭️ [AI Batch] Skipping: AI disabled for conversation ${conversationId} | ` +
+          `Reason: Agent has replied previously, AI is manually disabled. ` +
+          `To re-enable AI, agent needs to toggle it back on in the conversation settings.`
       );
       return;
     }
