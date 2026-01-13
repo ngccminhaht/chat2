@@ -232,8 +232,10 @@ export default function MessageList({
               <Paper
                 sx={{
                   p: 1.5,
-                  bgcolor: isOutbound ? "primary.main" : "background.paper",
+                  bgcolor: isOutbound ? "primary.main" : "grey.100",
                   color: isOutbound ? "primary.contrastText" : "text.primary",
+                  border: isOutbound ? "none" : "1px solid",
+                  borderColor: isOutbound ? "transparent" : "grey.300",
                   maxWidth: "100%",
                   overflow: "hidden", // Prevent content from overflowing
                   wordWrap: "break-word",
