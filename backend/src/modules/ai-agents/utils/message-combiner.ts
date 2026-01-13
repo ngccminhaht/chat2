@@ -27,7 +27,7 @@ export interface AIRequestData {
   response_mode: "blocking" | "streaming";
   user: string;
   conversation_id?: string;
-  files?: Array<{ type: string; url: string }>;
+  files?: Array<{ type: string; url: string; transfer_method?: string }>;
 }
 
 export class MessageCombiner {
@@ -250,6 +250,7 @@ export class MessageCombiner {
         .map((img) => ({
           type: img.type,
           url: img.url,
+          transfer_method: "url", // Required by MiAgent API
         }));
     }
 
