@@ -132,13 +132,15 @@ export class AIResponseService {
     }
 
     // Create AI request with customer info and files
+    const maxImages = org.aiAgentSettings?.maxImages || 3; // Get from org settings or default
     const requestData = MessageCombiner.createAIRequest(
       combinedData,
       {
         username: customer?.name || conversation.customerName,
         _id: customer?._id?.toString() || userId,
       },
-      customer || null
+      customer || null,
+      maxImages
     );
 
     // Add conversation continuity

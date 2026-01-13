@@ -1,11 +1,11 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type OrganizationDocument = Organization & Document;
 
 // Subscription billing info (future-proof for Stripe/Polar integration)
 export interface OrganizationSubscription {
-  status: 'active' | 'cancelled' | 'past_due' | 'trialing';
+  status: "active" | "cancelled" | "past_due" | "trialing";
   currentPeriodEnd?: Date;
   cancelAtPeriodEnd?: boolean;
   externalId?: string; // Stripe/Polar subscription ID
@@ -27,29 +27,30 @@ export interface AIAgentSettings {
   apiKey?: string; // API key for MiAgent
   endpoint?: string; // API endpoint (default: https://api.miagent.io/v1/chat-messages)
   batchDelayMs?: number; // Delay before AI responds (default: 3000ms)
+  maxImages?: number; // Maximum number of images to send per request (default: 3)
 }
 
 // Chat widget customization settings
 export interface WidgetSettings {
   // Appearance
-  buttonStyle?: 'circle' | 'pill' | 'square';
+  buttonStyle?: "circle" | "pill" | "square";
   buttonSize?: number;
-  buttonIcon?: 'chat' | 'message' | 'messenger' | 'custom';
+  buttonIcon?: "chat" | "message" | "messenger" | "custom";
   customIconUrl?: string;
-  position?: 'left' | 'right';
+  position?: "left" | "right";
   marginRight?: number;
   marginBottom?: number;
   marginBottomMobile?: number;
   // Colors
   primaryColor?: string;
-  textColor?: 'light' | 'dark';
+  textColor?: "light" | "dark";
   // Avatar
   avatarName?: string;
   avatarUrl?: string;
   // Window size
   windowHeightMobile?: number;
   windowHeight?: number;
-  windowHeightUnit?: '%' | 'px';
+  windowHeightUnit?: "%" | "px";
   // Messages
   greeting?: string;
   offlineMessage?: string;
@@ -61,10 +62,10 @@ export interface WidgetSettings {
 }
 
 export enum OrganizationPlan {
-  FREE = 'free',
-  STARTER = 'starter',
-  PRO = 'pro',
-  ENTERPRISE = 'enterprise',
+  FREE = "free",
+  STARTER = "starter",
+  PRO = "pro",
+  ENTERPRISE = "enterprise",
 }
 
 @Schema({ timestamps: true })
@@ -75,7 +76,7 @@ export class Organization {
   @Prop({ required: true, unique: true })
   slug: string; // URL-friendly identifier (e.g., "my-company")
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   owner: Types.ObjectId;
 
   // Billing (future-proof)

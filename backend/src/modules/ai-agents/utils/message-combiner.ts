@@ -121,7 +121,8 @@ export class MessageCombiner {
       facebookUserId?: string;
       pageId?: string;
     },
-    customer?: CustomerDocument | null
+    customer?: CustomerDocument | null,
+    maxImages?: number // Maximum number of images (from org settings, default: 3)
   ): AIRequestData {
     const { texts, images } = combinedData;
     let queryText = texts[0]?.content || "";
@@ -246,10 +247,10 @@ export class MessageCombiner {
     // Add files (images) if any
     // Wrap image URLs through middleware proxy
     if (images.length > 0) {
-      const maxImages = 6;
+      const maxImagesLimit = maxImages || 3; // Use org setting or default to 3
       const imagesToSend = images
         .sort((a, b) => a.order - b.order)
-        .slice(0, maxImages);
+        .slice(0, maxImagesLimit);
 
       requestData.files = imagesToSend.map((img) => {
         // Encode original URL to base64

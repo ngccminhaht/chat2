@@ -163,13 +163,15 @@ export class AIAPICallProcessor extends WorkerHost {
       }
 
       // Create AI request
+      const maxImages = org.aiAgentSettings?.maxImages || 3; // Get from org settings or default
       const requestData = MessageCombiner.createAIRequest(
         combinedData,
         {
           username: customer?.name || conversation.customerName,
           _id: customer?._id?.toString() || userId,
         },
-        customer
+        customer,
+        maxImages
       );
 
       // Add conversation continuity
