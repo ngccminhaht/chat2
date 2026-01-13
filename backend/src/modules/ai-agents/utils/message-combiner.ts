@@ -244,14 +244,25 @@ export class MessageCombiner {
     requestData.query = customerInfoPrefix + queryText;
 
     // Add files (images) if any
+    // Wrap image URLs through middleware proxy
     if (images.length > 0) {
-      requestData.files = images
+      const maxImages = 6;
+      const imagesToSend = images
         .sort((a, b) => a.order - b.order)
-        .map((img) => ({
-          type: img.type,
-          url: img.url,
-          transfer_method: "remote_url", // Required by MiAgent API (must be "remote_url" not "url")
-        }));
+        .slice(0, maxImages);
+
+      requestData.files = imagesToSend.map((img) => {
+        // Encode original URL to base64
+        const base64URL = Buffer.from(img.url, "utf8").toString("base64");
+        // Wrap through middleware proxy
+        const proxiedUrl = `https://middleware.ictuer.workers.dev/tuha${base64URL}.webp`;
+
+        return {
+          type: "image",
+          transfer_method: "remote_url", // Required by MiAgent API
+          url: proxiedUrl,
+        };
+      });
     }
 
     return requestData;
