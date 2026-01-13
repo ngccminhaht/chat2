@@ -250,7 +250,7 @@ export class MessageCombiner {
         .map((img) => ({
           type: img.type,
           url: img.url,
-          transfer_method: "url", // Required by MiAgent API
+          transfer_method: "remote_url", // Required by MiAgent API (must be "remote_url" not "url")
         }));
     }
 

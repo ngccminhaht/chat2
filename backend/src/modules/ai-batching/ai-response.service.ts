@@ -173,8 +173,25 @@ export class AIResponseService {
       `🤖 [AI API Call] Conversation: ${conversationId} | Org: ${organizationId} | ` +
         `Endpoint: ${apiEndpoint} | Query length: ${
           requestData.query?.length || 0
-        } chars | Has conversation_id: ${!!requestData.conversation_id}`
+        } chars | Has conversation_id: ${!!requestData.conversation_id} | ` +
+        `Files: ${requestData.files?.length || 0}`
     );
+
+    // Log files detail for debugging
+    if (requestData.files && requestData.files.length > 0) {
+      this.logger.debug(
+        `📎 [AI API Call] Files to send:`,
+        JSON.stringify(
+          requestData.files.map((f) => ({
+            type: f.type,
+            url: f.url?.substring(0, 100) + "...",
+            transfer_method: f.transfer_method,
+          })),
+          null,
+          2
+        )
+      );
+    }
 
     try {
       const startTime = Date.now();
@@ -289,6 +306,33 @@ export class AIResponseService {
     } catch (error: any) {
       // Categorize error for better logging
       const aiError = categorizeAIError(error);
+
+      // Log detailed error response
+      if (error.response?.data) {
+        this.logger.error(
+          `❌ [AI API Call] Error response body:`,
+          typeof error.response.data === "string"
+            ? error.response.data
+            : JSON.stringify(error.response.data, null, 2)
+        );
+      }
+
+      // Log request body for debugging
+      if (error.response?.status === 400) {
+        this.logger.error(
+          `❌ [AI API Call] Request body that caused 400:`,
+          JSON.stringify(
+            {
+              query: requestData.query?.substring(0, 200),
+              files: requestData.files,
+              hasFiles: !!requestData.files?.length,
+              filesCount: requestData.files?.length || 0,
+            },
+            null,
+            2
+          )
+        );
+      }
 
       this.logger.error(
         `❌ [AI API Call] Failed | Conversation: ${conversationId} | ` +
