@@ -27,10 +27,17 @@ export function MessageBubble({ message, config, onRetry }: MessageBubbleProps):
 
   return (
     <div
-      class={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed flex flex-col gap-1 miagent-animate-fade-in ${bubbleClasses} ${statusClasses}`}
+      class={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed flex flex-col gap-1 miagent-animate-fade-in overflow-hidden ${bubbleClasses} ${statusClasses}`}
       style={bubbleStyle}
     >
-      {message.content && <span>{message.content}</span>}
+      {message.content && (
+        <span
+          class="break-words max-w-full"
+          style="word-break: break-all; overflow-wrap: anywhere;"
+        >
+          {message.content}
+        </span>
+      )}
 
       {message.mediaUrl && (
         <img

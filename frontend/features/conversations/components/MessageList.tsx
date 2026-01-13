@@ -216,6 +216,7 @@ export default function MessageList({
               sx={{
                 maxWidth: "70%",
                 minWidth: 0, // Allow flexbox to shrink below content size
+                overflow: "hidden", // Prevent content from overflowing
               }}
             >
               {!isOutbound && (
@@ -234,9 +235,10 @@ export default function MessageList({
                   bgcolor: isOutbound ? "primary.main" : "background.paper",
                   color: isOutbound ? "primary.contrastText" : "text.primary",
                   maxWidth: "100%",
+                  overflow: "hidden", // Prevent content from overflowing
                   wordWrap: "break-word",
-                  overflowWrap: "break-word",
-                  wordBreak: "break-word",
+                  overflowWrap: "anywhere", // Break even without spaces
+                  wordBreak: "break-all", // Break at any character when needed
                 }}
               >
                 {message.type === "text" && (
@@ -244,9 +246,11 @@ export default function MessageList({
                     variant="body1"
                     sx={{
                       wordWrap: "break-word",
-                      overflowWrap: "break-word",
-                      wordBreak: "break-word",
+                      overflowWrap: "anywhere", // Break even without spaces
+                      wordBreak: "break-all", // Break at any character when needed
                       whiteSpace: "pre-wrap",
+                      overflow: "hidden",
+                      maxWidth: "100%",
                     }}
                   >
                     {message.content.text}
@@ -275,9 +279,11 @@ export default function MessageList({
                           sx={{
                             mt: 1,
                             wordWrap: "break-word",
-                            overflowWrap: "break-word",
-                            wordBreak: "break-word",
+                            overflowWrap: "anywhere", // Break even without spaces
+                            wordBreak: "break-all", // Break at any character when needed
                             whiteSpace: "pre-wrap",
+                            overflow: "hidden",
+                            maxWidth: "100%",
                           }}
                         >
                           {message.content.text}
