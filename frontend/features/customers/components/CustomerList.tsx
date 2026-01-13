@@ -70,7 +70,7 @@ const platformColors: Record<
   zalo: "info",
   tiktok: "secondary",
   shopee: "error",
-  web: "default",
+  web: "info",
 };
 
 function getPlatformLabel(platform: string): string {
@@ -267,7 +267,7 @@ export default function CustomerList({ onSelectCustomer }: CustomerListProps) {
                               label={getPlatformLabel(identity.platform)}
                               size="small"
                               color={
-                                platformColors[identity.platform] || "default"
+                                platformColors[identity.platform] || "info"
                               }
                               variant="outlined"
                             />
