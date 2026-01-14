@@ -15,6 +15,7 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { Platform } from "@/common/constants";
 import {
   Conversation,
   ConversationDocument,
