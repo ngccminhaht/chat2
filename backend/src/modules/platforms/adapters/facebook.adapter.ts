@@ -219,7 +219,11 @@ export class FacebookAdapter extends BasePlatformAdapter {
       return null;
     }
 
-    const commenterId = value.sender_id;
+    // Facebook can send comment events in different formats:
+    // Format 1: sender_id, sender_name (older format)
+    // Format 2: from.id, from.name (newer format)
+    const commenterId = value.sender_id || value.from?.id;
+    const commenterName = value.sender_name || value.from?.name;
     const commentId = value.comment_id;
     const postId = value.post_id;
 
@@ -227,6 +231,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
       this.logger.warn(
         `Comment event missing required fields: commenterId=${commenterId}, postId=${postId}`
       );
+      this.logger.warn(`Full value: ${JSON.stringify(value)}`);
       return null;
     }
 
@@ -235,11 +240,13 @@ export class FacebookAdapter extends BasePlatformAdapter {
       ...value,
       postId: postId, // Add camelCase version
       post_id: postId, // Keep snake_case version
+      sender_id: commenterId, // Normalize to sender_id for consistency
+      sender_name: commenterName, // Normalize to sender_name for consistency
       isComment: true,
     };
 
     this.logger.log(
-      `Parsing comment event: postId=${postId}, commenterId=${commenterId}, commentId=${commentId}`
+      `✅ Parsing comment event: postId=${postId}, commenterId=${commenterId}, commenterName=${commenterName}, commentId=${commentId}`
     );
 
     // Return as PlatformEvent with message-like properties for unified processing

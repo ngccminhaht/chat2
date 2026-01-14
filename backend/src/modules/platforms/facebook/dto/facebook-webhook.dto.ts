@@ -1,5 +1,5 @@
 export interface FacebookWebhookDto {
-  object: 'page';
+  object: "page";
   entry: FacebookEntry[];
 }
 
@@ -11,7 +11,7 @@ export interface FacebookEntry {
 }
 
 export interface FacebookChange {
-  field: 'feed' | 'comments' | string; // Event type
+  field: "feed" | "comments" | string; // Event type
   value: FacebookChangeValue;
 }
 
@@ -19,11 +19,17 @@ export interface FacebookChangeValue {
   post_id?: string; // For feed events
   comment_id?: string; // For comments
   object?: string; // 'post', 'comment'
-  verb?: 'add' | 'edit' | 'remove'; // Action type
-  sender_id?: string; // User who commented
-  sender_name?: string;
+  verb?: "add" | "edit" | "remove"; // Action type
+  sender_id?: string; // User who commented (older format)
+  sender_name?: string; // User name (older format)
+  from?: {
+    id: string; // User who commented (newer format)
+    name: string; // User name (newer format)
+  };
   message?: string; // Comment text
   created_time?: number;
+  item?: string; // 'comment', 'post', etc.
+  parent_id?: string; // Parent post/comment ID
   [key: string]: any; // Allow other fields
 }
 
@@ -54,7 +60,7 @@ export interface FacebookMessage {
 }
 
 export interface FacebookAttachment {
-  type: 'image' | 'video' | 'file' | 'audio' | 'location' | 'fallback';
+  type: "image" | "video" | "file" | "audio" | "location" | "fallback";
   payload: {
     url?: string;
     sticker_id?: string;
@@ -106,7 +112,7 @@ export class FacebookCallbackDto {
 
 export interface FacebookTokenResponse {
   access_token: string;
-  token_type: 'bearer';
+  token_type: "bearer";
   expires_in?: number;
 }
 
