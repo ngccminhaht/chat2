@@ -124,19 +124,43 @@ export class MessageSenderConsumer {
         return;
       }
 
-      // 2.5. Check if this is a comment conversation (Facebook post comments)
-      // For comment conversations, we need to reply to comment instead of sending message
+      // 2.5. Check if the last message is a comment (Facebook post comments)
+      // Only reply via comment if the last inbound message is actually a comment
+      // Since inbox and comments are merged into one conversation, we need to check the message itself
       if (event.platform === Platform.FACEBOOK) {
         const conversation = await this.conversationModel
           .findById(event.conversationId)
           .exec();
 
-        if (conversation?.metadata?.type === "post_comments") {
+        if (!conversation) {
+          this.logger.warn(`Conversation ${event.conversationId} not found`);
+          return;
+        }
+
+        // Get the last inbound message to check if it's a comment
+        const lastInboundMessage = await this.messageModel
+          .findOne({
+            conversationId: conversation._id,
+            direction: "inbound",
+          })
+          .sort({ createdAt: -1 })
+          .exec();
+
+        // Check if last message is actually a comment (not just conversation metadata)
+        const messageMetadata = lastInboundMessage?.metadata || {};
+        const rawPayload = messageMetadata.rawPayload || {};
+        const isLastMessageComment = 
+          messageMetadata.isComment || 
+          rawPayload.isComment || 
+          lastInboundMessage?.type === "comment" ||
+          false;
+
+        if (isLastMessageComment) {
           this.logger.log(
-            `💬 Detected comment conversation, will reply to comment instead of sending message`
+            `💬 Last message is a comment, will reply to comment instead of sending message`
           );
           this.logger.log(
-            `  Conversation metadata: ${JSON.stringify(conversation.metadata)}`
+            `  Last message: ${lastInboundMessage?._id}, type: ${lastInboundMessage?.type}, isComment: ${isLastMessageComment}`
           );
 
           // Try multiple sources for comment_id:
@@ -147,14 +171,6 @@ export class MessageSenderConsumer {
           let originalCommentId = commentId; // Store original for logging
 
           if (!commentId) {
-            // Get the last inbound message (comment) to get comment_id
-            const lastInboundMessage = await this.messageModel
-              .findOne({
-                conversationId: conversation._id,
-                direction: "inbound",
-              })
-              .sort({ createdAt: -1 })
-              .exec();
 
             this.logger.log(
               `  Last inbound message: ${lastInboundMessage?._id}, platformMessageId: ${lastInboundMessage?.platformMessageId}`
