@@ -224,6 +224,10 @@ export class MessageCombiner {
     if (customer) {
       customerEmail = customer.email;
       customerPhone = customer.phone;
+      // Get gender from customer if available
+      if ((customer as any).gender) {
+        customerGender = (customer as any).gender;
+      }
     }
 
     // Add Zalo profile information from conversation metadata if available
@@ -298,10 +302,19 @@ export class MessageCombiner {
 
       // Store full Zalo profile for additional context
       requestData.inputs.zalo_profile = zaloProfile;
-    } else {
-      console.log(
-        "⚠️ [MessageCombiner] No Zalo profile found in conversation metadata"
-      );
+    } else if (conversation?.platform === "facebook") {
+      // For Facebook, try to get gender from conversation metadata or customer
+      // Facebook gender is stored in userProfile metadata when fetched
+      const facebookProfile = conversation.metadata?.facebookProfile as
+        | Record<string, any>
+        | undefined;
+
+      if (facebookProfile?.gender) {
+        customerGender = facebookProfile.gender;
+      } else if (!customerGender && conversation.customerName) {
+        // Try to get from customer if available (gender might be stored in customFields)
+        // This is a fallback - ideally gender should be in metadata
+      }
     }
 
     // Build customer context string for AI

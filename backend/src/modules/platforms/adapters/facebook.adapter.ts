@@ -465,7 +465,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
             Authorization: `Bearer ${accessToken}`,
           },
           params: {
-            fields: "id,name,picture.width(200).height(200)",
+            fields: "id,name,picture.width(200).height(200),gender",
           },
         }
       );
@@ -478,10 +478,25 @@ export class FacebookAdapter extends BasePlatformAdapter {
       const avatarUrl =
         response.data.picture?.data?.url || response.data.profile_pic;
 
+      // Convert Facebook gender to Vietnamese format
+      // Facebook returns: "male", "female", or custom values
+      let gender: string | undefined;
+      if (response.data.gender) {
+        const fbGender = response.data.gender.toLowerCase();
+        if (fbGender === "male") {
+          gender = "Nam";
+        } else if (fbGender === "female") {
+          gender = "Nữ";
+        } else {
+          gender = "Khác";
+        }
+      }
+
       return {
         id: response.data.id,
         name: response.data.name,
         avatar: avatarUrl,
+        gender: gender,
       };
     } catch (error) {
       this.logger.warn(

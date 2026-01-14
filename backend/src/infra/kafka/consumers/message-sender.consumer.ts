@@ -152,7 +152,6 @@ export class MessageSenderConsumer {
         const isLastMessageComment = 
           messageMetadata.isComment || 
           rawPayload.isComment || 
-          lastInboundMessage?.type === "comment" ||
           false;
 
         if (isLastMessageComment) {

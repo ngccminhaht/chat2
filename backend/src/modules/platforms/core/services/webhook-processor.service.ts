@@ -325,11 +325,22 @@ export class WebhookProcessorService {
 
     // 4. Process via shared handler (conversation CRUD + message save + AI batching)
     // Merge userProfile metadata (e.g., Zalo profile data) and post content into message metadata
+    // Also include Facebook profile data (gender, etc.) in metadata
     const mergedMetadata = {
       ...normalized.metadata,
       ...(userProfile.metadata || {}), // Include Zalo profile data if available
       ...(postContent ? { postContent } : {}), // Include post content for AI context
     };
+
+    // For Facebook, store profile data in userProfileMetadata to save to conversation
+    let userProfileMetadata: Record<string, unknown> | undefined;
+    if (adapter.platform === Platform.FACEBOOK && userProfile.gender) {
+      userProfileMetadata = {
+        facebookProfile: {
+          gender: userProfile.gender,
+        },
+      };
+    }
 
     if (isComment) {
       this.logger.log(`  📤 Calling processInboundMessage for comment...`);
@@ -359,7 +370,8 @@ export class WebhookProcessorService {
       platformConnectionId: connection._id.toString(),
       platformAccountId: connection.platformAccountId,
       // Pass userProfile metadata for saving to conversation/customer
-      userProfileMetadata: userProfile.metadata,
+      // Include Facebook profile data (gender) if available
+      userProfileMetadata: userProfileMetadata,
     });
 
     // Skip if duplicate
