@@ -90,7 +90,8 @@ export class WebhookProcessorService {
         result.success = false;
         const errorMsg = `Platform connection not found: ${platform}:${accountId}`;
         result.errors.push(errorMsg);
-        this.logger.error(`❌ ${errorMsg}`);
+        // Use debug instead of error - this is expected when page is not connected
+        this.logger.debug(`⏭️ ${errorMsg}`);
         return result;
       }
 
