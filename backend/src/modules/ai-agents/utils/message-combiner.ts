@@ -33,11 +33,12 @@ export interface AIRequestData {
 export class MessageCombiner {
   /**
    * Get platform display name
-   * For Facebook, distinguish between COMMENT and INBOX
+   * For Facebook, distinguish between COMMENT and INBOX based on message metadata
    */
   private static getPlatformLabel(
     platform: string,
-    conversation?: ConversationDocument
+    conversation?: ConversationDocument,
+    message?: MessageDocument
   ): string {
     const labels: Record<string, string> = {
       facebook: "Facebook",
@@ -46,15 +47,29 @@ export class MessageCombiner {
       shopee: "Shopee",
       web: "Web",
     };
-    
+
     const baseLabel = labels[platform] || platform;
-    
-    // For Facebook, add COMMENT or INBOX suffix
-    if (platform === "facebook" && conversation) {
-      const isComment = conversation.metadata?.type === "post_comments";
+
+    // For Facebook, check if this specific message is a comment
+    // Check message metadata first (more accurate), then fallback to conversation metadata
+    if (platform === "facebook") {
+      let isComment = false;
+
+      if (message) {
+        // Check message metadata for isComment flag
+        const messageMetadata = (message as any).metadata || {};
+        const rawPayload = messageMetadata.rawPayload || {};
+        isComment = messageMetadata.isComment || rawPayload.isComment || false;
+      }
+
+      // Fallback to conversation metadata if message doesn't have the flag
+      if (!isComment && conversation) {
+        isComment = conversation.metadata?.type === "post_comments";
+      }
+
       return isComment ? "FACEBOOK:COMMENT" : "FACEBOOK:INBOX";
     }
-    
+
     return baseLabel;
   }
 
@@ -92,7 +107,11 @@ export class MessageCombiner {
       const platform = (conversation?.platform ||
         (message as any)?.platform ||
         "web") as string;
-      const platformLabel = this.getPlatformLabel(platform, conversation);
+      const platformLabel = this.getPlatformLabel(
+        platform,
+        conversation,
+        message
+      );
       const sourcePrefix = `[from: ${platformLabel}]`;
 
       // Only add source for inbound messages
@@ -220,13 +239,21 @@ export class MessageCombiner {
     });
 
     // Add Facebook post content to query for comment conversations
-    if (conversation?.metadata?.type === "post_comments" && conversation?.metadata?.postContent) {
-      const postContent = conversation.metadata.postContent as { message?: string; story?: string };
+    if (
+      conversation?.metadata?.type === "post_comments" &&
+      conversation?.metadata?.postContent
+    ) {
+      const postContent = conversation.metadata.postContent as {
+        message?: string;
+        story?: string;
+      };
       const postText = postContent.message || postContent.story;
       if (postText) {
         // Prepend post content to query so AI knows the context
-        queryText = `[Bài viết gốc: ${postText}]\n\n[Khách hàng comment]: ${queryText}`;
-        console.log(`📄 [MessageCombiner] Added post content to AI context for comment conversation`);
+        queryText = `[Bài viết gốc: ${postText}]\n\n ${queryText}`;
+        console.log(
+          `📄 [MessageCombiner] Added post content to AI context for comment conversation`
+        );
       }
     }
 
