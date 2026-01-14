@@ -235,20 +235,22 @@ export class FacebookAdapter extends BasePlatformAdapter {
       return null;
     }
 
-    // Skip comments from the page itself ONLY if it's a reply to another comment
-    // (AI/agent replies create new comments with parent_id)
-    // Allow page comments on posts directly (for testing/manual comments)
+    // Skip comments from the page itself ONLY if it's a reply to another comment (not the post)
+    // parent_id can be either:
+    // - post_id (when commenting directly on post) → ALLOW (top-level comment)
+    // - comment_id (when replying to another comment) → SKIP (AI/agent reply)
+    // We check if parent_id === post_id to determine if it's a top-level comment
     if (commenterId === pageId) {
-      const isReply = value.parent_id || (value.item === 'comment' && value.comment_id !== value.post_id);
-      if (isReply) {
+      const isReplyToComment = value.parent_id && value.parent_id !== postId;
+      if (isReplyToComment) {
         this.logger.log(
-          `⏭️ Skipping comment reply from page itself: commenterId=${commenterId} (pageId=${pageId}), parent_id=${value.parent_id}, item=${value.item} - this is likely a reply from AI/agent`
+          `⏭️ Skipping comment reply from page itself: commenterId=${commenterId} (pageId=${pageId}), parent_id=${value.parent_id}, post_id=${postId} - this is a reply to another comment (AI/agent reply)`
         );
         return null;
       }
-      // Allow top-level comments from page (for testing)
+      // Allow top-level comments from page (parent_id === post_id or no parent_id)
       this.logger.log(
-        `💬 Allowing top-level comment from page: commenterId=${commenterId} (pageId=${pageId}) - this is a direct comment on post, not a reply`
+        `💬 Allowing top-level comment from page: commenterId=${commenterId} (pageId=${pageId}), parent_id=${value.parent_id}, post_id=${postId} - this is a direct comment on post`
       );
     }
 

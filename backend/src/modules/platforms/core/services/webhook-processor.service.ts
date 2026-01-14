@@ -211,19 +211,20 @@ export class WebhookProcessorService {
 
     // Skip echo messages (sent by the page itself)
     // For regular messages: skip if senderId === pageId
-    // For comments: only skip if it's a reply (parent_id exists) from page
+    // For comments: only skip if it's a reply to another comment (not the post)
+    // parent_id can be post_id (top-level comment) or comment_id (reply to comment)
     // This prevents saving AI/agent replies but allows page comments on posts (for testing)
     if (senderId === connection.platformAccountId) {
       if (isComment) {
-        // Only skip if it's a reply to another comment (AI/agent reply)
-        // Check parent_id or if item is 'comment' and comment_id != post_id
-        const isReply = rawPayload?.parent_id || (rawPayload?.item === 'comment' && rawPayload?.comment_id !== rawPayload?.post_id);
-        if (isReply) {
-          this.logger.log(`⏭️ Skipping comment reply from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}), parent_id=${rawPayload?.parent_id}, item=${rawPayload?.item} - this is likely a reply from AI/agent`);
+        // Only skip if parent_id exists and is NOT the post_id (meaning it's a reply to another comment)
+        const postId = rawPayload?.post_id || rawPayload?.postId;
+        const isReplyToComment = rawPayload?.parent_id && rawPayload?.parent_id !== postId;
+        if (isReplyToComment) {
+          this.logger.log(`⏭️ Skipping comment reply from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}), parent_id=${rawPayload?.parent_id}, post_id=${postId} - this is a reply to another comment (AI/agent reply)`);
           return false;
         }
-        // Allow page comments on posts directly (for testing/manual comments)
-        this.logger.log(`💬 Processing top-level comment from page on post (not a reply): senderId=${senderId}`);
+        // Allow top-level comments from page (parent_id === post_id or no parent_id)
+        this.logger.log(`💬 Processing top-level comment from page on post: senderId=${senderId}, parent_id=${rawPayload?.parent_id}, post_id=${postId}`);
       } else {
         this.logger.log(`⏭️ Skipping echo message from page: ${senderId}`);
         return false;
