@@ -51,23 +51,83 @@ export class MessageCombiner {
     const baseLabel = labels[platform] || platform;
 
     // For Facebook, check if this specific message is a comment
-    // Check message metadata first (more accurate), then fallback to conversation metadata
+    // ONLY check message metadata - do NOT use conversation metadata as fallback
+    // Because inbox and comments share the same conversation, conversation metadata
+    // will always have type: "post_comments" if there was a comment before
     if (platform === "facebook") {
       let isComment = false;
 
       if (message) {
-        // Check message metadata for isComment flag
+        // Check message metadata for isComment flag - this is the ONLY source of truth
         const messageMetadata = (message as any).metadata || {};
         const rawPayload = messageMetadata.rawPayload || {};
-        isComment = messageMetadata.isComment || rawPayload.isComment || false;
+
+        // Explicitly check for true (not just truthy) to avoid false positives
+        // If isComment is undefined or false, treat as inbox message
+        isComment =
+          messageMetadata.isComment === true ||
+          rawPayload.isComment === true ||
+          false;
+
+        // #region agent log
+        fetch(
+          "http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              location: "message-combiner.ts:62",
+              message:
+                "[FIX] Checking message metadata for isComment (NO fallback)",
+              data: {
+                messageId: message._id?.toString(),
+                hasMetadata: !!messageMetadata,
+                metadataIsComment: messageMetadata.isComment,
+                rawPayloadIsComment: rawPayload.isComment,
+                isCommentResult: isComment,
+                conversationType: conversation?.metadata?.type,
+                note: "Not using conversation metadata as fallback",
+              },
+              timestamp: Date.now(),
+              sessionId: "debug-session",
+              runId: "post-fix",
+              hypothesisId: "FIX",
+            }),
+          }
+        ).catch(() => {});
+        // #endregion
       }
 
-      // Fallback to conversation metadata if message doesn't have the flag
-      if (!isComment && conversation) {
-        isComment = conversation.metadata?.type === "post_comments";
-      }
+      // DO NOT fallback to conversation metadata - it's unreliable
+      // If message doesn't have isComment flag, default to INBOX (not COMMENT)
+      const finalLabel = isComment ? "FACEBOOK:COMMENT" : "FACEBOOK:INBOX";
 
-      return isComment ? "FACEBOOK:COMMENT" : "FACEBOOK:INBOX";
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "message-combiner.ts:74",
+            message: "[FIX] Final platform label decision",
+            data: {
+              messageId: message?._id?.toString(),
+              conversationId: conversation?._id?.toString(),
+              isComment,
+              platformLabel: finalLabel,
+              note: "Based only on message metadata, no conversation fallback",
+            },
+            timestamp: Date.now(),
+            sessionId: "debug-session",
+            runId: "post-fix",
+            hypothesisId: "FIX",
+          }),
+        }
+      ).catch(() => {});
+      // #endregion
+
+      return finalLabel;
     }
 
     return baseLabel;

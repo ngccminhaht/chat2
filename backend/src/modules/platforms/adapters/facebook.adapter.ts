@@ -152,6 +152,12 @@ export class FacebookAdapter extends BasePlatformAdapter {
       const messageType = this.determineMessageType(messaging.message);
       const content = this.extractMessageContent(messaging.message);
 
+      // Ensure inbox messages have isComment: false explicitly
+      const rawPayload = {
+        ...messaging,
+        isComment: false, // Explicitly mark as inbox message (not comment)
+      };
+
       return {
         type: "message",
         senderId,
@@ -160,7 +166,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
         messageId: messaging.message.mid,
         messageType,
         content,
-        rawPayload: messaging,
+        rawPayload,
       } as MessageEvent;
     }
 
@@ -328,7 +334,35 @@ export class FacebookAdapter extends BasePlatformAdapter {
       event.rawPayload
     );
 
-    return {
+    const rawPayload = event.rawPayload as any;
+    const isComment = rawPayload?.isComment || false;
+
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "facebook.adapter.ts:330",
+        message: "[H4] normalizeMessage - extracting isComment",
+        data: {
+          messageId: event.messageId,
+          hasRawPayload: !!rawPayload,
+          rawPayloadIsComment: rawPayload?.isComment,
+          isComment,
+          rawPayloadKeys: rawPayload
+            ? Object.keys(rawPayload).slice(0, 10)
+            : [],
+        },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        runId: "run1",
+        hypothesisId: "H4",
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    const normalized = {
+      platform: this.platform,
       platformMessageId: event.messageId,
       conversationKey,
       direction: MessageDirection.INBOUND,
@@ -339,8 +373,31 @@ export class FacebookAdapter extends BasePlatformAdapter {
       timestamp: event.timestamp,
       metadata: {
         rawPayload: event.rawPayload,
+        isComment: isComment, // Explicitly set isComment flag
       },
     };
+
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "facebook.adapter.ts:350",
+        message: "[H4] normalizeMessage - normalized metadata",
+        data: {
+          messageId: event.messageId,
+          normalizedMetadataIsComment: normalized.metadata.isComment,
+          normalizedMetadataKeys: Object.keys(normalized.metadata),
+        },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        runId: "run1",
+        hypothesisId: "H4",
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    return normalized;
   }
 
   getConversationKey(
