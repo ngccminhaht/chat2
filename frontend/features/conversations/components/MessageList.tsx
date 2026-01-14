@@ -9,12 +9,15 @@ import {
   Stack,
   Link,
   CircularProgress,
+  Chip,
 } from "@mui/material";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import CheckIcon from "@mui/icons-material/Check";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import CommentIcon from "@mui/icons-material/Comment";
+import InboxIcon from "@mui/icons-material/Inbox";
 import { format } from "date-fns";
 import { Message, MessageContent } from "../types/conversation.types";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
@@ -192,6 +195,14 @@ export default function MessageList({
       )}
       {messages.map((message) => {
         const isOutbound = message.direction === "outbound";
+        // Check if this is a Facebook message and determine source (COMMENT/INBOX)
+        const isFacebook = message.platform === "facebook";
+        const isComment =
+          isFacebook &&
+          !isOutbound &&
+          (message.metadata?.isComment === true ||
+            message.metadata?.rawPayload?.isComment === true);
+        const messageSource = isComment ? "COMMENT" : "INBOX";
 
         return (
           <Stack
@@ -220,13 +231,30 @@ export default function MessageList({
               }}
             >
               {!isOutbound && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
-                >
-                  {message.sender.name}
-                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1 }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                  >
+                    {message.sender.name}
+                  </Typography>
+                  {isFacebook && !isOutbound && (
+                    <Chip
+                      icon={isComment ? <CommentIcon /> : <InboxIcon />}
+                      label={messageSource}
+                      size="small"
+                      sx={{
+                        height: 18,
+                        fontSize: "0.65rem",
+                        "& .MuiChip-icon": {
+                          fontSize: "0.75rem",
+                        },
+                      }}
+                      color={isComment ? "secondary" : "default"}
+                      variant="outlined"
+                    />
+                  )}
+                </Box>
               )}
 
               <Paper
