@@ -73,32 +73,64 @@ export class FacebookAdapter extends BasePlatformAdapter {
     const events: PlatformEvent[] = [];
 
     if (fbPayload.object !== "page") {
+      this.logger.warn(`Skipping non-page webhook object: ${fbPayload.object}`);
       return events;
     }
+
+    this.logger.log(`🔍 Extracting events from Facebook webhook`);
+    this.logger.log(`  Entries: ${fbPayload.entry?.length || 0}`);
 
     for (const entry of fbPayload.entry || []) {
       const pageId = entry.id;
       const timestamp = new Date(entry.time);
 
+      this.logger.log(
+        `  Processing entry: Page ${pageId}, Time: ${timestamp.toISOString()}`
+      );
+
       // Process messaging events
+      const messagingCount = entry.messaging?.length || 0;
+      if (messagingCount > 0) {
+        this.logger.log(`    📨 Found ${messagingCount} messaging events`);
+      }
       for (const messaging of entry.messaging || []) {
         const event = this.parseMessagingEvent(messaging, pageId, timestamp);
         if (event) {
           events.push(event);
+          this.logger.log(`      ✅ Parsed messaging event: ${event.type}`);
         }
       }
 
       // Process feed/comments events
+      const changesCount = entry.changes?.length || 0;
+      if (changesCount > 0) {
+        this.logger.log(`    🔄 Found ${changesCount} changes events`);
+      }
       for (const change of entry.changes || []) {
+        this.logger.log(`      Change field: ${change.field}`);
         if (change.field === "comments" || change.field === "feed") {
+          this.logger.log(`      💬 Processing comment/feed event:`);
+          this.logger.log(`        Value: ${JSON.stringify(change.value)}`);
           const event = this.parseCommentEvent(change.value, pageId, timestamp);
           if (event) {
             events.push(event);
+            this.logger.log(
+              `        ✅ Parsed comment event: postId=${
+                (change.value as any).post_id
+              }, commenterId=${(change.value as any).sender_id}`
+            );
+          } else {
+            this.logger.log(
+              `        ⏭️  Comment event skipped (verb=${
+                (change.value as any).verb
+              })`
+            );
           }
         }
       }
     }
 
+    this.logger.log(`  📊 Total events extracted: ${events.length}`);
     return events;
   }
 

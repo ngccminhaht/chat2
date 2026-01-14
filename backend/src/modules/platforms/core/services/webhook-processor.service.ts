@@ -4,7 +4,7 @@
  * Uses InboundMessageHandlerService for message CRUD + AI batching
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Platform, MessageStatus, MessageDirection } from "@/common/constants";
@@ -46,6 +46,8 @@ export interface WebhookProcessResult {
 
 @Injectable()
 export class WebhookProcessorService {
+  private readonly logger = new Logger(WebhookProcessorService.name);
+
   constructor(
     private readonly platformRegistry: PlatformRegistry,
     @InjectModel(Conversation.name)
@@ -77,31 +79,77 @@ export class WebhookProcessorService {
 
       // 1. Extract account ID from payload
       const accountId = adapter.extractAccountId(payload);
+      this.logger.log(
+        `🔍 Processing ${platform} webhook for account: ${accountId}`
+      );
 
       // 2. Find platform connection
       const connection = await this.findConnection(platform, accountId);
       if (!connection) {
         result.success = false;
-        result.errors.push(
-          `Platform connection not found: ${platform}:${accountId}`
-        );
+        const errorMsg = `Platform connection not found: ${platform}:${accountId}`;
+        result.errors.push(errorMsg);
+        this.logger.error(`❌ ${errorMsg}`);
         return result;
       }
 
+      this.logger.log(`✅ Found platform connection: ${connection._id}`);
+
       // 3. Extract events from payload
       const events = adapter.extractEvents(payload);
+      this.logger.log(`📦 Extracted ${events.length} events from payload`);
+
+      // Log comment events specifically
+      const commentEvents = events.filter((e) => {
+        const rawPayload = (e as any).rawPayload;
+        return (
+          rawPayload?.isComment || rawPayload?.post_id || rawPayload?.postId
+        );
+      });
+      if (commentEvents.length > 0) {
+        this.logger.log(`💬 Found ${commentEvents.length} comment event(s)`);
+        commentEvents.forEach((event, idx) => {
+          const rawPayload = (event as any).rawPayload;
+          this.logger.log(
+            `  [${idx}] Comment: postId=${
+              rawPayload?.post_id || rawPayload?.postId
+            }, senderId=${event.senderId}`
+          );
+        });
+      }
 
       // 4. Process each event
       for (const event of events) {
         try {
+          const isComment = (event as any).rawPayload?.isComment;
+          if (isComment) {
+            this.logger.log(
+              `🔄 Processing comment event: senderId=${
+                event.senderId
+              }, postId=${
+                (event as any).rawPayload?.post_id ||
+                (event as any).rawPayload?.postId
+              }`
+            );
+          }
+
           const processed = await this.processEvent(adapter, event, connection);
           if (processed) {
             result.messagesProcessed++;
+            if (isComment) {
+              this.logger.log(`✅ Comment event processed successfully`);
+            }
+          } else {
+            if (isComment) {
+              this.logger.log(
+                `⏭️  Comment event skipped (duplicate or filtered)`
+              );
+            }
           }
         } catch (error) {
-          result.errors.push(
-            `Failed to process ${event.type} event: ${error.message}`
-          );
+          const errorMsg = `Failed to process ${event.type} event: ${error.message}`;
+          result.errors.push(errorMsg);
+          this.logger.error(`❌ ${errorMsg}`, error.stack);
         }
       }
 
@@ -110,7 +158,9 @@ export class WebhookProcessorService {
       }
     } catch (error) {
       result.success = false;
-      result.errors.push(`Webhook processing failed: ${error.message}`);
+      const errorMsg = `Webhook processing failed: ${error.message}`;
+      result.errors.push(errorMsg);
+      this.logger.error(`❌ ${errorMsg}`, error.stack);
     }
 
     return result;
