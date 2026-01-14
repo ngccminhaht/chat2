@@ -221,20 +221,45 @@ export class AIAPICallProcessor extends WorkerHost {
         )
       );
 
+      // Log messages being sent to AI for debugging
+      this.logger.log(
+        `📨 [AI API Job] Messages being sent to AI:`,
+        JSON.stringify(
+          messages.map((msg) => ({
+            _id: msg._id.toString(),
+            type: msg.type,
+            direction: (msg as any).direction,
+            text: (msg as any).content?.text?.substring(0, 100) || null,
+            hasMediaUrl: !!(msg as any).content?.mediaUrl,
+            mediaUrl: (msg as any).content?.mediaUrl?.substring(0, 100) || null,
+            createdAt: (msg as any).createdAt,
+          })),
+          null,
+          2
+        )
+      );
+
       // Log request summary
       this.logger.log(
         `🤖 [AI API Job] Calling API | Conversation: ${conversationId} | ` +
           `Endpoint: ${apiEndpoint} | Query length: ${
             requestData.query?.length || 0
-          } | ` +
-          `Files: ${requestData.files?.length || 0}`
+          } chars | ` +
+          `Files: ${requestData.files?.length || 0} | ` +
+          `Messages count: ${messages.length}`
+      );
+
+      // Log full request payload (for debugging)
+      this.logger.debug(
+        `🔍 [AI API Job] Full request payload:`,
+        JSON.stringify(requestData, null, 2)
       );
 
       // Call AI API (single attempt - BullMQ handles retry)
       const callStartTime = Date.now();
       const response = await axios.post(apiEndpoint, requestData, {
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey?.substring(0, 10)}...`,
           "Content-Type": "application/json",
         },
         responseType: "text",
@@ -242,11 +267,21 @@ export class AIAPICallProcessor extends WorkerHost {
       });
       const callDuration = Date.now() - callStartTime;
 
+      this.logger.log(
+        `✅ [AI API Job] API call completed | Status: ${response.status} | ` +
+          `Duration: ${callDuration}ms | Response size: ${response.data?.length || 0} chars`
+      );
+
       // Parse streaming response
       const rawData = response.data;
       const lines = rawData.split("\n");
       const chunks: any[] = [];
       let parseErrors = 0;
+
+      this.logger.debug(
+        `🔍 [AI API Job] Parsing response | Total lines: ${lines.length} | ` +
+          `Raw data length: ${rawData.length} chars`
+      );
 
       for (const line of lines) {
         if (line.startsWith("data:")) {
@@ -274,9 +309,29 @@ export class AIAPICallProcessor extends WorkerHost {
         );
       }
 
+      this.logger.log(
+        `📦 [AI API Job] Parsed chunks: ${chunks.length} | ` +
+          `Parse errors: ${parseErrors} | ` +
+          `Duration: ${callDuration}ms`
+      );
+
       // Extract data
       const conversationChunk = chunks.find((item) => item.conversation_id);
       const aiConversationId = conversationChunk?.conversation_id || null;
+
+      this.logger.debug(
+        `🔍 [AI API Job] All chunks:`,
+        JSON.stringify(
+          chunks.map((c) => ({
+            event: c.event,
+            hasAnswer: !!c.answer,
+            answerLength: c.answer?.length || 0,
+            hasConversationId: !!c.conversation_id,
+          })),
+          null,
+          2
+        )
+      );
 
       const agentMessages = chunks.filter(
         (item) => item.event === "agent_message"
@@ -284,6 +339,14 @@ export class AIAPICallProcessor extends WorkerHost {
       const assembled = agentMessages.reduce(
         (acc, cur) => acc + (cur.answer || ""),
         ""
+      );
+
+      this.logger.log(
+        `💬 [AI API Job] Extracted response | ` +
+          `Conversation ID: ${aiConversationId || "none"} | ` +
+          `Agent message chunks: ${agentMessages.length} | ` +
+          `Assembled length: ${assembled.length} chars | ` +
+          `Preview: ${assembled.substring(0, 100)}${assembled.length > 100 ? "..." : ""}`
       );
 
       // Log full response (output)

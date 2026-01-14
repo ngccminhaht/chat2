@@ -83,6 +83,7 @@ export class AIBatchingProcessor extends WorkerHost {
       );
 
       // Check if batch has any text messages - skip if only images
+      // (Images should wait for text message, which will include them)
       const hasTextMessage = messages.some(
         (msg) => msg.type === MessageType.TEXT
       );

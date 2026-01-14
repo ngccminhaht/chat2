@@ -170,13 +170,31 @@ export class AIResponseService {
       )
     );
 
+    // Log messages being sent to AI for debugging
+    this.logger.log(
+      `📨 [AI API Call] Messages being sent to AI:`,
+      JSON.stringify(
+        messages.map((msg) => ({
+          _id: msg._id.toString(),
+          type: msg.type,
+          direction: (msg as any).direction,
+          text: (msg as any).content?.text?.substring(0, 100) || null,
+          hasMediaUrl: !!(msg as any).content?.mediaUrl,
+          mediaUrl: (msg as any).content?.mediaUrl?.substring(0, 100) || null,
+          createdAt: (msg as any).createdAt,
+        })),
+        null,
+        2
+      )
+    );
+
     // Log request
     this.logger.log(
       `🤖 [AI API Call] Conversation: ${conversationId} | Org: ${organizationId} | ` +
         `Endpoint: ${apiEndpoint} | Query length: ${
           requestData.query?.length || 0
         } chars | Has conversation_id: ${!!requestData.conversation_id} | ` +
-        `Files: ${requestData.files?.length || 0}`
+        `Files: ${requestData.files?.length || 0} | Messages count: ${messages.length}`
     );
 
     // Log files detail for debugging
@@ -195,12 +213,23 @@ export class AIResponseService {
       );
     }
 
+    // Log full request payload (for debugging)
+    this.logger.debug(
+      `🔍 [AI API Call] Full request payload:`,
+      JSON.stringify(requestData, null, 2)
+    );
+
     try {
       const startTime = Date.now();
 
       // Call AI API with retry logic for 404 errors
       let response;
       try {
+        this.logger.log(
+          `🚀 [AI API Call] Sending request to ${apiEndpoint} | ` +
+            `API Key: ${apiKey?.substring(0, 10)}... | ` +
+            `Payload size: ${JSON.stringify(requestData).length} chars`
+        );
         response = await axios.post(apiEndpoint, requestData, {
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -209,6 +238,10 @@ export class AIResponseService {
           responseType: "text",
           timeout: 60000, // 60s timeout
         });
+        this.logger.log(
+          `✅ [AI API Call] Response received | Status: ${response.status} | ` +
+            `Response size: ${response.data?.length || 0} chars`
+        );
       } catch (firstError: any) {
         // If 404 and we have conversation_id, retry without it
         if (
@@ -233,6 +266,9 @@ export class AIResponseService {
           );
 
           // Retry without conversation_id
+          this.logger.log(
+            `🔄 [AI API Call] Retrying request to ${apiEndpoint} without conversation_id`
+          );
           response = await axios.post(apiEndpoint, requestData, {
             headers: {
               Authorization: `Bearer ${apiKey}`,
@@ -241,7 +277,16 @@ export class AIResponseService {
             responseType: "text",
             timeout: 60000,
           });
+          this.logger.log(
+            `✅ [AI API Call] Retry successful | Status: ${response.status} | ` +
+              `Response size: ${response.data?.length || 0} chars`
+          );
         } else {
+          this.logger.error(
+            `❌ [AI API Call] Request failed:`,
+            firstError.response?.status,
+            firstError.response?.data?.substring(0, 500) || firstError.message
+          );
           throw firstError;
         }
       }
@@ -253,6 +298,11 @@ export class AIResponseService {
       const lines = rawData.split("\n");
       const chunks: any[] = [];
 
+      this.logger.debug(
+        `🔍 [AI API Call] Parsing response | Total lines: ${lines.length} | ` +
+          `Raw data length: ${rawData.length} chars`
+      );
+
       for (const line of lines) {
         if (line.startsWith("data:")) {
           const jsonStr = line.substring(5).trim();
@@ -261,11 +311,18 @@ export class AIResponseService {
               const parsed = JSON.parse(jsonStr);
               chunks.push(parsed);
             } catch (e) {
-              // Ignore JSON parse errors
+              this.logger.warn(
+                `⚠️ [AI API Call] JSON parse error for line: ${jsonStr.substring(0, 100)}...`
+              );
             }
           }
         }
       }
+
+      this.logger.log(
+        `📦 [AI API Call] Parsed chunks: ${chunks.length} | ` +
+          `Duration: ${duration}ms`
+      );
 
       // Extract conversation ID
       const conversationChunk = chunks.find((item) => item.conversation_id);
@@ -280,10 +337,32 @@ export class AIResponseService {
         ""
       );
 
+      this.logger.log(
+        `💬 [AI API Call] Extracted response | ` +
+          `Conversation ID: ${aiConversationId || "none"} | ` +
+          `Agent message chunks: ${agentMessages.length} | ` +
+          `Assembled length: ${assembled.length} chars | ` +
+          `Preview: ${assembled.substring(0, 100)}${assembled.length > 100 ? "..." : ""}`
+      );
+
       // Check if response is empty
       if (!assembled || assembled.trim().length === 0) {
         this.logger.warn(
-          `⚠️ [AI API Call] Empty response for ${conversationId}`
+          `⚠️ [AI API Call] Empty response for ${conversationId} | ` +
+            `Total chunks: ${chunks.length} | ` +
+            `Agent message chunks: ${agentMessages.length}`
+        );
+        this.logger.debug(
+          `🔍 [AI API Call] All chunks:`,
+          JSON.stringify(
+            chunks.map((c) => ({
+              event: c.event,
+              hasAnswer: !!c.answer,
+              answerLength: c.answer?.length || 0,
+            })),
+            null,
+            2
+          )
         );
         return null;
       }

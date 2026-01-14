@@ -116,6 +116,7 @@ export class AIBatchingService {
     const existingJob = await this.batchQueue.getJob(jobId);
 
     // If message is image and no existing batch, skip (wait for text)
+    // When text arrives, it will include all unsent images
     if (!existingJob && message.type === MessageType.IMAGE) {
       this.logger.log(
         `⏭️ [AI Batch] Skipping image-only message ${message._id} - waiting for text message`
