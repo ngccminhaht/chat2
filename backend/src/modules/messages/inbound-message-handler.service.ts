@@ -107,8 +107,10 @@ export class InboundMessageHandlerService {
     const { platform, organizationId, conversationKey, platformMessageId } =
       input;
 
-    const isComment = input.metadata?.isComment || input.metadata?.rawPayload?.isComment;
-    const postId = input.metadata?.postId || input.metadata?.post_id || input.metadata?.rawPayload?.post_id || input.metadata?.rawPayload?.postId;
+    // Extract comment info once at the beginning
+    const rawPayload = input.metadata?.rawPayload as any;
+    const isComment = input.metadata?.isComment || rawPayload?.isComment;
+    const postId = input.metadata?.postId || input.metadata?.post_id || rawPayload?.post_id || rawPayload?.postId;
     
     this.logger.log(
       `Processing inbound message: ${platform}/${platformMessageId}${isComment ? ` (COMMENT on post ${postId})` : ''}`
@@ -155,12 +157,10 @@ export class InboundMessageHandlerService {
 
     // Skip further processing if duplicate
     if (!isNew) {
-      const isComment = input.metadata?.isComment || input.metadata?.rawPayload?.isComment;
       this.logger.log(`⏭️ Skipping duplicate message: ${platformMessageId}${isComment ? ' (comment)' : ''}`);
       return { message: null, conversation, isNew: false };
     }
     
-    const isComment = input.metadata?.isComment || input.metadata?.rawPayload?.isComment;
     if (isComment) {
       this.logger.log(`  ✅ Comment message saved: ${message._id}, type: ${message.type}`);
     }
@@ -237,8 +237,9 @@ export class InboundMessageHandlerService {
     }
 
     // Check if this is a comment on a post (for Facebook)
-    const isComment = input.metadata?.isComment || input.metadata?.rawPayload?.isComment;
-    const postId = input.metadata?.postId || input.metadata?.post_id || input.metadata?.rawPayload?.post_id || input.metadata?.rawPayload?.postId;
+    const rawPayload = input.metadata?.rawPayload as any;
+    const isComment = input.metadata?.isComment || rawPayload?.isComment;
+    const postId = input.metadata?.postId || input.metadata?.post_id || rawPayload?.post_id || rawPayload?.postId;
     
     // Build metadata for conversation
     const conversationMetadata: any = { ...(userProfileMetadata || {}) };
