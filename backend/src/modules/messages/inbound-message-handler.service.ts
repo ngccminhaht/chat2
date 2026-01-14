@@ -229,6 +229,21 @@ export class InboundMessageHandlerService {
         if (customerAvatar) conversation.customerAvatar = customerAvatar;
         await conversation.save();
       }
+      // For comment conversations, update lastCommentId when new comment arrives
+      const rawPayload = input.metadata?.rawPayload as any;
+      const isComment = input.metadata?.isComment || rawPayload?.isComment;
+      if (isComment && platform === Platform.FACEBOOK) {
+        const commentId = rawPayload?.comment_id || rawPayload?.commentId || input.platformMessageId;
+        if (commentId && conversation.metadata?.lastCommentId !== commentId) {
+          conversation.metadata = {
+            ...conversation.metadata,
+            lastCommentId: commentId,
+          };
+          await conversation.save();
+          this.logger.log(`  📝 Updated lastCommentId in conversation: ${commentId}`);
+        }
+      }
+      
       // Update metadata with user profile data if available (e.g., Zalo profile)
       if (userProfileMetadata && Object.keys(userProfileMetadata).length > 0) {
         conversation.metadata = {
@@ -250,10 +265,14 @@ export class InboundMessageHandlerService {
     
     // For Facebook post comments, add specific metadata
     if (isComment && postId && platform === Platform.FACEBOOK) {
+      const rawPayload = input.metadata?.rawPayload as any;
+      const commentId = rawPayload?.comment_id || rawPayload?.commentId || input.platformMessageId;
+      
       conversationMetadata.type = 'post_comments';
       conversationMetadata.postId = postId;
       conversationMetadata.pageId = platformAccountId;
-      this.logger.log(`📝 Creating conversation for post comment: postId=${postId}, pageId=${platformAccountId}`);
+      conversationMetadata.lastCommentId = commentId; // Store for easy retrieval when replying
+      this.logger.log(`📝 Creating conversation for post comment: postId=${postId}, pageId=${platformAccountId}, commentId=${commentId}`);
     }
 
     // Create new conversation with user profile metadata

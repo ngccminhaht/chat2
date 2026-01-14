@@ -6,38 +6,42 @@
  * Consumer Group: message-sender-group
  */
 
-import { Controller, Logger } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
-import axios from 'axios';
-import { KAFKA_TOPICS } from '../kafka.config';
-import { OutgoingMessageEvent } from '../types/webhook.types';
+import { Controller, Logger } from "@nestjs/common";
+import { MessagePattern, Payload } from "@nestjs/microservices";
+import axios from "axios";
+import { KAFKA_TOPICS } from "../kafka.config";
+import { OutgoingMessageEvent } from "../types/webhook.types";
 import {
   DEFAULT_RETRY_CONFIG,
   calculateBackoff,
   isRetryableStatus,
   extractStatusCode,
-} from './retry.config';
-import { Platform, MessageStatus, MessageType } from '@/common/constants';
-import { PlatformRegistry } from '@/modules/platforms/core/services/platform.registry';
-import { ZaloAdapter } from '@/modules/platforms/adapters/zalo.adapter';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+} from "./retry.config";
+import { Platform, MessageStatus, MessageType } from "@/common/constants";
+import { PlatformRegistry } from "@/modules/platforms/core/services/platform.registry";
+import { ZaloAdapter } from "@/modules/platforms/adapters/zalo.adapter";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
 import {
   Message,
   MessageDocument,
-} from '@/common/database/schemas/message.schema';
+} from "@/common/database/schemas/message.schema";
+import {
+  Conversation,
+  ConversationDocument,
+} from "@/common/database/schemas/conversation.schema";
 import {
   PlatformConnection,
   PlatformConnectionDocument,
-} from '@/common/database/schemas/platform-connection.schema';
-import { KafkaProducerService } from '../kafka-producer.service';
+} from "@/common/database/schemas/platform-connection.schema";
+import { KafkaProducerService } from "../kafka-producer.service";
 import {
   WebSocketNotificationEvent,
   MessageStatusPayload,
-} from '../types/webhook.types';
-import { EnvService } from '@/common/env';
-import { VisitorGateway } from '@/modules/websocket/visitor.gateway';
-import { WebsocketGateway } from '@/modules/websocket/websocket.gateway';
+} from "../types/webhook.types";
+import { EnvService } from "@/common/env";
+import { VisitorGateway } from "@/modules/websocket/visitor.gateway";
+import { WebsocketGateway } from "@/modules/websocket/websocket.gateway";
 
 /**
  * Extended event type with retry metadata
@@ -55,23 +59,31 @@ export class MessageSenderConsumer {
     private readonly platformRegistry: PlatformRegistry,
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
+    @InjectModel(Conversation.name)
+    private readonly conversationModel: Model<ConversationDocument>,
     @InjectModel(PlatformConnection.name)
     private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
     private readonly kafkaProducer: KafkaProducerService,
     private readonly envService: EnvService,
     private readonly visitorGateway: VisitorGateway,
-    private readonly websocketGateway: WebsocketGateway,
+    private readonly websocketGateway: WebsocketGateway
   ) {
-    this.logger.log(`🚀 MessageSenderConsumer initialized, listening on: ${KAFKA_TOPICS.MESSAGES_OUTGOING}`);
+    this.logger.log(
+      `🚀 MessageSenderConsumer initialized, listening on: ${KAFKA_TOPICS.MESSAGES_OUTGOING}`
+    );
   }
 
   @MessagePattern(KAFKA_TOPICS.MESSAGES_OUTGOING)
-  async handleOutgoingMessage(@Payload() event: OutgoingEventWithRetry): Promise<void> {
+  async handleOutgoingMessage(
+    @Payload() event: OutgoingEventWithRetry
+  ): Promise<void> {
     const retryCount = event.retryCount || 0;
 
     this.logger.log(
       `📤 Processing outgoing message: ${event.messageId} to ${event.platform}` +
-        (retryCount > 0 ? ` (retry ${retryCount}/${DEFAULT_RETRY_CONFIG.maxRetries})` : ''),
+        (retryCount > 0
+          ? ` (retry ${retryCount}/${DEFAULT_RETRY_CONFIG.maxRetries})`
+          : "")
     );
     this.logger.log(`📋 Event details:`, {
       messageId: event.messageId,
@@ -101,9 +113,131 @@ export class MessageSenderConsumer {
         .exec();
 
       if (!connection) {
-        this.logger.error(`Connection not found: ${event.platformConnectionId}`);
-        await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, 'Connection not found');
+        this.logger.error(
+          `Connection not found: ${event.platformConnectionId}`
+        );
+        await this.updateMessageStatus(
+          event.messageId,
+          MessageStatus.FAILED,
+          "Connection not found"
+        );
         return;
+      }
+
+      // 2.5. Check if this is a comment conversation (Facebook post comments)
+      // For comment conversations, we need to reply to comment instead of sending message
+      if (event.platform === Platform.FACEBOOK) {
+        const conversation = await this.conversationModel
+          .findById(event.conversationId)
+          .exec();
+
+        if (conversation?.metadata?.type === "post_comments") {
+          this.logger.log(
+            `💬 Detected comment conversation, will reply to comment instead of sending message`
+          );
+          this.logger.log(
+            `  Conversation metadata: ${JSON.stringify(conversation.metadata)}`
+          );
+
+          // Try multiple sources for comment_id:
+          // 1. From conversation metadata (if stored)
+          // 2. From last inbound message platformMessageId
+          // 3. From last inbound message metadata
+          let commentId = conversation.metadata?.lastCommentId;
+
+          if (!commentId) {
+            // Get the last inbound message (comment) to get comment_id
+            const lastInboundMessage = await this.messageModel
+              .findOne({
+                conversationId: conversation._id,
+                direction: "inbound",
+              })
+              .sort({ createdAt: -1 })
+              .exec();
+
+            this.logger.log(
+              `  Last inbound message: ${lastInboundMessage?._id}, platformMessageId: ${lastInboundMessage?.platformMessageId}`
+            );
+            this.logger.log(
+              `  Last message metadata: ${JSON.stringify(
+                lastInboundMessage?.metadata
+              )}`
+            );
+
+            commentId =
+              lastInboundMessage?.platformMessageId ||
+              lastInboundMessage?.metadata?.rawPayload?.comment_id ||
+              lastInboundMessage?.metadata?.rawPayload?.commentId ||
+              lastInboundMessage?.metadata?.comment_id;
+          }
+
+          // Facebook comment_id format can be: "post_id_comment_id" or just "comment_id"
+          // From webhook: "122120021193032234_4008062299484538" = post_id_comment_id
+          // We need just the comment_id part (last segment after underscore)
+          if (commentId && commentId.includes("_")) {
+            const parts = commentId.split("_");
+            // If format is "post_id_comment_id", take the last part
+            // Example: "122120021193032234_4008062299484538" -> "4008062299484538"
+            if (parts.length >= 2) {
+              const extractedId = parts[parts.length - 1];
+              // Verify it's a valid comment ID (numeric)
+              if (/^\d+$/.test(extractedId)) {
+                commentId = extractedId;
+                this.logger.log(
+                  `  🔧 Extracted comment_id from composite ID: ${commentId} (from: ${lastInboundMessage?.platformMessageId})`
+                );
+              } else {
+                this.logger.warn(
+                  `  ⚠️ Extracted ID doesn't look like comment ID: ${extractedId}`
+                );
+              }
+            }
+          }
+
+          if (commentId) {
+            this.logger.log(`  📝 Replying to comment: ${commentId}`);
+            const result = await this.replyToFacebookComment(
+              connection,
+              commentId,
+              event.message.text || ""
+            );
+
+            if (result.success) {
+              await this.updateMessageStatus(
+                event.messageId,
+                MessageStatus.SENT,
+                undefined,
+                result.platformMessageId
+              );
+              this.logger.log(
+                `✅ Comment reply sent: ${event.messageId} -> ${result.platformMessageId}`
+              );
+            } else {
+              await this.updateMessageStatus(
+                event.messageId,
+                MessageStatus.FAILED,
+                result.error
+              );
+              this.logger.error(`❌ Failed to reply comment: ${result.error}`);
+            }
+
+            await this.publishStatusNotification(
+              event,
+              result.success ? MessageStatus.SENT : MessageStatus.FAILED
+            );
+            return;
+          } else {
+            this.logger.warn(
+              `⚠️ Comment conversation but no comment_id found, falling back to regular message send`
+            );
+            this.logger.warn(`  Conversation ID: ${conversation._id}`);
+            this.logger.warn(
+              `  Conversation metadata: ${JSON.stringify(
+                conversation.metadata
+              )}`
+            );
+          }
+        }
       }
 
       // 3. Handle Zalo file upload (Zalo requires uploading files to their server first)
@@ -116,12 +250,16 @@ export class MessageSenderConsumer {
         const uploadResult = await zaloAdapter.uploadFile(
           connection.credentials.accessToken,
           event.message.mediaUrl,
-          event.message.fileName,
+          event.message.fileName
         );
 
         if (!uploadResult) {
           this.logger.error(`❌ Failed to upload file to Zalo`);
-          await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, 'Failed to upload file to Zalo');
+          await this.updateMessageStatus(
+            event.messageId,
+            MessageStatus.FAILED,
+            "Failed to upload file to Zalo"
+          );
           return;
         }
 
@@ -129,7 +267,7 @@ export class MessageSenderConsumer {
         let result = await zaloAdapter.sendFileWithToken(
           connection,
           event.recipientId,
-          uploadResult.token,
+          uploadResult.token
         );
 
         // Handle token refresh if needed
@@ -140,27 +278,41 @@ export class MessageSenderConsumer {
             const reuploadResult = await zaloAdapter.uploadFile(
               refreshedConnection.credentials.accessToken,
               event.message.mediaUrl,
-              event.message.fileName,
+              event.message.fileName
             );
             if (reuploadResult) {
               result = await zaloAdapter.sendFileWithToken(
                 refreshedConnection,
                 event.recipientId,
-                reuploadResult.token,
+                reuploadResult.token
               );
             }
           }
         }
 
         if (result.success) {
-          await this.updateMessageStatus(event.messageId, MessageStatus.SENT, undefined, result.platformMessageId);
-          this.logger.log(`✅ File sent: ${event.messageId} -> ${result.platformMessageId}`);
+          await this.updateMessageStatus(
+            event.messageId,
+            MessageStatus.SENT,
+            undefined,
+            result.platformMessageId
+          );
+          this.logger.log(
+            `✅ File sent: ${event.messageId} -> ${result.platformMessageId}`
+          );
         } else {
-          await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, result.error);
+          await this.updateMessageStatus(
+            event.messageId,
+            MessageStatus.FAILED,
+            result.error
+          );
           this.logger.error(`❌ Failed to send file: ${result.error}`);
         }
 
-        await this.publishStatusNotification(event, result.success ? MessageStatus.SENT : MessageStatus.FAILED);
+        await this.publishStatusNotification(
+          event,
+          result.success ? MessageStatus.SENT : MessageStatus.FAILED
+        );
         return;
       }
 
@@ -182,18 +334,27 @@ export class MessageSenderConsumer {
       });
 
       const platformPayload = adapter.formatOutbound(outboundMessage);
-      this.logger.log(`📋 Platform payload:`, JSON.stringify(platformPayload, null, 2));
+      this.logger.log(
+        `📋 Platform payload:`,
+        JSON.stringify(platformPayload, null, 2)
+      );
 
       // 5. Send message via adapter
       let result = await adapter.send(
         connection,
         event.recipientId,
-        platformPayload,
+        platformPayload
       );
 
       // 6. Handle token refresh if needed (Zalo specific)
-      if (!result.success && result.needsTokenRefresh && event.platform === Platform.ZALO) {
-        this.logger.log(`🔄 Attempting to refresh Zalo access token for connection ${connection._id}`);
+      if (
+        !result.success &&
+        result.needsTokenRefresh &&
+        event.platform === Platform.ZALO
+      ) {
+        this.logger.log(
+          `🔄 Attempting to refresh Zalo access token for connection ${connection._id}`
+        );
 
         const refreshedConnection = await this.refreshZaloToken(connection);
         if (refreshedConnection) {
@@ -201,10 +362,12 @@ export class MessageSenderConsumer {
           result = await adapter.send(
             refreshedConnection,
             event.recipientId,
-            platformPayload,
+            platformPayload
           );
         } else {
-          this.logger.error(`❌ Failed to refresh token, marking message as failed`);
+          this.logger.error(
+            `❌ Failed to refresh token, marking message as failed`
+          );
         }
       }
 
@@ -214,22 +377,27 @@ export class MessageSenderConsumer {
           event.messageId,
           MessageStatus.SENT,
           undefined,
-          result.platformMessageId,
+          result.platformMessageId
         );
         this.logger.log(
-          `✅ Message sent: ${event.messageId} -> ${result.platformMessageId}`,
+          `✅ Message sent: ${event.messageId} -> ${result.platformMessageId}`
         );
         await this.publishStatusNotification(event, MessageStatus.SENT);
       } else {
         // Handle retry logic for failed sends
         const statusCode = extractStatusCode(result.error);
 
-        if (isRetryableStatus(statusCode) && retryCount < DEFAULT_RETRY_CONFIG.maxRetries) {
+        if (
+          isRetryableStatus(statusCode) &&
+          retryCount < DEFAULT_RETRY_CONFIG.maxRetries
+        ) {
           // Schedule retry with exponential backoff
           const delay = calculateBackoff(retryCount);
           this.logger.warn(
-            `⏳ Scheduling retry ${retryCount + 1}/${DEFAULT_RETRY_CONFIG.maxRetries} ` +
-              `for message ${event.messageId} in ${delay}ms (status: ${statusCode})`,
+            `⏳ Scheduling retry ${retryCount + 1}/${
+              DEFAULT_RETRY_CONFIG.maxRetries
+            } ` +
+              `for message ${event.messageId} in ${delay}ms (status: ${statusCode})`
           );
           await this.scheduleRetry(event, retryCount + 1, delay, result.error);
           return; // Don't update status yet - will retry
@@ -238,30 +406,37 @@ export class MessageSenderConsumer {
         // Max retries reached or non-retryable error → fail permanently
         if (retryCount >= DEFAULT_RETRY_CONFIG.maxRetries) {
           this.logger.error(
-            `💀 Max retries (${DEFAULT_RETRY_CONFIG.maxRetries}) reached for ${event.messageId}, sending to DLQ`,
+            `💀 Max retries (${DEFAULT_RETRY_CONFIG.maxRetries}) reached for ${event.messageId}, sending to DLQ`
           );
           await this.sendToDLQ(event, result.error);
         }
 
-        await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, result.error);
+        await this.updateMessageStatus(
+          event.messageId,
+          MessageStatus.FAILED,
+          result.error
+        );
         this.logger.error(`❌ Failed to send message: ${result.error}`);
         await this.publishStatusNotification(event, MessageStatus.FAILED);
       }
-
     } catch (error) {
       this.logger.error(
         `❌ Error processing outgoing message: ${error.message}`,
-        error.stack,
+        error.stack
       );
 
       // Handle retry for unexpected errors (likely network/server issues)
       const statusCode = extractStatusCode(error);
 
-      if (isRetryableStatus(statusCode) && retryCount < DEFAULT_RETRY_CONFIG.maxRetries) {
+      if (
+        isRetryableStatus(statusCode) &&
+        retryCount < DEFAULT_RETRY_CONFIG.maxRetries
+      ) {
         const delay = calculateBackoff(retryCount);
         this.logger.warn(
-          `⏳ Scheduling retry ${retryCount + 1}/${DEFAULT_RETRY_CONFIG.maxRetries} ` +
-            `for message ${event.messageId} after exception in ${delay}ms`,
+          `⏳ Scheduling retry ${retryCount + 1}/${
+            DEFAULT_RETRY_CONFIG.maxRetries
+          } ` + `for message ${event.messageId} after exception in ${delay}ms`
         );
         await this.scheduleRetry(event, retryCount + 1, delay, error.message);
         return;
@@ -271,8 +446,60 @@ export class MessageSenderConsumer {
         await this.sendToDLQ(event, error.message);
       }
 
-      await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, error.message);
+      await this.updateMessageStatus(
+        event.messageId,
+        MessageStatus.FAILED,
+        error.message
+      );
       await this.publishStatusNotification(event, MessageStatus.FAILED);
+    }
+  }
+
+  /**
+   * Reply to a Facebook comment on a post
+   * Uses Facebook Graph API: POST /{comment-id}/comments
+   */
+  private async replyToFacebookComment(
+    connection: PlatformConnectionDocument,
+    commentId: string,
+    message: string
+  ): Promise<{ success: boolean; platformMessageId?: string; error?: string }> {
+    try {
+      const accessToken = connection.credentials.accessToken;
+      const graphApiVersion = "v19.0";
+
+      const response = await axios.post(
+        `https://graph.facebook.com/${graphApiVersion}/${commentId}/comments`,
+        {
+          message: message,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.data.error) {
+        return {
+          success: false,
+          error: response.data.error.message,
+        };
+      }
+
+      return {
+        success: true,
+        platformMessageId: response.data.id,
+      };
+    } catch (error) {
+      this.logger.error(
+        "Facebook comment reply failed:",
+        error.response?.data || error.message
+      );
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message,
+      };
     }
   }
 
@@ -285,27 +512,29 @@ export class MessageSenderConsumer {
     messageId: string,
     status: MessageStatus,
     error?: string,
-    platformMessageId?: string,
+    platformMessageId?: string
   ): Promise<void> {
     const update: any = { status };
 
     if (error) {
-      update['metadata.error'] = error;
+      update["metadata.error"] = error;
     }
 
     // If we have a real platformMessageId, handle potential race condition
     if (platformMessageId) {
       try {
         // Check if a message with this platformMessageId already exists (created by webhook)
-        const existingMessage = await this.messageModel.findOne({
-          platformMessageId,
-          _id: { $ne: messageId }, // Not our pending message
-        }).exec();
+        const existingMessage = await this.messageModel
+          .findOne({
+            platformMessageId,
+            _id: { $ne: messageId }, // Not our pending message
+          })
+          .exec();
 
         if (existingMessage) {
           // Webhook already created the real message, delete our pending one
           this.logger.warn(
-            `Race condition detected: webhook already created message with ${platformMessageId}, deleting pending message ${messageId}`,
+            `Race condition detected: webhook already created message with ${platformMessageId}, deleting pending message ${messageId}`
           );
           await this.messageModel.findByIdAndDelete(messageId);
           return;
@@ -318,7 +547,7 @@ export class MessageSenderConsumer {
         // E11000 duplicate key error - webhook beat us to it
         if (err.code === 11000) {
           this.logger.warn(
-            `E11000 race condition: deleting pending message ${messageId}`,
+            `E11000 race condition: deleting pending message ${messageId}`
           );
           await this.messageModel.findByIdAndDelete(messageId);
           return;
@@ -335,7 +564,7 @@ export class MessageSenderConsumer {
    */
   private async publishStatusNotification(
     event: OutgoingMessageEvent,
-    status: MessageStatus,
+    status: MessageStatus
   ): Promise<void> {
     try {
       // Get connection for userId and organizationId
@@ -356,14 +585,18 @@ export class MessageSenderConsumer {
       // Broadcast status update to all org agents
       const organizationId = connection.organizationId?.toString();
       if (organizationId) {
-        this.websocketGateway.emitToOrgAgents(organizationId, 'message:status', statusPayload);
+        this.websocketGateway.emitToOrgAgents(
+          organizationId,
+          "message:status",
+          statusPayload
+        );
       }
 
       // Also send via Kafka to connectedBy user (for backward compatibility)
       if (connection.connectedBy) {
         const userId = connection.connectedBy.toString();
         const notification: WebSocketNotificationEvent = {
-          type: 'message:status',
+          type: "message:status",
           userId,
           payload: statusPayload as MessageStatusPayload,
           timestamp: Date.now(),
@@ -375,7 +608,9 @@ export class MessageSenderConsumer {
         });
       }
     } catch (error) {
-      this.logger.error(`Failed to publish status notification: ${error.message}`);
+      this.logger.error(
+        `Failed to publish status notification: ${error.message}`
+      );
     }
   }
 
@@ -384,35 +619,37 @@ export class MessageSenderConsumer {
    * @returns Updated connection with new tokens, or null if refresh failed
    */
   private async refreshZaloToken(
-    connection: PlatformConnectionDocument,
+    connection: PlatformConnectionDocument
   ): Promise<PlatformConnectionDocument | null> {
     try {
       const refreshToken = connection.credentials?.refreshToken;
-      if (!refreshToken || refreshToken === 'placeholder') {
-        this.logger.error(`❌ No valid refresh token for connection ${connection._id}`);
+      if (!refreshToken || refreshToken === "placeholder") {
+        this.logger.error(
+          `❌ No valid refresh token for connection ${connection._id}`
+        );
         return null;
       }
 
-      const appId = this.envService.get('ZALO_APP_ID');
-      const appSecret = this.envService.get('ZALO_APP_SECRET');
+      const appId = this.envService.get("ZALO_APP_ID");
+      const appSecret = this.envService.get("ZALO_APP_SECRET");
 
       const params = new URLSearchParams({
         app_id: appId,
-        grant_type: 'refresh_token',
+        grant_type: "refresh_token",
         refresh_token: refreshToken,
       });
 
       this.logger.log(`🔄 Calling Zalo refresh token API...`);
 
       const response = await axios.post(
-        'https://oauth.zaloapp.com/v4/oa/access_token',
+        "https://oauth.zaloapp.com/v4/oa/access_token",
         params.toString(),
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            "Content-Type": "application/x-www-form-urlencoded",
             secret_key: appSecret,
           },
-        },
+        }
       );
 
       this.logger.log(`📨 Zalo refresh token response:`, {
@@ -422,7 +659,9 @@ export class MessageSenderConsumer {
 
       // Check for error (Zalo returns error field on failure)
       if (response.data.error) {
-        this.logger.error(`❌ Zalo refresh token error: ${response.data.error} - ${response.data.message}`);
+        this.logger.error(
+          `❌ Zalo refresh token error: ${response.data.error} - ${response.data.message}`
+        );
         return null;
       }
 
@@ -431,20 +670,28 @@ export class MessageSenderConsumer {
       const newRefreshToken = response.data.refresh_token;
       const expiresIn = response.data.expires_in || 3600;
 
-      const updatedConnection = await this.platformConnectionModel.findByIdAndUpdate(
-        connection._id,
-        {
-          'credentials.accessToken': newAccessToken,
-          'credentials.refreshToken': newRefreshToken,
-          'credentials.expiresAt': new Date(Date.now() + expiresIn * 1000),
-        },
-        { new: true },
-      ).exec();
+      const updatedConnection = await this.platformConnectionModel
+        .findByIdAndUpdate(
+          connection._id,
+          {
+            "credentials.accessToken": newAccessToken,
+            "credentials.refreshToken": newRefreshToken,
+            "credentials.expiresAt": new Date(Date.now() + expiresIn * 1000),
+          },
+          { new: true }
+        )
+        .exec();
 
-      this.logger.log(`✅ Zalo token refreshed successfully for connection ${connection._id}`);
+      this.logger.log(
+        `✅ Zalo token refreshed successfully for connection ${connection._id}`
+      );
       return updatedConnection;
     } catch (error) {
-      this.logger.error(`❌ Failed to refresh Zalo token: ${error.response?.data || error.message}`);
+      this.logger.error(
+        `❌ Failed to refresh Zalo token: ${
+          error.response?.data || error.message
+        }`
+      );
       return null;
     }
   }
@@ -453,7 +700,9 @@ export class MessageSenderConsumer {
    * Handle web platform messages by emitting directly to visitor via WebSocket
    * Web messages don't go through external APIs - they're delivered via our WebSocket gateway
    */
-  private async handleWebPlatformMessage(event: OutgoingMessageEvent): Promise<void> {
+  private async handleWebPlatformMessage(
+    event: OutgoingMessageEvent
+  ): Promise<void> {
     try {
       // recipientId is the sessionId (format: web_{orgId}_{sessionId}, we extract sessionId)
       // Actually recipientId is customerPlatformUserId which IS the sessionId
@@ -467,7 +716,7 @@ export class MessageSenderConsumer {
       }
 
       // Emit message to visitor via WebSocket
-      this.visitorGateway.emitToVisitor(sessionId, 'message:received', {
+      this.visitorGateway.emitToVisitor(sessionId, "message:received", {
         message: {
           _id: message._id.toString(),
           content: message.content,
@@ -480,25 +729,35 @@ export class MessageSenderConsumer {
       // Update message status to sent
       await this.updateMessageStatus(event.messageId, MessageStatus.SENT);
 
-      this.logger.log(`✅ Web message sent to visitor ${sessionId}: ${event.messageId}`);
+      this.logger.log(
+        `✅ Web message sent to visitor ${sessionId}: ${event.messageId}`
+      );
 
       // Broadcast message:new to ALL org agents for real-time sync
       const organizationId = message.organizationId?.toString();
       if (organizationId) {
-        this.websocketGateway.emitToOrgAgents(organizationId, 'message:new', {
+        this.websocketGateway.emitToOrgAgents(organizationId, "message:new", {
           conversationId: message.conversationId?.toString(),
           message: message.toObject(),
         });
-        this.websocketGateway.emitToOrgAgents(organizationId, 'conversation:updated', {
-          conversationId: message.conversationId?.toString(),
-        });
+        this.websocketGateway.emitToOrgAgents(
+          organizationId,
+          "conversation:updated",
+          {
+            conversationId: message.conversationId?.toString(),
+          }
+        );
       }
 
       // Publish status notification
       await this.publishStatusNotification(event, MessageStatus.SENT);
     } catch (error) {
       this.logger.error(`❌ Failed to send web message: ${error.message}`);
-      await this.updateMessageStatus(event.messageId, MessageStatus.FAILED, error.message);
+      await this.updateMessageStatus(
+        event.messageId,
+        MessageStatus.FAILED,
+        error.message
+      );
     }
   }
 
@@ -510,7 +769,7 @@ export class MessageSenderConsumer {
     event: OutgoingEventWithRetry,
     retryCount: number,
     delayMs: number,
-    lastError: string,
+    lastError: string
   ): Promise<void> {
     setTimeout(async () => {
       try {
@@ -523,11 +782,11 @@ export class MessageSenderConsumer {
           },
         });
         this.logger.log(
-          `🔄 Retry ${retryCount} scheduled for message ${event.messageId}`,
+          `🔄 Retry ${retryCount} scheduled for message ${event.messageId}`
         );
       } catch (error) {
         this.logger.error(
-          `❌ Failed to schedule retry for ${event.messageId}: ${error.message}`,
+          `❌ Failed to schedule retry for ${event.messageId}: ${error.message}`
         );
       }
     }, delayMs);
@@ -538,7 +797,7 @@ export class MessageSenderConsumer {
    */
   private async sendToDLQ(
     event: OutgoingEventWithRetry,
-    error: string,
+    error: string
   ): Promise<void> {
     try {
       await this.kafkaProducer.publish(KAFKA_TOPICS.MESSAGES_OUTGOING_DLQ, {
@@ -553,7 +812,7 @@ export class MessageSenderConsumer {
       this.logger.log(`📨 Message ${event.messageId} sent to DLQ`);
     } catch (dlqError) {
       this.logger.error(
-        `❌ Failed to send message ${event.messageId} to DLQ: ${dlqError.message}`,
+        `❌ Failed to send message ${event.messageId} to DLQ: ${dlqError.message}`
       );
     }
   }
