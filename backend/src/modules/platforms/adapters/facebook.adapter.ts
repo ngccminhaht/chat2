@@ -235,6 +235,15 @@ export class FacebookAdapter extends BasePlatformAdapter {
       return null;
     }
 
+    // Skip comments from the page itself (page commenting on its own post)
+    // This prevents saving comments created by AI/agent replies
+    if (commenterId === pageId) {
+      this.logger.log(
+        `⏭️ Skipping comment from page itself: commenterId=${commenterId} (pageId=${pageId}) - this is likely a reply from AI/agent`
+      );
+      return null;
+    }
+
     // Ensure postId is available in both snake_case and camelCase for compatibility
     const rawPayload = {
       ...value,

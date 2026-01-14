@@ -110,19 +110,29 @@ export class InboundMessageHandlerService {
     // Extract comment info once at the beginning
     const rawPayload = input.metadata?.rawPayload as any;
     const isComment = input.metadata?.isComment || rawPayload?.isComment;
-    const postId = input.metadata?.postId || input.metadata?.post_id || rawPayload?.post_id || rawPayload?.postId;
-    
+    const postId =
+      input.metadata?.postId ||
+      input.metadata?.post_id ||
+      rawPayload?.post_id ||
+      rawPayload?.postId;
+
     this.logger.log(
-      `Processing inbound message: ${platform}/${platformMessageId}${isComment ? ` (COMMENT on post ${postId})` : ''}`
+      `Processing inbound message: ${platform}/${platformMessageId}${
+        isComment ? ` (COMMENT on post ${postId})` : ""
+      }`
     );
     if (isComment) {
-      this.logger.log(`  💬 Comment details: conversationKey=${conversationKey}, senderId=${input.sender.platformUserId}`);
+      this.logger.log(
+        `  💬 Comment details: conversationKey=${conversationKey}, senderId=${input.sender.platformUserId}`
+      );
     }
 
     // 1. Find or create conversation
     const conversation = await this.findOrCreateConversation(input);
     if (isComment) {
-      this.logger.log(`  ✅ Conversation: ${conversation._id}, key: ${conversation.platformConversationId}`);
+      this.logger.log(
+        `  ✅ Conversation: ${conversation._id}, key: ${conversation.platformConversationId}`
+      );
     }
 
     // 2. Find or create customer for platform messages
@@ -151,9 +161,11 @@ export class InboundMessageHandlerService {
 
     // 3. Save message with upsert (handles deduplication)
     if (isComment) {
-      this.logger.log(`  💾 Saving comment message: platformMessageId=${platformMessageId}, conversationId=${conversation._id}`);
+      this.logger.log(
+        `  💾 Saving comment message: platformMessageId=${platformMessageId}, conversationId=${conversation._id}`
+      );
     }
-    
+
     const { message, isNew } = await this.saveMessageWithUpsert(
       input,
       conversation
@@ -161,20 +173,37 @@ export class InboundMessageHandlerService {
 
     // Skip further processing if duplicate
     if (!isNew) {
-      this.logger.log(`⏭️ Skipping duplicate message: ${platformMessageId}${isComment ? ' (comment)' : ''}`);
+      this.logger.log(
+        `⏭️ Skipping duplicate message: ${platformMessageId}${
+          isComment ? " (comment)" : ""
+        }`
+      );
       return { message: null, conversation, isNew: false };
     }
-    
+
     if (isComment) {
-      this.logger.log(`  ✅ Comment message saved successfully: messageId=${message._id}, type: ${message.type}, conversationId=${conversation._id}`);
+      this.logger.log(
+        `  ✅ Comment message saved successfully: messageId=${message._id}, type: ${message.type}, conversationId=${conversation._id}`
+      );
     }
 
     // 4. Update conversation lastMessage
     await this.updateConversationLastMessage(conversation, message, input);
 
     // 5. Trigger AI batching for inbound messages
+    // Skip AI for comment conversations to prevent reply loops
+    // (AI reply creates new comment → triggers webhook → AI replies again)
     if (input.direction === MessageDirection.INBOUND) {
-      await this.triggerAiBatching(message, conversation);
+      const isComment =
+        input.metadata?.isComment ||
+        (input.metadata?.rawPayload as any)?.isComment;
+      if (isComment && input.platform === Platform.FACEBOOK) {
+        this.logger.log(
+          `  ⏭️ Skipping AI batching for comment (to prevent reply loops)`
+        );
+      } else {
+        await this.triggerAiBatching(message, conversation);
+      }
     }
 
     this.logger.log(`✅ Processed message: ${message._id}`);
@@ -233,17 +262,22 @@ export class InboundMessageHandlerService {
       const rawPayload = input.metadata?.rawPayload as any;
       const isComment = input.metadata?.isComment || rawPayload?.isComment;
       if (isComment && platform === Platform.FACEBOOK) {
-        const commentId = rawPayload?.comment_id || rawPayload?.commentId || input.platformMessageId;
+        const commentId =
+          rawPayload?.comment_id ||
+          rawPayload?.commentId ||
+          input.platformMessageId;
         if (commentId && conversation.metadata?.lastCommentId !== commentId) {
           conversation.metadata = {
             ...conversation.metadata,
             lastCommentId: commentId,
           };
           await conversation.save();
-          this.logger.log(`  📝 Updated lastCommentId in conversation: ${commentId}`);
+          this.logger.log(
+            `  📝 Updated lastCommentId in conversation: ${commentId}`
+          );
         }
       }
-      
+
       // Update metadata with user profile data if available (e.g., Zalo profile)
       if (userProfileMetadata && Object.keys(userProfileMetadata).length > 0) {
         conversation.metadata = {
@@ -258,21 +292,30 @@ export class InboundMessageHandlerService {
     // Check if this is a comment on a post (for Facebook)
     const rawPayload = input.metadata?.rawPayload as any;
     const isComment = input.metadata?.isComment || rawPayload?.isComment;
-    const postId = input.metadata?.postId || input.metadata?.post_id || rawPayload?.post_id || rawPayload?.postId;
-    
+    const postId =
+      input.metadata?.postId ||
+      input.metadata?.post_id ||
+      rawPayload?.post_id ||
+      rawPayload?.postId;
+
     // Build metadata for conversation
     const conversationMetadata: any = { ...(userProfileMetadata || {}) };
-    
+
     // For Facebook post comments, add specific metadata
     if (isComment && postId && platform === Platform.FACEBOOK) {
       const rawPayload = input.metadata?.rawPayload as any;
-      const commentId = rawPayload?.comment_id || rawPayload?.commentId || input.platformMessageId;
-      
-      conversationMetadata.type = 'post_comments';
+      const commentId =
+        rawPayload?.comment_id ||
+        rawPayload?.commentId ||
+        input.platformMessageId;
+
+      conversationMetadata.type = "post_comments";
       conversationMetadata.postId = postId;
       conversationMetadata.pageId = platformAccountId;
       conversationMetadata.lastCommentId = commentId; // Store for easy retrieval when replying
-      this.logger.log(`📝 Creating conversation for post comment: postId=${postId}, pageId=${platformAccountId}, commentId=${commentId}`);
+      this.logger.log(
+        `📝 Creating conversation for post comment: postId=${postId}, pageId=${platformAccountId}, commentId=${commentId}`
+      );
     }
 
     // Create new conversation with user profile metadata
@@ -294,7 +337,11 @@ export class InboundMessageHandlerService {
       metadata: conversationMetadata,
     });
 
-    this.logger.log(`✅ Created new conversation: ${conversation._id} (comment: ${isComment ? 'yes' : 'no'})`);
+    this.logger.log(
+      `✅ Created new conversation: ${conversation._id} (comment: ${
+        isComment ? "yes" : "no"
+      })`
+    );
     return conversation;
   }
 

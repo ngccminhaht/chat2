@@ -209,14 +209,20 @@ export class WebhookProcessorService {
     const isComment = (event.rawPayload as any)?.isComment;
 
     // Skip echo messages (sent by the page itself)
-    // BUT: Don't skip comments even if senderId matches pageId (page can comment on its own posts)
-    if (senderId === connection.platformAccountId && !isComment) {
-      this.logger.log(`⏭️ Skipping echo message from page: ${senderId}`);
+    // For regular messages: skip if senderId === pageId
+    // For comments: also skip if senderId === pageId (page's own comments/replies should not be saved)
+    // This prevents saving comments created by AI/agent replies, which would cause loops
+    if (senderId === connection.platformAccountId) {
+      if (isComment) {
+        this.logger.log(`⏭️ Skipping comment from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}) - this is likely a reply from AI/agent`);
+      } else {
+        this.logger.log(`⏭️ Skipping echo message from page: ${senderId}`);
+      }
       return false;
     }
 
     if (isComment) {
-      this.logger.log(`💬 Processing comment message: senderId=${senderId}, pageId=${connection.platformAccountId}`);
+      this.logger.log(`💬 Processing comment from customer: senderId=${senderId}, pageId=${connection.platformAccountId}`);
     }
 
     // 1. Normalize message using adapter

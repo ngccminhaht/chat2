@@ -74,6 +74,18 @@ export class AIBatchingService {
         `AI Enabled: ${conversation.aiEnabled} | AI State: ${conversation.aiState}`
     );
 
+    // Skip AI for Facebook comment conversations to prevent reply loops
+    // When AI replies to a comment, it creates a new comment on Facebook
+    // which triggers a webhook event, causing AI to reply again infinitely
+    const isCommentConversation = conversation.metadata?.type === "post_comments";
+    if (isCommentConversation && conversation.platform === Platform.FACEBOOK) {
+      this.logger.log(
+        `⏭️ [AI Batch] Skipping: Facebook comment conversation (to prevent reply loops) | ` +
+          `Conversation: ${conversationId}`
+      );
+      return;
+    }
+
     // Check if AI is enabled for this conversation
     if (conversation.aiEnabled === false) {
       this.logger.log(
