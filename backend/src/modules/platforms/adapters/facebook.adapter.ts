@@ -235,11 +235,13 @@ export class FacebookAdapter extends BasePlatformAdapter {
       return null;
     }
 
-    // Skip comments from the page itself (page commenting on its own post)
-    // This prevents saving comments created by AI/agent replies
-    if (commenterId === pageId) {
+    // Skip comments from the page itself ONLY if it's a reply to another comment
+    // (AI/agent replies create new comments with parent_id)
+    // Allow page comments on posts directly (for testing/manual comments)
+    const isReply = value.parent_id && value.item === 'comment';
+    if (commenterId === pageId && isReply) {
       this.logger.log(
-        `⏭️ Skipping comment from page itself: commenterId=${commenterId} (pageId=${pageId}) - this is likely a reply from AI/agent`
+        `⏭️ Skipping comment reply from page itself: commenterId=${commenterId} (pageId=${pageId}), parent_id=${value.parent_id} - this is likely a reply from AI/agent`
       );
       return null;
     }

@@ -207,18 +207,26 @@ export class WebhookProcessorService {
   ): Promise<boolean> {
     const { senderId } = event;
     const isComment = (event.rawPayload as any)?.isComment;
+    const rawPayload = event.rawPayload as any;
 
     // Skip echo messages (sent by the page itself)
     // For regular messages: skip if senderId === pageId
-    // For comments: also skip if senderId === pageId (page's own comments/replies should not be saved)
-    // This prevents saving comments created by AI/agent replies, which would cause loops
+    // For comments: only skip if it's a reply (parent_id exists) from page
+    // This prevents saving AI/agent replies but allows page comments on posts (for testing)
     if (senderId === connection.platformAccountId) {
       if (isComment) {
-        this.logger.log(`⏭️ Skipping comment from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}) - this is likely a reply from AI/agent`);
+        // Only skip if it's a reply to another comment (AI/agent reply)
+        const isReply = rawPayload?.parent_id && rawPayload?.item === 'comment';
+        if (isReply) {
+          this.logger.log(`⏭️ Skipping comment reply from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}), parent_id=${rawPayload?.parent_id} - this is likely a reply from AI/agent`);
+          return false;
+        }
+        // Allow page comments on posts directly (for testing/manual comments)
+        this.logger.log(`💬 Processing comment from page on post (not a reply): senderId=${senderId}`);
       } else {
         this.logger.log(`⏭️ Skipping echo message from page: ${senderId}`);
+        return false;
       }
-      return false;
     }
 
     if (isComment) {
