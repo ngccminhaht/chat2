@@ -226,7 +226,7 @@ export class MessageCombiner {
       if (postText) {
         // Prepend post content to query so AI knows the context
         queryText = `[Bài viết gốc: ${postText}]\n\n[Khách hàng comment]: ${queryText}`;
-        this.logger.log(`📄 Added post content to AI context for comment conversation`);
+        console.log(`📄 [MessageCombiner] Added post content to AI context for comment conversation`);
       }
     }
 
