@@ -144,6 +144,7 @@ export class MessageSenderConsumer {
           // 2. From last inbound message platformMessageId
           // 3. From last inbound message metadata
           let commentId = conversation.metadata?.lastCommentId;
+          let originalCommentId = commentId; // Store original for logging
 
           if (!commentId) {
             // Get the last inbound message (comment) to get comment_id
@@ -169,6 +170,8 @@ export class MessageSenderConsumer {
               lastInboundMessage?.metadata?.rawPayload?.comment_id ||
               lastInboundMessage?.metadata?.rawPayload?.commentId ||
               lastInboundMessage?.metadata?.comment_id;
+            
+            originalCommentId = commentId; // Store for logging
           }
 
           // Facebook comment_id format can be: "post_id_comment_id" or just "comment_id"
@@ -182,9 +185,10 @@ export class MessageSenderConsumer {
               const extractedId = parts[parts.length - 1];
               // Verify it's a valid comment ID (numeric)
               if (/^\d+$/.test(extractedId)) {
+                const originalId = commentId;
                 commentId = extractedId;
                 this.logger.log(
-                  `  🔧 Extracted comment_id from composite ID: ${commentId} (from: ${lastInboundMessage?.platformMessageId})`
+                  `  🔧 Extracted comment_id from composite ID: ${commentId} (from: ${originalId})`
                 );
               } else {
                 this.logger.warn(
@@ -526,8 +530,8 @@ export class MessageSenderConsumer {
         // Check if a message with this platformMessageId already exists (created by webhook)
         const existingMessage = await this.messageModel
           .findOne({
-            platformMessageId,
-            _id: { $ne: messageId }, // Not our pending message
+          platformMessageId,
+          _id: { $ne: messageId }, // Not our pending message
           })
           .exec();
 
@@ -672,8 +676,8 @@ export class MessageSenderConsumer {
 
       const updatedConnection = await this.platformConnectionModel
         .findByIdAndUpdate(
-          connection._id,
-          {
+        connection._id,
+        {
             "credentials.accessToken": newAccessToken,
             "credentials.refreshToken": newRefreshToken,
             "credentials.expiresAt": new Date(Date.now() + expiresIn * 1000),
@@ -744,7 +748,7 @@ export class MessageSenderConsumer {
           organizationId,
           "conversation:updated",
           {
-            conversationId: message.conversationId?.toString(),
+          conversationId: message.conversationId?.toString(),
           }
         );
       }
