@@ -37,6 +37,7 @@ import {
   UserProfile,
 } from "../interfaces";
 import { InboundMessageHandlerService } from "@/modules/messages/inbound-message-handler.service";
+import axios from "axios";
 
 export interface WebhookProcessResult {
   success: boolean;
@@ -218,13 +219,18 @@ export class WebhookProcessorService {
       if (isComment) {
         // Only skip if parent_id exists and is NOT the post_id (meaning it's a reply to another comment)
         const postId = rawPayload?.post_id || rawPayload?.postId;
-        const isReplyToComment = rawPayload?.parent_id && rawPayload?.parent_id !== postId;
+        const isReplyToComment =
+          rawPayload?.parent_id && rawPayload?.parent_id !== postId;
         if (isReplyToComment) {
-          this.logger.log(`⏭️ Skipping comment reply from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}), parent_id=${rawPayload?.parent_id}, post_id=${postId} - this is a reply to another comment (AI/agent reply)`);
+          this.logger.log(
+            `⏭️ Skipping comment reply from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}), parent_id=${rawPayload?.parent_id}, post_id=${postId} - this is a reply to another comment (AI/agent reply)`
+          );
           return false;
         }
         // Allow top-level comments from page (parent_id === post_id or no parent_id)
-        this.logger.log(`💬 Processing top-level comment from page on post: senderId=${senderId}, parent_id=${rawPayload?.parent_id}, post_id=${postId}`);
+        this.logger.log(
+          `💬 Processing top-level comment from page on post: senderId=${senderId}, parent_id=${rawPayload?.parent_id}, post_id=${postId}`
+        );
       } else {
         this.logger.log(`⏭️ Skipping echo message from page: ${senderId}`);
         return false;
@@ -232,35 +238,41 @@ export class WebhookProcessorService {
     }
 
     if (isComment) {
-      this.logger.log(`💬 Processing comment from customer: senderId=${senderId}, pageId=${connection.platformAccountId}`);
+      this.logger.log(
+        `💬 Processing comment from customer: senderId=${senderId}, pageId=${connection.platformAccountId}`
+      );
     }
 
     // 1. Normalize message using adapter
     const normalized = adapter.normalizeMessage(event);
-    
+
     if (isComment) {
-      this.logger.log(`  📝 Normalized: conversationKey=${normalized.conversationKey}, platformMessageId=${normalized.platformMessageId}`);
+      this.logger.log(
+        `  📝 Normalized: conversationKey=${normalized.conversationKey}, platformMessageId=${normalized.platformMessageId}`
+      );
     }
 
     // 2. Fetch user profile
-    // For comments, use name from rawPayload if available (from.name or sender_name)
+    // For comments, use name from rawPayload if available, but always fetch full profile (including avatar)
     let userProfile: UserProfile;
     if (isComment) {
       const rawPayload = event.rawPayload as any;
       const commenterName = rawPayload?.sender_name || rawPayload?.from?.name;
-      if (commenterName) {
-        this.logger.log(`  👤 Using commenter name from webhook: ${commenterName}`);
-        userProfile = {
-          id: senderId,
-          name: commenterName,
-        };
-      } else {
-        this.logger.log(`  👤 Fetching user profile for commenter: ${senderId}`);
-        userProfile = await this.fetchUserProfileSafe(
-          adapter,
-          connection,
-          senderId
+
+      // Always fetch full profile to get avatar
+      this.logger.log(`  👤 Fetching user profile for commenter: ${senderId}`);
+      userProfile = await this.fetchUserProfileSafe(
+        adapter,
+        connection,
+        senderId
+      );
+
+      // Override name with webhook name if available (more accurate)
+      if (commenterName && commenterName !== userProfile.name) {
+        this.logger.log(
+          `  👤 Using commenter name from webhook: ${commenterName} (overriding fetched name: ${userProfile.name})`
         );
+        userProfile.name = commenterName;
       }
     } else {
       userProfile = await this.fetchUserProfileSafe(
@@ -270,11 +282,52 @@ export class WebhookProcessorService {
       );
     }
 
-    // 3. Process via shared handler (conversation CRUD + message save + AI batching)
-    // Merge userProfile metadata (e.g., Zalo profile data) into message metadata
+    // 3. For Facebook comments, fetch post content for AI context
+    let postContent: { message?: string; story?: string } | null = null;
+    if (isComment && adapter.platform === Platform.FACEBOOK) {
+      const rawPayload = event.rawPayload as any;
+      const postId = rawPayload?.post_id || rawPayload?.postId;
+      if (postId && connection.credentials?.accessToken) {
+        try {
+          this.logger.log(
+            `  📄 Fetching post content for AI context: postId=${postId}`
+          );
+          const response = await axios.get(
+            `https://graph.facebook.com/v19.0/${postId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${connection.credentials.accessToken}`,
+              },
+              params: {
+                fields: "message,story",
+              },
+            }
+          );
+          if (!response.data.error) {
+            postContent = {
+              message: response.data.message || undefined,
+              story: response.data.story || undefined,
+            };
+            this.logger.log(
+              `  ✅ Post content fetched: ${
+                postContent.message || postContent.story || "no content"
+              }`
+            );
+          }
+        } catch (error) {
+          this.logger.warn(
+            `  ⚠️ Failed to fetch post content: ${error.message}`
+          );
+        }
+      }
+    }
+
+    // 4. Process via shared handler (conversation CRUD + message save + AI batching)
+    // Merge userProfile metadata (e.g., Zalo profile data) and post content into message metadata
     const mergedMetadata = {
       ...normalized.metadata,
       ...(userProfile.metadata || {}), // Include Zalo profile data if available
+      ...(postContent ? { postContent } : {}), // Include post content for AI context
     };
 
     if (isComment) {
@@ -317,7 +370,9 @@ export class WebhookProcessorService {
     }
 
     if (isComment) {
-      this.logger.log(`  ✅ Comment message processed successfully: messageId=${result.message?._id}, conversationId=${result.conversation._id}`);
+      this.logger.log(
+        `  ✅ Comment message processed successfully: messageId=${result.message?._id}, conversationId=${result.conversation._id}`
+      );
     }
 
     // 4. Publish WebSocket notification (webhook-specific, keep here)

@@ -907,6 +907,51 @@ export class FacebookService {
   }
 
   /**
+   * Fetch Facebook post content by post ID
+   * Returns post message/text content for AI context
+   */
+  async fetchPostContent(
+    postId: string,
+    accessToken: string
+  ): Promise<{ message?: string; story?: string } | null> {
+    try {
+      this.logger.log(`Fetching Facebook post content: ${postId}`);
+
+      const response = await axios.get(
+        `https://graph.facebook.com/${this.graphApiVersion}/${postId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: {
+            fields: 'message,story',
+          },
+        }
+      );
+
+      if (response.data.error) {
+        this.logger.warn(
+          `Failed to fetch post content: ${response.data.error.message}`
+        );
+        return null;
+      }
+
+      const postContent = {
+        message: response.data.message || undefined,
+        story: response.data.story || undefined,
+      };
+
+      this.logger.log(
+        `✅ Retrieved post content: ${postContent.message || postContent.story || 'no content'}`
+      );
+      return postContent;
+    } catch (error) {
+      this.logger.error('Failed to fetch post content', error);
+      return null;
+    }
+  }
+
+  /**
    * Subscribe Facebook page to webhook events (comments, feed)
    * Required for receiving comment notifications on page posts
    */

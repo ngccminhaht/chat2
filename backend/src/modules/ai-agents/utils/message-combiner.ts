@@ -203,7 +203,19 @@ export class MessageCombiner {
       hasMetadata: !!conversation?.metadata,
       hasZaloProfile: !!conversation?.metadata?.zaloProfile,
       zaloProfile: conversation?.metadata?.zaloProfile,
+      hasPostContent: !!conversation?.metadata?.postContent,
     });
+
+    // Add Facebook post content to query for comment conversations
+    if (conversation?.metadata?.type === "post_comments" && conversation?.metadata?.postContent) {
+      const postContent = conversation.metadata.postContent as { message?: string; story?: string };
+      const postText = postContent.message || postContent.story;
+      if (postText) {
+        // Prepend post content to query so AI knows the context
+        queryText = `[Bài viết gốc: ${postText}]\n\n[Khách hàng comment]: ${queryText}`;
+        this.logger.log(`📄 Added post content to AI context for comment conversation`);
+      }
+    }
 
     if (conversation?.metadata?.zaloProfile) {
       const zaloProfile = conversation.metadata.zaloProfile as Record<

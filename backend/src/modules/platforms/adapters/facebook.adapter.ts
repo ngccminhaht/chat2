@@ -465,7 +465,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
             Authorization: `Bearer ${accessToken}`,
           },
           params: {
-            fields: "id,name,profile_pic",
+            fields: "id,name,picture.width(200).height(200)",
           },
         }
       );
@@ -474,10 +474,14 @@ export class FacebookAdapter extends BasePlatformAdapter {
         return this.createDefaultProfile(userId, "Facebook");
       }
 
+      // Extract avatar URL from picture object
+      const avatarUrl =
+        response.data.picture?.data?.url || response.data.profile_pic;
+
       return {
         id: response.data.id,
         name: response.data.name,
-        avatar: response.data.profile_pic,
+        avatar: avatarUrl,
       };
     } catch (error) {
       this.logger.warn(

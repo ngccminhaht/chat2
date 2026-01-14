@@ -299,13 +299,25 @@ export class InboundMessageHandlerService {
         rawPayload?.comment_id ||
         rawPayload?.commentId ||
         input.platformMessageId;
+      const postContent = input.metadata?.postContent as
+        | { message?: string; story?: string }
+        | undefined;
 
       conversationMetadata.type = "post_comments";
       conversationMetadata.postId = postId;
       conversationMetadata.pageId = platformAccountId;
       conversationMetadata.lastCommentId = commentId; // Store for easy retrieval when replying
+      if (postContent) {
+        conversationMetadata.postContent = postContent; // Store post content for AI context
+      }
       this.logger.log(
-        `📝 Creating conversation for post comment: postId=${postId}, pageId=${platformAccountId}, commentId=${commentId}`
+        `📝 Creating conversation for post comment: postId=${postId}, pageId=${platformAccountId}, commentId=${commentId}${
+          postContent
+            ? `, postContent: ${
+                postContent.message || postContent.story || "no content"
+              }`
+            : ""
+        }`
       );
     }
 
