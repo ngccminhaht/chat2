@@ -150,6 +150,10 @@ export class InboundMessageHandlerService {
     }
 
     // 3. Save message with upsert (handles deduplication)
+    if (isComment) {
+      this.logger.log(`  💾 Saving comment message: platformMessageId=${platformMessageId}, conversationId=${conversation._id}`);
+    }
+    
     const { message, isNew } = await this.saveMessageWithUpsert(
       input,
       conversation
@@ -162,7 +166,7 @@ export class InboundMessageHandlerService {
     }
     
     if (isComment) {
-      this.logger.log(`  ✅ Comment message saved: ${message._id}, type: ${message.type}`);
+      this.logger.log(`  ✅ Comment message saved successfully: messageId=${message._id}, type: ${message.type}, conversationId=${conversation._id}`);
     }
 
     // 4. Update conversation lastMessage

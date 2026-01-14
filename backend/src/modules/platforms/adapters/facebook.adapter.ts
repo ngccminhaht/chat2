@@ -335,10 +335,11 @@ export class FacebookAdapter extends BasePlatformAdapter {
       const payloadAny = payload as any;
       const postId = payloadAny.postId || payloadAny.post_id;
       if (postId) {
-        this.logger.debug(
-          `Creating post-based conversation key: post_${postId}_${recipientId}`
+        const conversationKey = `post_${postId}_${recipientId}`;
+        this.logger.log(
+          `🔑 Creating post-based conversation key: ${conversationKey} (postId=${postId}, pageId=${recipientId})`
         );
-        return `post_${postId}_${recipientId}`;
+        return conversationKey;
       }
     }
     // For direct messages: senderId_pageId

@@ -206,21 +206,53 @@ export class WebhookProcessorService {
     connection: PlatformConnectionDocument
   ): Promise<boolean> {
     const { senderId } = event;
+    const isComment = (event.rawPayload as any)?.isComment;
 
     // Skip echo messages (sent by the page itself)
-    if (senderId === connection.platformAccountId) {
+    // BUT: Don't skip comments even if senderId matches pageId (page can comment on its own posts)
+    if (senderId === connection.platformAccountId && !isComment) {
+      this.logger.log(`⏭️ Skipping echo message from page: ${senderId}`);
       return false;
+    }
+
+    if (isComment) {
+      this.logger.log(`💬 Processing comment message: senderId=${senderId}, pageId=${connection.platformAccountId}`);
     }
 
     // 1. Normalize message using adapter
     const normalized = adapter.normalizeMessage(event);
+    
+    if (isComment) {
+      this.logger.log(`  📝 Normalized: conversationKey=${normalized.conversationKey}, platformMessageId=${normalized.platformMessageId}`);
+    }
 
     // 2. Fetch user profile
-    const userProfile = await this.fetchUserProfileSafe(
-      adapter,
-      connection,
-      senderId
-    );
+    // For comments, use name from rawPayload if available (from.name or sender_name)
+    let userProfile: UserProfile;
+    if (isComment) {
+      const rawPayload = event.rawPayload as any;
+      const commenterName = rawPayload?.sender_name || rawPayload?.from?.name;
+      if (commenterName) {
+        this.logger.log(`  👤 Using commenter name from webhook: ${commenterName}`);
+        userProfile = {
+          id: senderId,
+          name: commenterName,
+        };
+      } else {
+        this.logger.log(`  👤 Fetching user profile for commenter: ${senderId}`);
+        userProfile = await this.fetchUserProfileSafe(
+          adapter,
+          connection,
+          senderId
+        );
+      }
+    } else {
+      userProfile = await this.fetchUserProfileSafe(
+        adapter,
+        connection,
+        senderId
+      );
+    }
 
     // 3. Process via shared handler (conversation CRUD + message save + AI batching)
     // Merge userProfile metadata (e.g., Zalo profile data) into message metadata
@@ -228,6 +260,10 @@ export class WebhookProcessorService {
       ...normalized.metadata,
       ...(userProfile.metadata || {}), // Include Zalo profile data if available
     };
+
+    if (isComment) {
+      this.logger.log(`  📤 Calling processInboundMessage for comment...`);
+    }
 
     const result = await this.inboundMessageHandler.processInboundMessage({
       platform: adapter.platform,
@@ -258,7 +294,14 @@ export class WebhookProcessorService {
 
     // Skip if duplicate
     if (!result.isNew) {
+      if (isComment) {
+        this.logger.log(`  ⏭️ Comment message is duplicate, skipping`);
+      }
       return false;
+    }
+
+    if (isComment) {
+      this.logger.log(`  ✅ Comment message processed successfully: messageId=${result.message?._id}, conversationId=${result.conversation._id}`);
     }
 
     // 4. Publish WebSocket notification (webhook-specific, keep here)
