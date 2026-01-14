@@ -238,12 +238,18 @@ export class FacebookAdapter extends BasePlatformAdapter {
     // Skip comments from the page itself ONLY if it's a reply to another comment
     // (AI/agent replies create new comments with parent_id)
     // Allow page comments on posts directly (for testing/manual comments)
-    const isReply = value.parent_id && value.item === 'comment';
-    if (commenterId === pageId && isReply) {
+    if (commenterId === pageId) {
+      const isReply = value.parent_id || (value.item === 'comment' && value.comment_id !== value.post_id);
+      if (isReply) {
+        this.logger.log(
+          `⏭️ Skipping comment reply from page itself: commenterId=${commenterId} (pageId=${pageId}), parent_id=${value.parent_id}, item=${value.item} - this is likely a reply from AI/agent`
+        );
+        return null;
+      }
+      // Allow top-level comments from page (for testing)
       this.logger.log(
-        `⏭️ Skipping comment reply from page itself: commenterId=${commenterId} (pageId=${pageId}), parent_id=${value.parent_id} - this is likely a reply from AI/agent`
+        `💬 Allowing top-level comment from page: commenterId=${commenterId} (pageId=${pageId}) - this is a direct comment on post, not a reply`
       );
-      return null;
     }
 
     // Ensure postId is available in both snake_case and camelCase for compatibility

@@ -191,19 +191,10 @@ export class InboundMessageHandlerService {
     await this.updateConversationLastMessage(conversation, message, input);
 
     // 5. Trigger AI batching for inbound messages
-    // Skip AI for comment conversations to prevent reply loops
-    // (AI reply creates new comment → triggers webhook → AI replies again)
+    // AI is now allowed for comments - reply loops are prevented by skipping
+    // comments from page (AI replies) in the adapter/webhook-processor
     if (input.direction === MessageDirection.INBOUND) {
-      const isComment =
-        input.metadata?.isComment ||
-        (input.metadata?.rawPayload as any)?.isComment;
-      if (isComment && input.platform === Platform.FACEBOOK) {
-        this.logger.log(
-          `  ⏭️ Skipping AI batching for comment (to prevent reply loops)`
-        );
-      } else {
-        await this.triggerAiBatching(message, conversation);
-      }
+      await this.triggerAiBatching(message, conversation);
     }
 
     this.logger.log(`✅ Processed message: ${message._id}`);

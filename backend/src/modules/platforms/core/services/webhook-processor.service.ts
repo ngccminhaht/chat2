@@ -216,13 +216,14 @@ export class WebhookProcessorService {
     if (senderId === connection.platformAccountId) {
       if (isComment) {
         // Only skip if it's a reply to another comment (AI/agent reply)
-        const isReply = rawPayload?.parent_id && rawPayload?.item === 'comment';
+        // Check parent_id or if item is 'comment' and comment_id != post_id
+        const isReply = rawPayload?.parent_id || (rawPayload?.item === 'comment' && rawPayload?.comment_id !== rawPayload?.post_id);
         if (isReply) {
-          this.logger.log(`⏭️ Skipping comment reply from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}), parent_id=${rawPayload?.parent_id} - this is likely a reply from AI/agent`);
+          this.logger.log(`⏭️ Skipping comment reply from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}), parent_id=${rawPayload?.parent_id}, item=${rawPayload?.item} - this is likely a reply from AI/agent`);
           return false;
         }
         // Allow page comments on posts directly (for testing/manual comments)
-        this.logger.log(`💬 Processing comment from page on post (not a reply): senderId=${senderId}`);
+        this.logger.log(`💬 Processing top-level comment from page on post (not a reply): senderId=${senderId}`);
       } else {
         this.logger.log(`⏭️ Skipping echo message from page: ${senderId}`);
         return false;
