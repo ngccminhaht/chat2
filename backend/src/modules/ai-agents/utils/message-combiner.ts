@@ -33,8 +33,12 @@ export interface AIRequestData {
 export class MessageCombiner {
   /**
    * Get platform display name
+   * For Facebook, distinguish between COMMENT and INBOX
    */
-  private static getPlatformLabel(platform: string): string {
+  private static getPlatformLabel(
+    platform: string,
+    conversation?: ConversationDocument
+  ): string {
     const labels: Record<string, string> = {
       facebook: "Facebook",
       zalo: "Zalo",
@@ -42,7 +46,16 @@ export class MessageCombiner {
       shopee: "Shopee",
       web: "Web",
     };
-    return labels[platform] || platform;
+    
+    const baseLabel = labels[platform] || platform;
+    
+    // For Facebook, add COMMENT or INBOX suffix
+    if (platform === "facebook" && conversation) {
+      const isComment = conversation.metadata?.type === "post_comments";
+      return isComment ? "FACEBOOK:COMMENT" : "FACEBOOK:INBOX";
+    }
+    
+    return baseLabel;
   }
 
   /**
@@ -79,7 +92,7 @@ export class MessageCombiner {
       const platform = (conversation?.platform ||
         (message as any)?.platform ||
         "web") as string;
-      const platformLabel = this.getPlatformLabel(platform);
+      const platformLabel = this.getPlatformLabel(platform, conversation);
       const sourcePrefix = `[from: ${platformLabel}]`;
 
       // Only add source for inbound messages

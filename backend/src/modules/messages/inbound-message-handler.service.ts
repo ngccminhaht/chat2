@@ -219,10 +219,26 @@ export class InboundMessageHandlerService {
       userProfileMetadata,
     } = input;
 
+    // For Facebook, always use senderId_pageId as conversation key
+    // to merge Messenger messages and comments from the same user on the same page
+    // This helps get complete insight of customer interactions
+    let finalConversationKey = conversationKey;
+    if (platform === Platform.FACEBOOK && platformAccountId) {
+      const rawPayload = input.metadata?.rawPayload as any;
+      const isComment = input.metadata?.isComment || rawPayload?.isComment;
+      if (isComment) {
+        // Use messenger key for comments to merge with Messenger conversation
+        finalConversationKey = `${sender.platformUserId}_${platformAccountId}`;
+        this.logger.log(
+          `🔗 Using Messenger conversation key for comment: ${finalConversationKey} (to merge with Messenger messages)`
+        );
+      }
+    }
+
     let conversation = await this.conversationModel
       .findOne({
         platform,
-        platformConversationId: conversationKey,
+        platformConversationId: finalConversationKey,
       })
       .exec();
 
@@ -322,9 +338,10 @@ export class InboundMessageHandlerService {
     }
 
     // Create new conversation with user profile metadata
+    // Use finalConversationKey (may be different from original conversationKey for comments)
     conversation = await this.conversationModel.create({
       platform,
-      platformConversationId: conversationKey,
+      platformConversationId: finalConversationKey,
       platformConnectionId: platformConnectionId
         ? new Types.ObjectId(platformConnectionId)
         : new Types.ObjectId(),
