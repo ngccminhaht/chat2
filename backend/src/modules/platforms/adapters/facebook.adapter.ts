@@ -180,8 +180,10 @@ export class FacebookAdapter extends BasePlatformAdapter {
     pageId: string,
     timestamp: Date
   ): PlatformEvent | null {
-    // Only handle new comments
-    if (value.verb !== "add" && value.verb !== undefined) {
+    // Only handle new comments (verb === "add" or undefined)
+    // Skip edits and removals
+    if (value.verb && value.verb !== "add") {
+      this.logger.debug(`Skipping comment event with verb: ${value.verb}`);
       return null;
     }
 
@@ -190,8 +192,23 @@ export class FacebookAdapter extends BasePlatformAdapter {
     const postId = value.post_id;
 
     if (!commenterId || !postId) {
+      this.logger.warn(
+        `Comment event missing required fields: commenterId=${commenterId}, postId=${postId}`
+      );
       return null;
     }
+
+    // Ensure postId is available in both snake_case and camelCase for compatibility
+    const rawPayload = {
+      ...value,
+      postId: postId, // Add camelCase version
+      post_id: postId, // Keep snake_case version
+      isComment: true,
+    };
+
+    this.logger.log(
+      `Parsing comment event: postId=${postId}, commenterId=${commenterId}, commentId=${commentId}`
+    );
 
     // Return as PlatformEvent with message-like properties for unified processing
     return {
@@ -204,7 +221,7 @@ export class FacebookAdapter extends BasePlatformAdapter {
       content: {
         text: value.message || "[Comment]",
       },
-      rawPayload: { ...value, postId, isComment: true },
+      rawPayload,
     } as MessageEvent;
   }
 
@@ -274,8 +291,16 @@ export class FacebookAdapter extends BasePlatformAdapter {
     payload?: unknown
   ): string {
     // For comments, use post-based conversation key
-    if (payload && (payload as any).postId) {
-      return `post_${(payload as any).postId}_${recipientId}`;
+    // Handle both camelCase (postId) and snake_case (post_id) for compatibility
+    if (payload) {
+      const payloadAny = payload as any;
+      const postId = payloadAny.postId || payloadAny.post_id;
+      if (postId) {
+        this.logger.debug(
+          `Creating post-based conversation key: post_${postId}_${recipientId}`
+        );
+        return `post_${postId}_${recipientId}`;
+      }
     }
     // For direct messages: senderId_pageId
     return `${senderId}_${recipientId}`;

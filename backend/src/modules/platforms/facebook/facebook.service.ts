@@ -907,6 +907,47 @@ export class FacebookService {
   }
 
   /**
+   * Subscribe Facebook page to webhook events (comments, feed)
+   * Required for receiving comment notifications on page posts
+   */
+  async subscribePageToWebhooks(
+    pageId: string,
+    pageAccessToken: string
+  ): Promise<void> {
+    try {
+      this.logger.log(`Subscribing page ${pageId} to webhook events (comments, feed)...`);
+
+      const response = await axios.post(
+        `https://graph.facebook.com/${this.graphApiVersion}/${pageId}/subscribed_apps`,
+        {
+          subscribed_fields: 'messages,comments,feed',
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${pageAccessToken}`,
+          },
+        }
+      );
+
+      if (response.data.error) {
+        this.logger.warn(
+          `⚠️ Failed to subscribe page to webhooks: ${response.data.error.message}`
+        );
+        // Don't throw - subscription might already exist or permissions might be missing
+        return;
+      }
+
+      this.logger.log(`✅ Successfully subscribed page ${pageId} to webhook events`);
+    } catch (error) {
+      this.logger.warn(
+        `⚠️ Failed to subscribe page to webhooks: ${error.message}`
+      );
+      // Don't throw - allow connection to be saved even if subscription fails
+      // User can manually subscribe via Facebook App Dashboard
+    }
+  }
+
+  /**
    * Save platform connection for a Facebook page
    */
   async savePlatformConnection(
@@ -961,6 +1002,9 @@ export class FacebookService {
 
       this.logger.log(`✅ Updated existing connection: ${savedConnection._id}`);
 
+      // Subscribe to webhook events (comments, feed) for receiving comment notifications
+      await this.subscribePageToWebhooks(pageInfo.id, pageInfo.access_token);
+
       return savedConnection;
     }
 
@@ -984,6 +1028,9 @@ export class FacebookService {
     });
 
     this.logger.log(`✅ Created new connection: ${newConnection._id}`);
+
+    // Subscribe to webhook events (comments, feed) for receiving comment notifications
+    await this.subscribePageToWebhooks(pageInfo.id, pageInfo.access_token);
 
     return newConnection;
   }
