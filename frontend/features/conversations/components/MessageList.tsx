@@ -196,12 +196,30 @@ export default function MessageList({
       {messages.map((message) => {
         const isOutbound = message.direction === "outbound";
         // Check if this is a Facebook message and determine source (COMMENT/INBOX)
+        // Match backend logic: check metadata.isComment first, then rawPayload.isComment as fallback
         const isFacebook = message.platform === "facebook";
-        const isComment =
-          isFacebook &&
-          !isOutbound &&
-          (message.metadata?.isComment === true ||
-            message.metadata?.rawPayload?.isComment === true);
+        let isComment = false;
+        if (isFacebook && !isOutbound) {
+          const messageMetadata = message.metadata || {};
+          const rawPayload = messageMetadata.rawPayload || {};
+          // Explicitly check for true (not just truthy) to avoid false positives
+          // This matches the backend logic in message-combiner.ts
+          isComment =
+            messageMetadata.isComment === true || rawPayload.isComment === true;
+
+          // Debug logging (remove in production)
+          if (process.env.NODE_ENV === "development") {
+            console.log("[MessageList] Facebook message source check:", {
+              messageId: message._id,
+              platform: message.platform,
+              direction: message.direction,
+              metadataIsComment: messageMetadata.isComment,
+              rawPayloadIsComment: rawPayload.isComment,
+              isCommentResult: isComment,
+              messageSource: isComment ? "COMMENT" : "INBOX",
+            });
+          }
+        }
         const messageSource = isComment ? "COMMENT" : "INBOX";
 
         return (
@@ -231,11 +249,15 @@ export default function MessageList({
               }}
             >
               {!isOutbound && (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                  >
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    ml: 1,
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary">
                     {message.sender.name}
                   </Typography>
                   {isFacebook && !isOutbound && (

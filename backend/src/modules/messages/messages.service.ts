@@ -145,17 +145,17 @@ export class MessagesService {
       throw new NotFoundException("Conversation not found");
     }
 
-    // Agent reply - cancel any pending AI batch (but keep AI enabled)
+    // Agent reply - cancel any pending AI batch and disable AI
     if (conversation.aiEnabled !== false) {
       await this.aiBatchingService.cancelBatch(conversationId);
-      // Reset AI state but keep AI enabled so it can respond to next customer message
+      // Disable AI when agent replies
       await this.conversationModel.findByIdAndUpdate(
         conversationId,
-        { aiState: "AI_ACTIVE" },
+        { aiEnabled: false, aiState: "AI_ACTIVE" },
         { timestamps: true }
       );
       this.logger.log(
-        `🤖 Cancelled pending AI batch for conversation ${conversationId} (agent replied, but AI remains enabled)`
+        `🤖 Cancelled pending AI batch and disabled AI for conversation ${conversationId} (agent replied)`
       );
     }
 
