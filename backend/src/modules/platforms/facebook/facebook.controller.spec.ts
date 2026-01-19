@@ -4,6 +4,7 @@ import { FacebookController } from './facebook.controller';
 import { FacebookService } from './facebook.service';
 import { WebhookPublisherService } from '@/modules/webhooks/webhook-publisher.service';
 import { OAuthStateService } from '@/modules/connections/oauth-state.service';
+import { OrganizationsService } from '@/modules/organizations/organizations.service';
 import { EnvService } from '@/common/env';
 
 describe('FacebookController', () => {
@@ -38,6 +39,10 @@ describe('FacebookController', () => {
     getState: jest.fn(),
   };
 
+  const mockOrganizationsService = {
+    findById: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [FacebookController],
@@ -46,6 +51,7 @@ describe('FacebookController', () => {
         { provide: WebhookPublisherService, useValue: mockWebhookPublisher },
         { provide: EnvService, useValue: mockEnvService },
         { provide: OAuthStateService, useValue: mockOAuthStateService },
+        { provide: OrganizationsService, useValue: mockOrganizationsService },
       ],
     }).compile();
 
