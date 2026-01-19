@@ -234,26 +234,53 @@ export class InboundMessageHandlerService {
 
     if (conversation) {
       // Update customer info if:
-      // 1. It was a placeholder (starts with "Platform User")
+      // 1. It was a placeholder (starts with "Platform User" or "Unknown")
       // 2. Or we have a new name that's different and not a placeholder
-      const isPlaceholder = conversation.customerName.startsWith(
-        `${platform} User`
-      );
+      // 3. Or avatar is missing but we have one now
+      const isPlaceholder =
+        conversation.customerName.startsWith(`${platform} User`) ||
+        conversation.customerName === "Unknown User" ||
+        conversation.customerName === "Unknown";
       const hasNewName =
         customerName && customerName !== conversation.customerName;
       const newNameIsNotPlaceholder =
-        customerName && !customerName.startsWith(`${platform} User`);
+        customerName &&
+        !customerName.startsWith(`${platform} User`) &&
+        customerName !== "Unknown User" &&
+        customerName !== "Unknown";
+      const needsAvatarUpdate =
+        !conversation.customerAvatar && customerAvatar;
 
       if (
-        customerName &&
-        (isPlaceholder || (hasNewName && newNameIsNotPlaceholder))
+        (customerName &&
+          (isPlaceholder || (hasNewName && newNameIsNotPlaceholder))) ||
+        needsAvatarUpdate
       ) {
-        this.logger.log(
-          `🔄 Updating customer name from "${conversation.customerName}" to "${customerName}"`
-        );
-        conversation.customerName = customerName;
-        if (customerAvatar) conversation.customerAvatar = customerAvatar;
-        await conversation.save();
+        let updated = false;
+        if (
+          customerName &&
+          (isPlaceholder || (hasNewName && newNameIsNotPlaceholder))
+        ) {
+          this.logger.log(
+            `🔄 Updating customer name from "${conversation.customerName}" to "${customerName}"`
+          );
+          conversation.customerName = customerName;
+          updated = true;
+        }
+        if (customerAvatar && !conversation.customerAvatar) {
+          this.logger.log(
+            `🔄 Updating customer avatar (was missing)`
+          );
+          conversation.customerAvatar = customerAvatar;
+          updated = true;
+        } else if (customerAvatar && conversation.customerAvatar !== customerAvatar) {
+          // Also update if avatar URL changed
+          conversation.customerAvatar = customerAvatar;
+          updated = true;
+        }
+        if (updated) {
+          await conversation.save();
+        }
       }
       // For comment conversations, update lastCommentId when new comment arrives
       const rawPayload = input.metadata?.rawPayload as any;
