@@ -102,6 +102,10 @@ export class FacebookController {
       `  Total Events: ${eventCount} (${messagingCount} messaging, ${changesCount} changes)`
     );
 
+    // Log full raw payload for debugging
+    this.logger.log(`  🔍 FULL RAW PAYLOAD:`);
+    this.logger.log(JSON.stringify(payload, null, 2));
+
     // Log full payload structure for debugging
     if (payload.entry && payload.entry.length > 0) {
       for (const entry of payload.entry) {
