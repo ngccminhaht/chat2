@@ -5,12 +5,11 @@ import { Model, Types } from 'mongoose';
 import { WebhookProcessorService } from './webhook-processor.service';
 import { PlatformRegistry } from './platform.registry';
 import { KafkaProducerService } from '@/infra/kafka/kafka-producer.service';
+import { InboundMessageHandlerService } from '@/modules/messages/inbound-message-handler.service';
 import {
   Platform,
   MessageType,
   MessageDirection,
-  ConversationStatus,
-  MessageStatus,
 } from '@/common/constants';
 import {
   Conversation,
@@ -29,6 +28,11 @@ import {
 } from '@/common/database/schemas/platform-connection.schema';
 import { IPlatformAdapter, MessageEvent, NormalizedMessage } from './../interfaces';
 
+// Mock axios to prevent actual HTTP calls
+jest.mock('axios', () => ({
+  get: jest.fn().mockResolvedValue({ data: {} }),
+}));
+
 describe('WebhookProcessorService', () => {
   let mongoServer: MongoMemoryServer;
   let module: TestingModule;
@@ -38,6 +42,7 @@ describe('WebhookProcessorService', () => {
   let messageModel: Model<MessageDocument>;
   let platformConnectionModel: Model<PlatformConnectionDocument>;
   let mockKafkaProducer: any;
+  let mockInboundMessageHandler: any;
 
   // Mock adapter
   const mockAdapter: Partial<IPlatformAdapter> = {
@@ -60,6 +65,10 @@ describe('WebhookProcessorService', () => {
       publish: jest.fn().mockResolvedValue(undefined),
     };
 
+    mockInboundMessageHandler = {
+      processInboundMessage: jest.fn(),
+    };
+
     module = await Test.createTestingModule({
       imports: [
         MongooseModule.forRoot(mongoUri),
@@ -73,6 +82,7 @@ describe('WebhookProcessorService', () => {
         WebhookProcessorService,
         PlatformRegistry,
         { provide: KafkaProducerService, useValue: mockKafkaProducer },
+        { provide: InboundMessageHandlerService, useValue: mockInboundMessageHandler },
       ],
     }).compile();
 
@@ -112,6 +122,7 @@ describe('WebhookProcessorService', () => {
     it('should process webhook successfully with no events', async () => {
       // Create platform connection
       await platformConnectionModel.create({
+        organizationId: new Types.ObjectId(),
         userId: new Types.ObjectId(),
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
@@ -129,16 +140,47 @@ describe('WebhookProcessorService', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should process message events and create conversation + message', async () => {
+    it('should process message events and call InboundMessageHandlerService', async () => {
       // Create platform connection
-      const userId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
       const connection = await platformConnectionModel.create({
-        userId,
+        organizationId,
+        userId: new Types.ObjectId(),
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
         credentials: { accessToken: 'test_token' },
         status: 'active',
+      });
+
+      // Create conversation in DB (needed for publishNotification to findById)
+      const conversation = await conversationModel.create({
+        organizationId,
+        platform: Platform.FACEBOOK,
+        platformConversationId: 'user_456_page_123',
+        platformConnectionId: connection._id,
+        platformAccountId: 'page_123',
+        customerPlatformUserId: 'user_456',
+        customerName: 'Test User',
+        status: 'open',
+        unreadCount: 0,
+      });
+
+      // Mock InboundMessageHandlerService to return the real conversation
+      mockInboundMessageHandler.processInboundMessage.mockResolvedValueOnce({
+        message: {
+          _id: new Types.ObjectId(),
+          conversationId: conversation._id,
+          platformMessageId: 'm_123',
+          platform: Platform.FACEBOOK,
+          direction: MessageDirection.INBOUND,
+          type: MessageType.TEXT,
+          content: { text: 'Hello' },
+          sender: { platformUserId: 'user_456', name: 'Test User' },
+          status: 'sent',
+        },
+        conversation: conversation,
+        isNew: true,
       });
 
       const messageEvent: MessageEvent = {
@@ -173,28 +215,29 @@ describe('WebhookProcessorService', () => {
       expect(result.success).toBe(true);
       expect(result.messagesProcessed).toBe(1);
 
-      // Verify conversation was created
-      const conversations = await conversationModel.find({});
-      expect(conversations).toHaveLength(1);
-      expect(conversations[0].platformConversationId).toBe('user_456_page_123');
-      expect(conversations[0].customerPlatformUserId).toBe('user_456');
-      expect(conversations[0].unreadCount).toBe(1);
-
-      // Verify message was created
-      const messages = await messageModel.find({});
-      expect(messages).toHaveLength(1);
-      expect(messages[0].platformMessageId).toBe('m_123');
-      expect(messages[0].content.text).toBe('Hello');
+      // Verify InboundMessageHandlerService was called
+      expect(mockInboundMessageHandler.processInboundMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          platform: Platform.FACEBOOK,
+          organizationId: organizationId.toString(),
+          conversationKey: 'user_456_page_123',
+          platformMessageId: 'm_123',
+          direction: MessageDirection.INBOUND,
+          type: MessageType.TEXT,
+          content: { text: 'Hello' },
+        }),
+      );
 
       // Verify Kafka notification was published
       expect(mockKafkaProducer.publish).toHaveBeenCalled();
     });
 
-    it('should skip duplicate messages', async () => {
+    it('should skip duplicate messages (isNew = false)', async () => {
       // Create platform connection
-      const userId = new Types.ObjectId();
-      const connection = await platformConnectionModel.create({
-        userId,
+      const organizationId = new Types.ObjectId();
+      await platformConnectionModel.create({
+        organizationId,
+        userId: new Types.ObjectId(),
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -202,36 +245,12 @@ describe('WebhookProcessorService', () => {
         status: 'active',
       });
 
-      // Create existing conversation
-      const conversation = await conversationModel.create({
-        platform: Platform.FACEBOOK,
-        platformConversationId: 'user_456_page_123',
-        platformConnectionId: connection._id,
-        platformAccountId: 'page_123',
-        customerPlatformUserId: 'user_456',
-        customerName: 'Test User',
-        status: ConversationStatus.OPEN,
-        unreadCount: 0,
-      });
-
-      // Create existing message (duplicate)
-      await messageModel.create({
-        conversationId: conversation._id,
-        platform: Platform.FACEBOOK,
-        platformMessageId: 'm_123',
-        direction: MessageDirection.INBOUND,
-        type: MessageType.TEXT,
-        content: { text: 'Hello' },
-        sender: { platformUserId: 'user_456', name: 'Test User' },
-        status: MessageStatus.SENT,
-      });
-
       const messageEvent: MessageEvent = {
         type: 'message',
         senderId: 'user_456',
         recipientId: 'page_123',
         timestamp: new Date(),
-        messageId: 'm_123', // Same ID as existing
+        messageId: 'm_123',
         messageType: MessageType.TEXT,
         content: { text: 'Hello' },
         rawPayload: {},
@@ -253,21 +272,27 @@ describe('WebhookProcessorService', () => {
 
       (mockAdapter.normalizeMessage as jest.Mock).mockReturnValue(normalizedMessage);
 
+      // Mock InboundMessageHandlerService to return isNew: false (duplicate)
+      mockInboundMessageHandler.processInboundMessage.mockResolvedValueOnce({
+        message: null,
+        conversation: { _id: new Types.ObjectId() },
+        isNew: false,
+      });
+
       const result = await service.process(Platform.FACEBOOK, {});
 
       expect(result.success).toBe(true);
       expect(result.messagesProcessed).toBe(0); // Should be skipped
 
-      // Verify no new message was created
-      const messages = await messageModel.find({});
-      expect(messages).toHaveLength(1); // Still only 1 message
+      // Kafka should NOT be called for duplicates
+      expect(mockKafkaProducer.publish).not.toHaveBeenCalled();
     });
 
     it('should skip echo messages (sender equals platformAccountId)', async () => {
       // Create platform connection
-      const userId = new Types.ObjectId();
       await platformConnectionModel.create({
-        userId,
+        organizationId: new Types.ObjectId(),
+        userId: new Types.ObjectId(),
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -294,18 +319,17 @@ describe('WebhookProcessorService', () => {
       expect(result.success).toBe(true);
       expect(result.messagesProcessed).toBe(0); // Echo should be skipped
 
-      // Verify no conversation or message was created
-      const conversations = await conversationModel.find({});
-      const messages = await messageModel.find({});
-      expect(conversations).toHaveLength(0);
-      expect(messages).toHaveLength(0);
+      // InboundMessageHandlerService should NOT be called for echo messages
+      expect(mockInboundMessageHandler.processInboundMessage).not.toHaveBeenCalled();
     });
 
-    it('should skip comments from page itself', async () => {
-      // Create platform connection
-      const userId = new Types.ObjectId();
+    it('should skip comments from page itself (processor layer check)', async () => {
+      // This tests the processor's skip logic as a safety layer
+      // Primary skip happens in FacebookAdapter.parseCommentEvent(), but processor
+      // has a secondary check in case adapter passes through page's own messages
       await platformConnectionModel.create({
-        userId,
+        organizationId: new Types.ObjectId(),
+        userId: new Types.ObjectId(),
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -313,7 +337,8 @@ describe('WebhookProcessorService', () => {
         status: 'active',
       });
 
-      // Comment from page itself (page owner commenting on their own post)
+      // Simulate: adapter returns an event where senderId === pageId
+      // (this tests the processor's safety layer, not the adapter's skip)
       const pageCommentEvent: MessageEvent = {
         type: 'message',
         senderId: 'page_123', // Same as platformAccountId
@@ -324,7 +349,8 @@ describe('WebhookProcessorService', () => {
         content: { text: 'Thanks for commenting!' },
         rawPayload: {
           isComment: true,
-          post_id: 'post_789',
+          post_id: 'page_123_post_789',
+          postId: 'page_123_post_789',
         },
       };
 
@@ -333,71 +359,10 @@ describe('WebhookProcessorService', () => {
       const result = await service.process(Platform.FACEBOOK, {});
 
       expect(result.success).toBe(true);
-      expect(result.messagesProcessed).toBe(0); // Comment from page should be skipped
+      expect(result.messagesProcessed).toBe(0); // Processor should skip senderId === pageId
 
-      // Verify no conversation or message was created
-      const conversations = await conversationModel.find({});
-      const messages = await messageModel.find({});
-      expect(conversations).toHaveLength(0);
-      expect(messages).toHaveLength(0);
-    });
-
-    it('should update existing conversation unread count', async () => {
-      // Create platform connection
-      const userId = new Types.ObjectId();
-      const connection = await platformConnectionModel.create({
-        userId,
-        platform: Platform.FACEBOOK,
-        platformAccountId: 'page_123',
-        platformAccountName: 'Test Page',
-        credentials: { accessToken: 'test_token' },
-        status: 'active',
-      });
-
-      // Create existing conversation
-      await conversationModel.create({
-        platform: Platform.FACEBOOK,
-        platformConversationId: 'user_456_page_123',
-        platformConnectionId: connection._id,
-        platformAccountId: 'page_123',
-        customerPlatformUserId: 'user_456',
-        customerName: 'Test User',
-        status: ConversationStatus.OPEN,
-        unreadCount: 5,
-      });
-
-      const messageEvent: MessageEvent = {
-        type: 'message',
-        senderId: 'user_456',
-        recipientId: 'page_123',
-        timestamp: new Date(),
-        messageId: 'm_new',
-        messageType: MessageType.TEXT,
-        content: { text: 'New message' },
-        rawPayload: {},
-      };
-
-      (mockAdapter.extractEvents as jest.Mock).mockReturnValue([messageEvent]);
-
-      const normalizedMessage: NormalizedMessage = {
-        platformMessageId: 'm_new',
-        conversationKey: 'user_456_page_123',
-        direction: MessageDirection.INBOUND,
-        type: MessageType.TEXT,
-        senderId: 'user_456',
-        recipientId: 'page_123',
-        content: { text: 'New message' },
-        timestamp: new Date(),
-        metadata: {},
-      };
-
-      (mockAdapter.normalizeMessage as jest.Mock).mockReturnValue(normalizedMessage);
-
-      await service.process(Platform.FACEBOOK, {});
-
-      // Verify unread count was incremented
-      const conversation = await conversationModel.findOne({});
-      expect(conversation.unreadCount).toBe(6);
+      // InboundMessageHandlerService should NOT be called
+      expect(mockInboundMessageHandler.processInboundMessage).not.toHaveBeenCalled();
     });
 
     it('should handle errors gracefully', async () => {
@@ -414,11 +379,12 @@ describe('WebhookProcessorService', () => {
       (mockAdapter.extractAccountId as jest.Mock).mockReturnValue('page_123');
     });
 
-    it('should handle E11000 duplicate key error gracefully (race condition)', async () => {
+    it('should process comment events with isComment metadata', async () => {
       // Create platform connection
-      const userId = new Types.ObjectId();
+      const organizationId = new Types.ObjectId();
       const connection = await platformConnectionModel.create({
-        userId,
+        organizationId,
+        userId: new Types.ObjectId(),
         platform: Platform.FACEBOOK,
         platformAccountId: 'page_123',
         platformAccountName: 'Test Page',
@@ -426,110 +392,203 @@ describe('WebhookProcessorService', () => {
         status: 'active',
       });
 
-      // Create existing conversation
+      // Create conversation for comment
       const conversation = await conversationModel.create({
+        organizationId,
+        platform: Platform.FACEBOOK,
+        platformConversationId: 'post_page_123_post_789_page_123',
+        platformConnectionId: connection._id,
+        platformAccountId: 'page_123',
+        customerPlatformUserId: 'user_456',
+        customerName: 'Test User',
+        status: 'open',
+        unreadCount: 0,
+      });
+
+      // Mock InboundMessageHandlerService
+      mockInboundMessageHandler.processInboundMessage.mockResolvedValueOnce({
+        message: {
+          _id: new Types.ObjectId(),
+          conversationId: conversation._id,
+          platformMessageId: 'comment_abc',
+          platform: Platform.FACEBOOK,
+          direction: MessageDirection.INBOUND,
+          type: MessageType.TEXT,
+          content: { text: 'Nice post!' },
+          sender: { platformUserId: 'user_456', name: 'Test User' },
+          status: 'sent',
+        },
+        conversation: conversation,
+        isNew: true,
+      });
+
+      // Comment from a customer (not the page)
+      const commentEvent: MessageEvent = {
+        type: 'message',
+        senderId: 'user_456', // Customer, not page
+        recipientId: 'page_123',
+        timestamp: new Date(),
+        messageId: 'comment_abc',
+        messageType: MessageType.TEXT,
+        content: { text: 'Nice post!' },
+        rawPayload: {
+          isComment: true,
+          post_id: 'page_123_post_789',
+          sender_name: 'Test User',
+        },
+      };
+
+      (mockAdapter.extractEvents as jest.Mock).mockReturnValue([commentEvent]);
+
+      const normalizedMessage: NormalizedMessage = {
+        platformMessageId: 'comment_abc',
+        conversationKey: 'post_page_123_post_789_page_123',
+        direction: MessageDirection.INBOUND,
+        type: MessageType.TEXT,
+        senderId: 'user_456',
+        recipientId: 'page_123',
+        content: { text: 'Nice post!' },
+        timestamp: new Date(),
+        metadata: {
+          isComment: true,
+          rawPayload: {
+            isComment: true,
+            post_id: 'page_123_post_789',
+          },
+        },
+      };
+
+      (mockAdapter.normalizeMessage as jest.Mock).mockReturnValue(normalizedMessage);
+
+      const result = await service.process(Platform.FACEBOOK, {});
+
+      expect(result.success).toBe(true);
+      expect(result.messagesProcessed).toBe(1);
+
+      // Verify InboundMessageHandlerService was called with isComment metadata
+      expect(mockInboundMessageHandler.processInboundMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          platform: Platform.FACEBOOK,
+          metadata: expect.objectContaining({
+            isComment: true,
+          }),
+        }),
+      );
+    });
+
+    it('should process multiple events in a single webhook', async () => {
+      // Create platform connection
+      const organizationId = new Types.ObjectId();
+      const connection = await platformConnectionModel.create({
+        organizationId,
+        userId: new Types.ObjectId(),
+        platform: Platform.FACEBOOK,
+        platformAccountId: 'page_123',
+        platformAccountName: 'Test Page',
+        credentials: { accessToken: 'test_token' },
+        status: 'active',
+      });
+
+      // Create conversation
+      const conversation = await conversationModel.create({
+        organizationId,
         platform: Platform.FACEBOOK,
         platformConversationId: 'user_456_page_123',
         platformConnectionId: connection._id,
         platformAccountId: 'page_123',
         customerPlatformUserId: 'user_456',
         customerName: 'Test User',
-        status: ConversationStatus.OPEN,
+        status: 'open',
         unreadCount: 0,
       });
 
-      const messageEvent: MessageEvent = {
-        type: 'message',
-        senderId: 'user_456',
-        recipientId: 'page_123',
-        timestamp: new Date(),
-        messageId: 'm_race_condition',
-        messageType: MessageType.TEXT,
-        content: { text: 'Race condition test' },
-        rawPayload: {},
-      };
+      // Mock InboundMessageHandlerService for both messages
+      mockInboundMessageHandler.processInboundMessage
+        .mockResolvedValueOnce({
+          message: {
+            _id: new Types.ObjectId(),
+            conversationId: conversation._id,
+            platformMessageId: 'm_1',
+            platform: Platform.FACEBOOK,
+            direction: MessageDirection.INBOUND,
+            type: MessageType.TEXT,
+            content: { text: 'Message 1' },
+            sender: { platformUserId: 'user_456', name: 'Test User' },
+            status: 'sent',
+          },
+          conversation: conversation,
+          isNew: true,
+        })
+        .mockResolvedValueOnce({
+          message: {
+            _id: new Types.ObjectId(),
+            conversationId: conversation._id,
+            platformMessageId: 'm_2',
+            platform: Platform.FACEBOOK,
+            direction: MessageDirection.INBOUND,
+            type: MessageType.TEXT,
+            content: { text: 'Message 2' },
+            sender: { platformUserId: 'user_456', name: 'Test User' },
+            status: 'sent',
+          },
+          conversation: conversation,
+          isNew: true,
+        });
 
-      (mockAdapter.extractEvents as jest.Mock).mockReturnValue([messageEvent]);
+      const events: MessageEvent[] = [
+        {
+          type: 'message',
+          senderId: 'user_456',
+          recipientId: 'page_123',
+          timestamp: new Date(),
+          messageId: 'm_1',
+          messageType: MessageType.TEXT,
+          content: { text: 'Message 1' },
+          rawPayload: {},
+        },
+        {
+          type: 'message',
+          senderId: 'user_456',
+          recipientId: 'page_123',
+          timestamp: new Date(),
+          messageId: 'm_2',
+          messageType: MessageType.TEXT,
+          content: { text: 'Message 2' },
+          rawPayload: {},
+        },
+      ];
 
-      const normalizedMessage: NormalizedMessage = {
-        platformMessageId: 'm_race_condition',
-        conversationKey: 'user_456_page_123',
-        direction: MessageDirection.INBOUND,
-        type: MessageType.TEXT,
-        senderId: 'user_456',
-        recipientId: 'page_123',
-        content: { text: 'Race condition test' },
-        timestamp: new Date(),
-        metadata: {},
-      };
+      (mockAdapter.extractEvents as jest.Mock).mockReturnValue(events);
 
-      (mockAdapter.normalizeMessage as jest.Mock).mockReturnValue(normalizedMessage);
+      (mockAdapter.normalizeMessage as jest.Mock)
+        .mockReturnValueOnce({
+          platformMessageId: 'm_1',
+          conversationKey: 'user_456_page_123',
+          direction: MessageDirection.INBOUND,
+          type: MessageType.TEXT,
+          senderId: 'user_456',
+          recipientId: 'page_123',
+          content: { text: 'Message 1' },
+          timestamp: new Date(),
+          metadata: {},
+        })
+        .mockReturnValueOnce({
+          platformMessageId: 'm_2',
+          conversationKey: 'user_456_page_123',
+          direction: MessageDirection.INBOUND,
+          type: MessageType.TEXT,
+          senderId: 'user_456',
+          recipientId: 'page_123',
+          content: { text: 'Message 2' },
+          timestamp: new Date(),
+          metadata: {},
+        });
 
-      // Simulate race condition: process same webhook twice concurrently
-      const [result1, result2] = await Promise.all([
-        service.process(Platform.FACEBOOK, {}),
-        service.process(Platform.FACEBOOK, {}),
-      ]);
+      const result = await service.process(Platform.FACEBOOK, {});
 
-      // Both should succeed (one processes, one skips)
-      expect(result1.success).toBe(true);
-      expect(result2.success).toBe(true);
-
-      // Only ONE message should be created (unique index + E11000 handling)
-      const messages = await messageModel.find({});
-      expect(messages).toHaveLength(1);
-      expect(messages[0].platformMessageId).toBe('m_race_condition');
-    });
-
-    it('should handle multiple concurrent messages with different IDs', async () => {
-      // Create platform connection
-      const userId = new Types.ObjectId();
-      const connection = await platformConnectionModel.create({
-        userId,
-        platform: Platform.FACEBOOK,
-        platformAccountId: 'page_123',
-        platformAccountName: 'Test Page',
-        credentials: { accessToken: 'test_token' },
-        status: 'active',
-      });
-
-      // Create test messages with different IDs
-      const createMessageEvent = (id: string): MessageEvent => ({
-        type: 'message',
-        senderId: 'user_456',
-        recipientId: 'page_123',
-        timestamp: new Date(),
-        messageId: id,
-        messageType: MessageType.TEXT,
-        content: { text: `Message ${id}` },
-        rawPayload: {},
-      });
-
-      const createNormalizedMessage = (id: string): NormalizedMessage => ({
-        platformMessageId: id,
-        conversationKey: 'user_456_page_123',
-        direction: MessageDirection.INBOUND,
-        type: MessageType.TEXT,
-        senderId: 'user_456',
-        recipientId: 'page_123',
-        content: { text: `Message ${id}` },
-        timestamp: new Date(),
-        metadata: {},
-      });
-
-      // Process 3 different messages
-      const messageIds = ['m_1', 'm_2', 'm_3'];
-
-      for (const id of messageIds) {
-        (mockAdapter.extractEvents as jest.Mock).mockReturnValue([createMessageEvent(id)]);
-        (mockAdapter.normalizeMessage as jest.Mock).mockReturnValue(createNormalizedMessage(id));
-        await service.process(Platform.FACEBOOK, {});
-      }
-
-      // All 3 messages should be created
-      const messages = await messageModel.find({});
-      expect(messages).toHaveLength(3);
-      expect(messages.map(m => m.platformMessageId).sort()).toEqual(['m_1', 'm_2', 'm_3']);
+      expect(result.success).toBe(true);
+      expect(result.messagesProcessed).toBe(2);
+      expect(mockInboundMessageHandler.processInboundMessage).toHaveBeenCalledTimes(2);
     });
   });
 });
