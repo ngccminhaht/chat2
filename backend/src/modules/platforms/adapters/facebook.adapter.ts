@@ -404,26 +404,6 @@ export class FacebookAdapter extends BasePlatformAdapter {
       `  ✅ normalized.metadata: isComment=${normalized.metadata.isComment}, postId=${postId}, commentId=${commentId}`
     );
 
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "facebook.adapter.ts:350",
-        message: "[H4] normalizeMessage - normalized metadata",
-        data: {
-          messageId: event.messageId,
-          normalizedMetadataIsComment: normalized.metadata.isComment,
-          normalizedMetadataKeys: Object.keys(normalized.metadata),
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H4",
-      }),
-    }).catch(() => {});
-    // #endregion
-
     return normalized;
   }
 

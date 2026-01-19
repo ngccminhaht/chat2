@@ -68,64 +68,11 @@ export class MessageCombiner {
           messageMetadata.isComment === true ||
           rawPayload.isComment === true ||
           false;
-
-        // #region agent log
-        fetch(
-          "http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              location: "message-combiner.ts:62",
-              message:
-                "[FIX] Checking message metadata for isComment (NO fallback)",
-              data: {
-                messageId: message._id?.toString(),
-                hasMetadata: !!messageMetadata,
-                metadataIsComment: messageMetadata.isComment,
-                rawPayloadIsComment: rawPayload.isComment,
-                isCommentResult: isComment,
-                conversationType: conversation?.metadata?.type,
-                note: "Not using conversation metadata as fallback",
-              },
-              timestamp: Date.now(),
-              sessionId: "debug-session",
-              runId: "post-fix",
-              hypothesisId: "FIX",
-            }),
-          }
-        ).catch(() => {});
-        // #endregion
       }
 
       // DO NOT fallback to conversation metadata - it's unreliable
       // If message doesn't have isComment flag, default to INBOX (not COMMENT)
       const finalLabel = isComment ? "FACEBOOK:COMMENT" : "FACEBOOK:INBOX";
-
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "message-combiner.ts:74",
-            message: "[FIX] Final platform label decision",
-            data: {
-              messageId: message?._id?.toString(),
-              conversationId: conversation?._id?.toString(),
-              isComment,
-              platformLabel: finalLabel,
-              note: "Based only on message metadata, no conversation fallback",
-            },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "post-fix",
-            hypothesisId: "FIX",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
 
       return finalLabel;
     }

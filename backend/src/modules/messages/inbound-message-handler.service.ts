@@ -393,29 +393,6 @@ export class InboundMessageHandlerService {
     const rawPayload = input.metadata?.rawPayload as any;
     const isComment = input.metadata?.isComment || rawPayload?.isComment;
 
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "inbound-message-handler.service.ts:376",
-        message: "[H1,H4] Saving message - checking isComment flag",
-        data: {
-          platformMessageId: input.platformMessageId,
-          hasMetadata: !!input.metadata,
-          metadataIsComment: input.metadata?.isComment,
-          rawPayloadIsComment: rawPayload?.isComment,
-          isComment,
-          conversationType: conversation.metadata?.type,
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H1,H4",
-      }),
-    }).catch(() => {});
-    // #endregion
-
     // Ensure isComment flag is explicitly set in metadata (not undefined)
     // Check both input.metadata.isComment and rawPayload.isComment for compatibility
     const metadata = {
@@ -435,28 +412,6 @@ export class InboundMessageHandlerService {
       status: MessageStatus.SENT,
       metadata,
     };
-
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "inbound-message-handler.service.ts:390",
-        message: "[H1] Message data before save - metadata content",
-        data: {
-          platformMessageId: input.platformMessageId,
-          metadataKeys: Object.keys(messageData.metadata),
-          metadataIsComment: messageData.metadata.isComment,
-          metadataRawPayloadIsComment: (messageData.metadata as any)?.rawPayload
-            ?.isComment,
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H1",
-      }),
-    }).catch(() => {});
-    // #endregion
 
     const result = await this.messageModel
       .findOneAndUpdate(

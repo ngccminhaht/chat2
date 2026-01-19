@@ -211,53 +211,9 @@ export class WebhookProcessorService {
     const rawPayload = event.rawPayload as any;
     const isComment = rawPayload?.isComment || false;
 
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "webhook-processor.service.ts:212",
-        message: "[H4,H5] handleMessage - event rawPayload check",
-        data: {
-          senderId,
-          hasRawPayload: !!rawPayload,
-          rawPayloadIsComment: rawPayload?.isComment,
-          isComment,
-          rawPayloadKeys: rawPayload
-            ? Object.keys(rawPayload).slice(0, 10)
-            : [],
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H4,H5",
-      }),
-    }).catch(() => {});
-    // #endregion
-
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "webhook-processor.service.ts:209",
-        message: "[H4,H5] handleMessage - event rawPayload check",
-        data: {
-          senderId,
-          hasRawPayload: !!rawPayload,
-          rawPayloadIsComment: rawPayload?.isComment,
-          isComment,
-          rawPayloadKeys: rawPayload
-            ? Object.keys(rawPayload).slice(0, 10)
-            : [],
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H4,H5",
-      }),
-    }).catch(() => {});
-    // #endregion
+    this.logger.log(
+      `📥 [handleMessage] START | platform: ${adapter.platform}, senderId: ${senderId}, messageId: ${event.messageId}, isComment: ${isComment}`
+    );
 
     // Skip echo messages (sent by the page itself)
     // For both messages and comments: skip if senderId === pageId
@@ -365,27 +321,6 @@ export class WebhookProcessorService {
       // Ensure isComment flag is preserved (don't let other metadata overwrite it)
       isComment: normalized.metadata?.isComment || false,
     };
-
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "webhook-processor.service.ts:333",
-        message: "[H5] Merging metadata - preserving isComment",
-        data: {
-          normalizedIsComment: normalized.metadata?.isComment,
-          mergedIsComment: mergedMetadata.isComment,
-          hasUserProfileMetadata: !!userProfile.metadata,
-          hasPostContent: !!postContent,
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H5",
-      }),
-    }).catch(() => {});
-    // #endregion
 
     // For Facebook, store profile data in userProfileMetadata to save to conversation
     let userProfileMetadata: Record<string, unknown> | undefined;
