@@ -145,20 +145,23 @@ export class AIBatchingService {
       );
     } else {
       // Create new batch
-      // If message is text, include all unsent images in conversation
-      let messageIds = [message._id.toString()];
+      // Include ALL unsent messages (not just images) when creating a new batch
+      // This ensures messages sent while AI was disabled are included
+      const unsentMessages = await this.getUnsentMessages(conversationId);
 
-      if (message.type === MessageType.TEXT) {
-        const unsentImages = await this.getUnsentImages(conversationId);
-        if (unsentImages.length > 0) {
-          messageIds = [
-            ...unsentImages.map((img) => img._id.toString()),
-            ...messageIds,
-          ];
-          this.logger.log(
-            `📷 [AI Batch] Including ${unsentImages.length} unsent image(s) with text message`
-          );
-        }
+      // Filter out current message if already in unsent list (avoid duplicates)
+      const currentMessageId = message._id.toString();
+      let messageIds = unsentMessages
+        .filter((m) => m._id.toString() !== currentMessageId)
+        .map((m) => m._id.toString());
+
+      // Add current message at the end (most recent)
+      messageIds.push(currentMessageId);
+
+      if (unsentMessages.length > 1) {
+        this.logger.log(
+          `📦 [AI Batch] Including ${unsentMessages.length - 1} previously unsent message(s) with new message`
+        );
       }
 
       const data: BatchJobData = {
@@ -239,8 +242,28 @@ export class AIBatchingService {
   }
 
   /**
+   * Get all unsent inbound messages in conversation
+   * Messages are marked as sent when included in a batch that's sent to AI
+   */
+  private async getUnsentMessages(
+    conversationId: string
+  ): Promise<MessageDocument[]> {
+    return this.messageModel
+      .find({
+        conversationId: new Types.ObjectId(conversationId),
+        direction: "inbound",
+        $or: [
+          { "metadata.sentToAI": { $ne: true } },
+          { "metadata.sentToAI": { $exists: false } },
+        ],
+      })
+      .sort({ createdAt: 1 }) // Oldest first
+      .exec();
+  }
+
+  /**
    * Get all unsent image messages in conversation
-   * Images are marked as sent when included in a batch that's sent to AI
+   * @deprecated Use getUnsentMessages instead
    */
   private async getUnsentImages(
     conversationId: string

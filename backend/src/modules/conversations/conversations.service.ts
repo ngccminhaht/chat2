@@ -112,6 +112,8 @@ export class ConversationsService {
 
   /**
    * Update conversation (status, tags, aiEnabled) with org check
+   * Note: When AI is re-enabled, pending messages will be included
+   * in the next batch when a new message arrives (handled by AIBatchingService)
    */
   async update(organizationId: string, id: string, dto: UpdateConversationDto) {
     const updateData: any = {};

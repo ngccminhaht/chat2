@@ -541,55 +541,74 @@ export class WebhookProcessorService {
   ): Promise<void> {
     const organizationId = conversation.organizationId.toString();
 
-    // Reload conversation to get updated unreadCount
-    const updatedConversation = await this.conversationModel
-      .findById(conversation._id)
-      .exec();
+    this.logger.log(
+      `📤 [Notification] Publishing for org: ${organizationId}, message: ${message._id}`
+    );
 
-    // Publish new message event (broadcast to all org agents)
-    // Include metadata for frontend to correctly display comment vs inbox messages
-    const messageEvent: WebSocketNotificationEvent = {
-      type: "message:new",
-      organizationId,
-      payload: {
-        _id: message._id.toString(),
-        conversationId: message.conversationId.toString(),
-        platform: message.platform,
-        direction: message.direction,
-        type: message.type,
-        content: message.content,
-        sender: message.sender,
-        status: message.status,
-        createdAt: (message as any).createdAt,
-        metadata: message.metadata,
-      } as NewMessagePayload,
-      timestamp: Date.now(),
-    };
+    try {
+      // Reload conversation to get updated unreadCount
+      const updatedConversation = await this.conversationModel
+        .findById(conversation._id)
+        .exec();
 
-    await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-      key: organizationId,
-      value: messageEvent,
-    });
+      // Publish new message event (broadcast to all org agents)
+      // Include metadata for frontend to correctly display comment vs inbox messages
+      const messageEvent: WebSocketNotificationEvent = {
+        type: "message:new",
+        organizationId,
+        payload: {
+          _id: message._id.toString(),
+          conversationId: message.conversationId.toString(),
+          platform: message.platform,
+          direction: message.direction,
+          type: message.type,
+          content: message.content,
+          sender: message.sender,
+          status: message.status,
+          createdAt: (message as any).createdAt,
+          metadata: message.metadata,
+        } as NewMessagePayload,
+        timestamp: Date.now(),
+      };
 
-    // Publish conversation updated event
-    const conversationEvent: WebSocketNotificationEvent = {
-      type: "conversation:updated",
-      organizationId,
-      payload: {
-        _id: updatedConversation._id.toString(),
-        platform: updatedConversation.platform,
-        platformConversationId: updatedConversation.platformConversationId,
-        customerName: updatedConversation.customerName,
-        customerAvatar: updatedConversation.customerAvatar,
-        unreadCount: updatedConversation.unreadCount,
-        lastMessage: updatedConversation.lastMessage,
-      } as ConversationUpdatedPayload,
-      timestamp: Date.now(),
-    };
+      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+        key: organizationId,
+        value: messageEvent,
+      });
 
-    await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
-      key: organizationId,
-      value: conversationEvent,
-    });
+      this.logger.log(
+        `✅ [Notification] Published message:new to Kafka | org: ${organizationId}, message: ${message._id}`
+      );
+
+      // Publish conversation updated event
+      const conversationEvent: WebSocketNotificationEvent = {
+        type: "conversation:updated",
+        organizationId,
+        payload: {
+          _id: updatedConversation._id.toString(),
+          platform: updatedConversation.platform,
+          platformConversationId: updatedConversation.platformConversationId,
+          customerName: updatedConversation.customerName,
+          customerAvatar: updatedConversation.customerAvatar,
+          unreadCount: updatedConversation.unreadCount,
+          lastMessage: updatedConversation.lastMessage,
+        } as ConversationUpdatedPayload,
+        timestamp: Date.now(),
+      };
+
+      await this.kafkaProducer.publish(KAFKA_TOPICS.WEBSOCKET_NOTIFICATIONS, {
+        key: organizationId,
+        value: conversationEvent,
+      });
+
+      this.logger.log(
+        `✅ [Notification] Published conversation:updated to Kafka | org: ${organizationId}, conversation: ${conversation._id}`
+      );
+    } catch (error) {
+      this.logger.error(
+        `❌ [Notification] Failed to publish notification | org: ${organizationId}, message: ${message._id}`,
+        error.stack
+      );
+    }
   }
 }
