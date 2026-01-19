@@ -119,7 +119,16 @@ export class FacebookController {
                   msg.message.text?.substring(0, 50) || "[no text]"
                 }`
               );
+              this.logger.log(`        is_echo: ${msg.message.is_echo || false}`);
             }
+            // Log referral for private reply detection
+            if ((msg as any).referral) {
+              this.logger.log(
+                `        🔗 Referral: ${JSON.stringify((msg as any).referral)}`
+              );
+            }
+            // Log full messaging payload for debugging
+            this.logger.log(`        Full payload: ${JSON.stringify(msg)}`);
           });
         }
 

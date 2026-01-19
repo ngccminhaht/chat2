@@ -143,6 +143,13 @@ export class FacebookAdapter extends BasePlatformAdapter {
     const recipientId = messaging.recipient.id;
     const eventTimestamp = new Date(messaging.timestamp);
 
+    // Log referral info for debugging (private reply to comment detection)
+    if (messaging.referral) {
+      this.logger.log(
+        `📎 Messaging event has referral: ${JSON.stringify(messaging.referral)}`
+      );
+    }
+
     if (messaging.message) {
       // Skip echo messages
       if (messaging.message.is_echo) {
@@ -152,10 +159,18 @@ export class FacebookAdapter extends BasePlatformAdapter {
       const messageType = this.determineMessageType(messaging.message);
       const content = this.extractMessageContent(messaging.message);
 
+      // Check if this messaging event is related to a comment (private reply context)
+      // Facebook may include referral with comment context for private replies
+      const hasCommentContext =
+        messaging.referral?.source === "COMMENT" ||
+        (messaging as any).comment_id;
+
       // Ensure inbox messages have isComment: false explicitly
+      // Unless it has comment context (private reply to a comment)
       const rawPayload = {
         ...messaging,
-        isComment: false, // Explicitly mark as inbox message (not comment)
+        isComment: hasCommentContext, // Mark based on comment context
+        isPrivateReply: hasCommentContext, // Track if this is a private reply
       };
 
       return {
