@@ -218,8 +218,17 @@ export class FacebookAdapter extends BasePlatformAdapter {
     pageId: string,
     timestamp: Date
   ): PlatformEvent | null {
+    // Facebook feed webhooks can have different item types: comment, post, share, reaction, etc.
+    // We only process comments (item === "comment" or missing item field for legacy compatibility)
+    // Reference: https://developers.facebook.com/docs/graph-api/webhooks/reference/page/#feed
+    if (value.item && value.item !== "comment") {
+      this.logger.debug(`Skipping non-comment feed event: item=${value.item}`);
+      return null;
+    }
+
     // Only handle new comments (verb === "add" or undefined)
     // Skip edits and removals
+    // Reference: verb can be "add", "edit", "edited", "remove", "delete"
     if (value.verb && value.verb !== "add") {
       this.logger.debug(`Skipping comment event with verb: ${value.verb}`);
       return null;
@@ -241,33 +250,26 @@ export class FacebookAdapter extends BasePlatformAdapter {
       return null;
     }
 
-    // Skip comments from the page itself ONLY if it's a reply to another comment (not the post)
-    // parent_id can be either:
-    // - post_id (when commenting directly on post) → ALLOW (top-level comment)
-    // - comment_id (when replying to another comment) → SKIP (AI/agent reply)
-    // We check if parent_id === post_id to determine if it's a top-level comment
+    // Skip ALL comments from the page itself (page owner)
+    // We only want to process comments from customers, not from the page
     if (commenterId === pageId) {
-      const isReplyToComment = value.parent_id && value.parent_id !== postId;
-      if (isReplyToComment) {
-        this.logger.log(
-          `⏭️ Skipping comment reply from page itself: commenterId=${commenterId} (pageId=${pageId}), parent_id=${value.parent_id}, post_id=${postId} - this is a reply to another comment (AI/agent reply)`
-        );
-        return null;
-      }
-      // Allow top-level comments from page (parent_id === post_id or no parent_id)
       this.logger.log(
-        `💬 Allowing top-level comment from page: commenterId=${commenterId} (pageId=${pageId}), parent_id=${value.parent_id}, post_id=${postId} - this is a direct comment on post`
+        `⏭️ Skipping comment from page itself: commenterId=${commenterId} (pageId=${pageId}), post_id=${postId} - only process customer comments`
       );
+      return null;
     }
 
     // Ensure postId is available in both snake_case and camelCase for compatibility
+    // parent_id indicates: if parent_id === post_id -> top-level comment, else -> reply to another comment
     const rawPayload = {
       ...value,
       postId: postId, // Add camelCase version
       post_id: postId, // Keep snake_case version
+      parent_id: value.parent_id || postId, // Default to post_id if not provided (top-level comment)
       sender_id: commenterId, // Normalize to sender_id for consistency
       sender_name: commenterName, // Normalize to sender_name for consistency
       isComment: true,
+      isReply: value.parent_id && value.parent_id !== postId, // true if replying to another comment
     };
 
     this.logger.log(

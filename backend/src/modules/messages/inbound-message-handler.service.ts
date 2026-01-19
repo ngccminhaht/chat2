@@ -219,21 +219,11 @@ export class InboundMessageHandlerService {
       userProfileMetadata,
     } = input;
 
-    // For Facebook, always use senderId_pageId as conversation key
-    // to merge Messenger messages and comments from the same user on the same page
-    // This helps get complete insight of customer interactions
-    let finalConversationKey = conversationKey;
-    if (platform === Platform.FACEBOOK && platformAccountId) {
-      const rawPayload = input.metadata?.rawPayload as any;
-      const isComment = input.metadata?.isComment || rawPayload?.isComment;
-      if (isComment) {
-        // Use messenger key for comments to merge with Messenger conversation
-        finalConversationKey = `${sender.platformUserId}_${platformAccountId}`;
-        this.logger.log(
-          `🔗 Using Messenger conversation key for comment: ${finalConversationKey} (to merge with Messenger messages)`
-        );
-      }
-    }
+    // For Facebook comments, keep them separate from Messenger conversations
+    // This ensures AI can respond to comments even if Messenger conversation has aiEnabled=false
+    // Comments use post-based key: post_{postId}_{pageId}
+    // Messenger uses user-based key: {senderId}_{pageId}
+    const finalConversationKey = conversationKey;
 
     let conversation = await this.conversationModel
       .findOne({
@@ -400,9 +390,10 @@ export class InboundMessageHandlerService {
     // #endregion
 
     // Ensure isComment flag is explicitly set in metadata (not undefined)
+    // Check both input.metadata.isComment and rawPayload.isComment for compatibility
     const metadata = {
       ...(input.metadata || {}),
-      isComment: input.metadata?.isComment ?? false, // Explicitly set, default to false
+      isComment: isComment ?? false, // Use pre-extracted isComment (checks both metadata and rawPayload)
     };
 
     const messageData = {

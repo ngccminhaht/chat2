@@ -260,30 +260,13 @@ export class WebhookProcessorService {
     // #endregion
 
     // Skip echo messages (sent by the page itself)
-    // For regular messages: skip if senderId === pageId
-    // For comments: only skip if it's a reply to another comment (not the post)
-    // parent_id can be post_id (top-level comment) or comment_id (reply to comment)
-    // This prevents saving AI/agent replies but allows page comments on posts (for testing)
+    // For both messages and comments: skip if senderId === pageId
+    // Only process messages/comments from customers
     if (senderId === connection.platformAccountId) {
-      if (isComment) {
-        // Only skip if parent_id exists and is NOT the post_id (meaning it's a reply to another comment)
-        const postId = rawPayload?.post_id || rawPayload?.postId;
-        const isReplyToComment =
-          rawPayload?.parent_id && rawPayload?.parent_id !== postId;
-        if (isReplyToComment) {
-          this.logger.log(
-            `⏭️ Skipping comment reply from page itself: senderId=${senderId} (pageId=${connection.platformAccountId}), parent_id=${rawPayload?.parent_id}, post_id=${postId} - this is a reply to another comment (AI/agent reply)`
-          );
-          return false;
-        }
-        // Allow top-level comments from page (parent_id === post_id or no parent_id)
-        this.logger.log(
-          `💬 Processing top-level comment from page on post: senderId=${senderId}, parent_id=${rawPayload?.parent_id}, post_id=${postId}`
-        );
-      } else {
-        this.logger.log(`⏭️ Skipping echo message from page: ${senderId}`);
-        return false;
-      }
+      this.logger.log(
+        `⏭️ Skipping ${isComment ? 'comment' : 'message'} from page itself: senderId=${senderId}`
+      );
+      return false;
     }
 
     if (isComment) {

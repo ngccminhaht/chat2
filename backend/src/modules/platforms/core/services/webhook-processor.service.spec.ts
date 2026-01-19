@@ -301,6 +301,47 @@ describe('WebhookProcessorService', () => {
       expect(messages).toHaveLength(0);
     });
 
+    it('should skip comments from page itself', async () => {
+      // Create platform connection
+      const userId = new Types.ObjectId();
+      await platformConnectionModel.create({
+        userId,
+        platform: Platform.FACEBOOK,
+        platformAccountId: 'page_123',
+        platformAccountName: 'Test Page',
+        credentials: { accessToken: 'test_token' },
+        status: 'active',
+      });
+
+      // Comment from page itself (page owner commenting on their own post)
+      const pageCommentEvent: MessageEvent = {
+        type: 'message',
+        senderId: 'page_123', // Same as platformAccountId
+        recipientId: 'page_123',
+        timestamp: new Date(),
+        messageId: 'comment_from_page',
+        messageType: MessageType.TEXT,
+        content: { text: 'Thanks for commenting!' },
+        rawPayload: {
+          isComment: true,
+          post_id: 'post_789',
+        },
+      };
+
+      (mockAdapter.extractEvents as jest.Mock).mockReturnValue([pageCommentEvent]);
+
+      const result = await service.process(Platform.FACEBOOK, {});
+
+      expect(result.success).toBe(true);
+      expect(result.messagesProcessed).toBe(0); // Comment from page should be skipped
+
+      // Verify no conversation or message was created
+      const conversations = await conversationModel.find({});
+      const messages = await messageModel.find({});
+      expect(conversations).toHaveLength(0);
+      expect(messages).toHaveLength(0);
+    });
+
     it('should update existing conversation unread count', async () => {
       // Create platform connection
       const userId = new Types.ObjectId();

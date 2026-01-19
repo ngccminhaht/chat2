@@ -1122,22 +1122,183 @@ export class FacebookService {
   }
 
   /**
-   * Sync conversations from Facebook page
+   * Sync conversations and messages from Facebook page
+   * Fetches all conversations and their messages via Facebook Conversations API
    */
-  async syncConversations(
-    platformConnectionId: string,
-  ): Promise<number> {
+  async syncConversations(platformConnectionId: string): Promise<number> {
     try {
-      this.logger.log(
-        `Conversation sync for Facebook connection ${platformConnectionId}`,
+      const connection = await this.platformConnectionModel
+        .findById(platformConnectionId)
+        .exec();
+
+      if (!connection) {
+        this.logger.error(`Platform connection not found: ${platformConnectionId}`);
+        return 0;
+      }
+
+      const pageAccessToken = connection.credentials.accessToken;
+      const pageId = connection.platformAccountId;
+
+      this.logger.log(`🔄 Syncing Facebook conversations for page ${pageId}`);
+
+      // Fetch conversations from Facebook API
+      const conversationsResponse = await axios.get(
+        `https://graph.facebook.com/${this.graphApiVersion}/${pageId}/conversations`,
+        {
+          headers: { Authorization: `Bearer ${pageAccessToken}` },
+          params: {
+            fields: 'id,participants,updated_time,messages{id,message,from,created_time,attachments}',
+            limit: 50,
+          },
+        }
       );
 
-      this.logger.log('Note: Facebook conversations are synced via webhooks');
+      if (conversationsResponse.data.error) {
+        this.logger.error('Failed to fetch conversations:', conversationsResponse.data.error);
+        return 0;
+      }
 
-      return 0;
+      const fbConversations = conversationsResponse.data.data || [];
+      this.logger.log(`📥 Found ${fbConversations.length} Facebook conversations`);
+
+      let syncedCount = 0;
+
+      for (const fbConv of fbConversations) {
+        try {
+          // Find customer (participant that is not the page)
+          const customer = fbConv.participants?.data?.find(
+            (p: any) => p.id !== pageId
+          );
+          if (!customer) continue;
+
+          const conversationKey = `${customer.id}_${pageId}`;
+
+          // Find or create conversation
+          let conversation = await this.conversationModel
+            .findOne({
+              platform: 'facebook',
+              platformConversationId: conversationKey,
+            })
+            .exec();
+
+          if (!conversation) {
+            conversation = await this.conversationModel.create({
+              platform: 'facebook',
+              platformConversationId: conversationKey,
+              platformConnectionId: new Types.ObjectId(platformConnectionId),
+              organizationId: connection.organizationId,
+              platformAccountId: pageId,
+              customerPlatformUserId: customer.id,
+              customerName: customer.name || `Facebook User ${customer.id}`,
+              status: ConversationStatus.OPEN,
+              unreadCount: 0,
+              metadata: { pageId },
+            });
+            this.logger.log(`✅ Created conversation: ${conversation._id}`);
+          }
+
+          // Sync messages for this conversation
+          const messages = fbConv.messages?.data || [];
+          for (const fbMsg of messages) {
+            await this.syncSingleMessage(fbMsg, conversation, pageId, connection);
+          }
+
+          syncedCount++;
+        } catch (error) {
+          this.logger.error(`Failed to sync conversation ${fbConv.id}:`, error.message);
+        }
+      }
+
+      // Update last sync time
+      await this.platformConnectionModel.findByIdAndUpdate(platformConnectionId, {
+        lastSyncAt: new Date(),
+      });
+
+      this.logger.log(`✅ Synced ${syncedCount} conversations`);
+      return syncedCount;
     } catch (error) {
       this.logger.error('Failed to sync conversations:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Sync a single message from Facebook API response
+   */
+  private async syncSingleMessage(
+    fbMsg: any,
+    conversation: ConversationDocument,
+    pageId: string,
+    connection: PlatformConnectionDocument
+  ): Promise<void> {
+    const messageId = fbMsg.id;
+
+    // Check if message already exists
+    const existing = await this.messageModel
+      .findOne({ platform: 'facebook', platformMessageId: messageId })
+      .exec();
+
+    if (existing) return;
+
+    const senderId = fbMsg.from?.id;
+    const senderName = fbMsg.from?.name || `Facebook User ${senderId}`;
+    const isOutbound = senderId === pageId;
+
+    // Determine message type and content
+    let messageType = 'text';
+    let messageText = fbMsg.message || '';
+    let mediaUrl: string | undefined;
+
+    if (fbMsg.attachments?.data?.length > 0) {
+      const attachment = fbMsg.attachments.data[0];
+      messageType = attachment.mime_type?.startsWith('image') ? 'image' :
+                    attachment.mime_type?.startsWith('video') ? 'video' :
+                    attachment.mime_type?.startsWith('audio') ? 'audio' : 'file';
+      mediaUrl = attachment.file_url || attachment.image_data?.url;
+    }
+
+    try {
+      const newMessage = await this.messageModel.create({
+        conversationId: conversation._id,
+        organizationId: conversation.organizationId,
+        platform: 'facebook',
+        platformMessageId: messageId,
+        direction: isOutbound ? 'outbound' : 'inbound',
+        type: messageType,
+        content: {
+          text: messageText,
+          mediaUrl,
+          mediaType: messageType !== 'text' ? messageType : undefined,
+        },
+        sender: {
+          platformUserId: senderId,
+          name: isOutbound ? connection.platformAccountName : senderName,
+        },
+        status: MessageStatus.SENT,
+        metadata: { rawPayload: fbMsg, isComment: false },
+        createdAt: new Date(fbMsg.created_time),
+      });
+
+      this.logger.log(
+        `✅ Synced ${isOutbound ? 'outbound' : 'inbound'} message: ${newMessage._id}`
+      );
+
+      // Update conversation lastMessage if this is newer
+      const msgTime = new Date(fbMsg.created_time);
+      if (!conversation.lastMessage?.timestamp || msgTime > conversation.lastMessage.timestamp) {
+        await this.conversationModel.findByIdAndUpdate(conversation._id, {
+          lastMessage: {
+            text: messageText.substring(0, 100) || `[${messageType}]`,
+            timestamp: msgTime,
+            senderId,
+            messageId: newMessage._id,
+          },
+        });
+      }
+    } catch (error) {
+      if (error.code !== 11000) {
+        this.logger.error(`Failed to sync message ${messageId}:`, error.message);
+      }
     }
   }
 
