@@ -392,11 +392,11 @@ describe('WebhookProcessorService', () => {
         status: 'active',
       });
 
-      // Create conversation for comment
+      // Create conversation for comment (now uses unified key: senderId_pageId)
       const conversation = await conversationModel.create({
         organizationId,
         platform: Platform.FACEBOOK,
-        platformConversationId: 'post_page_123_post_789_page_123',
+        platformConversationId: 'user_456_page_123', // Unified key for both inbox and comments
         platformConnectionId: connection._id,
         platformAccountId: 'page_123',
         customerPlatformUserId: 'user_456',

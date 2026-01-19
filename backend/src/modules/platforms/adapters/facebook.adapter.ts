@@ -290,9 +290,12 @@ export class FacebookAdapter extends BasePlatformAdapter {
     this.logger.log(
       `✅ Parsing comment event: postId=${postId}, commenterId=${commenterId}, commenterName=${commenterName}, commentId=${commentId}`
     );
+    this.logger.log(
+      `  📌 rawPayload.isComment=${rawPayload.isComment}, rawPayload.isReply=${rawPayload.isReply}`
+    );
 
     // Return as PlatformEvent with message-like properties for unified processing
-    return {
+    const event = {
       type: "message", // Treat comments as messages for unified processing
       senderId: commenterId,
       recipientId: pageId,
@@ -304,6 +307,12 @@ export class FacebookAdapter extends BasePlatformAdapter {
       },
       rawPayload,
     } as MessageEvent;
+
+    this.logger.log(
+      `  📤 Returning comment event with isComment=${(event.rawPayload as any)?.isComment}`
+    );
+
+    return event;
   }
 
   private determineMessageType(message: any): MessageType {
@@ -354,29 +363,19 @@ export class FacebookAdapter extends BasePlatformAdapter {
     const rawPayload = event.rawPayload as any;
     const isComment = rawPayload?.isComment || false;
 
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "facebook.adapter.ts:330",
-        message: "[H4] normalizeMessage - extracting isComment",
-        data: {
-          messageId: event.messageId,
-          hasRawPayload: !!rawPayload,
-          rawPayloadIsComment: rawPayload?.isComment,
-          isComment,
-          rawPayloadKeys: rawPayload
-            ? Object.keys(rawPayload).slice(0, 10)
-            : [],
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "H4",
-      }),
-    }).catch(() => {});
-    // #endregion
+    // Debug log for isComment
+    this.logger.log(
+      `🔍 normalizeMessage: messageId=${event.messageId}, rawPayload.isComment=${rawPayload?.isComment}, isComment=${isComment}`
+    );
+    this.logger.log(
+      `  rawPayload keys: ${rawPayload ? Object.keys(rawPayload).join(", ") : "none"}`
+    );
+
+    // Extract comment context from rawPayload
+    const postId = rawPayload?.postId || rawPayload?.post_id;
+    const commentId = rawPayload?.comment_id;
+    const parentId = rawPayload?.parent_id;
+    const isReply = rawPayload?.isReply || false;
 
     const normalized = {
       platform: this.platform,
@@ -391,8 +390,19 @@ export class FacebookAdapter extends BasePlatformAdapter {
       metadata: {
         rawPayload: event.rawPayload,
         isComment: isComment, // Explicitly set isComment flag
+        // Comment context - only set if it's a comment
+        ...(isComment && {
+          postId,
+          commentId,
+          parentId,
+          isReply,
+        }),
       },
     };
+
+    this.logger.log(
+      `  ✅ normalized.metadata: isComment=${normalized.metadata.isComment}, postId=${postId}, commentId=${commentId}`
+    );
 
     // #region agent log
     fetch("http://127.0.0.1:7242/ingest/423e5f34-2a1b-49c7-ad3a-11122d9bd1d9", {
@@ -422,21 +432,25 @@ export class FacebookAdapter extends BasePlatformAdapter {
     recipientId: string,
     payload?: unknown
   ): string {
-    // For comments, use post-based conversation key
-    // Handle both camelCase (postId) and snake_case (post_id) for compatibility
+    // Always use senderId_pageId for conversation key
+    // This ensures inbox messages and comments from same user go to same conversation
+    const conversationKey = `${senderId}_${recipientId}`;
+
     if (payload) {
       const payloadAny = payload as any;
       const postId = payloadAny.postId || payloadAny.post_id;
       if (postId) {
-        const conversationKey = `post_${postId}_${recipientId}`;
         this.logger.log(
-          `🔑 Creating post-based conversation key: ${conversationKey} (postId=${postId}, pageId=${recipientId})`
+          `🔑 Comment conversation key: ${conversationKey} (senderId=${senderId}, pageId=${recipientId}, postId=${postId})`
         );
-        return conversationKey;
+      } else {
+        this.logger.log(
+          `🔑 Inbox conversation key: ${conversationKey} (senderId=${senderId}, pageId=${recipientId})`
+        );
       }
     }
-    // For direct messages: senderId_pageId
-    return `${senderId}_${recipientId}`;
+
+    return conversationKey;
   }
 
   // ==================== Outbound Messages ====================

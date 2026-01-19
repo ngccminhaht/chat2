@@ -541,9 +541,20 @@ describe('FacebookAdapter', () => {
       expect(key).toBe('user_456_page_123');
     });
 
-    it('should generate post-based key for comments', () => {
+    it('should generate same key for comments (unified conversation per user)', () => {
+      // Comments and inbox messages from same user should go to same conversation
       const key = adapter.getConversationKey('user_456', 'page_123', { postId: 'post_789' });
-      expect(key).toBe('post_post_789_page_123');
+      expect(key).toBe('user_456_page_123');
+    });
+
+    it('should generate same key regardless of postId (all messages from same user unified)', () => {
+      const inboxKey = adapter.getConversationKey('user_456', 'page_123');
+      const commentKey = adapter.getConversationKey('user_456', 'page_123', { postId: 'post_789' });
+      const anotherCommentKey = adapter.getConversationKey('user_456', 'page_123', { post_id: 'post_999' });
+
+      expect(inboxKey).toBe(commentKey);
+      expect(commentKey).toBe(anotherCommentKey);
+      expect(inboxKey).toBe('user_456_page_123');
     });
   });
 
