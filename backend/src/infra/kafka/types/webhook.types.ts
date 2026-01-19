@@ -136,6 +136,14 @@ export interface NewMessagePayload {
   };
   status: string;
   createdAt: Date;
+  metadata?: {
+    isComment?: boolean;
+    postId?: string;
+    commentId?: string;
+    parentId?: string;
+    isReply?: boolean;
+    [key: string]: any;
+  };
 }
 
 /**

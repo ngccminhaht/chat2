@@ -547,6 +547,7 @@ export class WebhookProcessorService {
       .exec();
 
     // Publish new message event (broadcast to all org agents)
+    // Include metadata for frontend to correctly display comment vs inbox messages
     const messageEvent: WebSocketNotificationEvent = {
       type: "message:new",
       organizationId,
@@ -560,6 +561,7 @@ export class WebhookProcessorService {
         sender: message.sender,
         status: message.status,
         createdAt: (message as any).createdAt,
+        metadata: message.metadata,
       } as NewMessagePayload,
       timestamp: Date.now(),
     };
