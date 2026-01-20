@@ -637,8 +637,9 @@ export class AIAPICallProcessor extends WorkerHost {
       const query: any = {
         organizationId: conversation.organizationId,
         conversationId: conversation._id,
-        // Only load messages that haven't been sent to AI yet
-        // This prevents re-sending old messages that AI already processed
+        // Only load INBOUND messages that haven't been sent to AI yet
+        // Outbound messages (AI replies, human advisor) should never be in history for AI
+        direction: MessageDirection.INBOUND,
         sentToAiAt: null,
       };
 
