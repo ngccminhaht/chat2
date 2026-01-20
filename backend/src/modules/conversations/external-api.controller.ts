@@ -1,4 +1,5 @@
 import { Controller, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Unprotected } from 'nest-keycloak-connect';
 import { ConversationsService } from './conversations.service';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { ApiKeyAuthGuard } from '@/common/guards';
@@ -10,7 +11,8 @@ import { CurrentOrganization } from '@/common/decorators';
  * Organization is derived from API key, not URL
  */
 @Controller('external/conversations')
-@UseGuards(ApiKeyAuthGuard)
+@Unprotected() // Skip Keycloak global guards
+@UseGuards(ApiKeyAuthGuard) // Use API key auth instead
 export class ExternalApiController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
