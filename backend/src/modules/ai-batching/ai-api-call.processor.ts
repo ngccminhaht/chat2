@@ -642,11 +642,35 @@ export class AIAPICallProcessor extends WorkerHost {
       if (oldMessages && oldMessages.length > 0) {
         const sortedMessages = oldMessages.reverse();
         const currentMessageContent = combinedData.texts[0]?.content;
+
+        this.logger.log(
+          `📚 [AI API Job] Found ${oldMessages.length} old messages, filtering for history`,
+          {
+            currentMessagePreview: currentMessageContent?.substring(0, 100),
+            allMessages: sortedMessages.map((msg: any) => ({
+              id: msg._id.toString(),
+              direction: msg.direction,
+              textPreview: msg.content?.text?.substring(0, 50) || null,
+            })),
+          }
+        );
+
         const historyMessages = sortedMessages.filter(
           (msg: any) =>
             msg.content?.text &&
             msg.content.text.trim() &&
             msg.content.text !== currentMessageContent
+        );
+
+        this.logger.log(
+          `📝 [AI API Job] After filtering: ${historyMessages.length} history messages`,
+          {
+            filtered: historyMessages.map((msg: any) => ({
+              id: msg._id.toString(),
+              direction: msg.direction,
+              textPreview: msg.content.text.substring(0, 50),
+            })),
+          }
         );
 
         if (historyMessages.length > 0) {
@@ -663,11 +687,17 @@ export class AIAPICallProcessor extends WorkerHost {
           if (chatHistory && combinedData.texts.length > 0) {
             // Bỏ [Previous conversation history] vì hệ thống AI tự thêm
             // Chỉ thêm chat history không có wrapper
+            const originalContent = combinedData.texts[0].content;
             combinedData.texts[0].content =
               `${chatHistory}\n\n` + combinedData.texts[0].content;
 
             this.logger.log(
-              `📜 [AI API Job] Loaded ${historyMessages.length} history messages for conversation ${conversation._id}`
+              `📜 [AI API Job] Loaded ${historyMessages.length} history messages for conversation ${conversation._id}`,
+              {
+                historyPreview: chatHistory.substring(0, 200),
+                originalContentPreview: originalContent.substring(0, 100),
+                finalContentPreview: combinedData.texts[0].content.substring(0, 300),
+              }
             );
 
             return true;
