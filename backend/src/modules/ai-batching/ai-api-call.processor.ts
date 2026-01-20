@@ -692,11 +692,11 @@ export class AIAPICallProcessor extends WorkerHost {
               // Determine sender label based on direction and sender type
               let sender: string;
               if (msg.direction === MessageDirection.OUTBOUND) {
-                // Check if this is an AI message or manual message from human
+                // Check if this is an AI message or manual message from human advisor
                 if (msg.sender?.platformUserId === 'ai-agent') {
                   sender = "Agent"; // AI agent
                 } else {
-                  sender = "Human"; // Manual message from human agent
+                  sender = "Người tư vấn"; // Manual message from human advisor
                 }
               } else {
                 // Inbound message from customer
