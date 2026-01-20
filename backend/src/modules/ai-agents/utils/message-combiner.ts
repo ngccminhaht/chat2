@@ -339,6 +339,10 @@ export class MessageCombiner {
     if (customerBirthDate) {
       customerContext.push(`Ngày sinh: ${customerBirthDate}`);
     }
+    // Add conversation ID for tracking
+    if (conversation?._id) {
+      customerContext.push(`Conversation ID: ${conversation._id.toString()}`);
+    }
 
     // Add customer info to inputs
     requestData.inputs = {
