@@ -121,8 +121,9 @@ export class MessageCombiner {
       );
       const sourcePrefix = `[from: ${platformLabel}]`;
 
-      // Only add source for inbound messages
+      // Determine message direction
       const isInbound = (message as any).direction === "inbound";
+      const isOutbound = (message as any).direction === "outbound";
 
       // Extract text content (skip media link patterns like [image: ...])
       if (message.content?.text) {
@@ -133,9 +134,13 @@ export class MessageCombiner {
             text
           );
         if (!isMediaLinkPattern && text) {
-          // Add source prefix for inbound messages when sending to AI
+          // Add prefix to distinguish sender
           if (isInbound && !text.startsWith(`[from: ${platformLabel}]`)) {
+            // Inbound: add platform source prefix
             text = `${sourcePrefix}\n${text}`;
+          } else if (isOutbound && !text.startsWith("Agent:")) {
+            // Outbound: add Agent prefix for clarity
+            text = `Agent: ${text}`;
           }
           texts.push({
             content: text,
