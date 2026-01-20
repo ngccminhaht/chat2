@@ -252,10 +252,7 @@ export class AIBatchingService {
       .find({
         conversationId: new Types.ObjectId(conversationId),
         direction: "inbound",
-        $or: [
-          { "metadata.sentToAI": { $ne: true } },
-          { "metadata.sentToAI": { $exists: false } },
-        ],
+        sentToAiAt: null, // Use dedicated field instead of metadata
       })
       .sort({ createdAt: 1 }) // Oldest first
       .exec();
@@ -273,10 +270,7 @@ export class AIBatchingService {
         conversationId: new Types.ObjectId(conversationId),
         type: MessageType.IMAGE,
         direction: "inbound",
-        $or: [
-          { "metadata.sentToAI": { $ne: true } },
-          { "metadata.sentToAI": { $exists: false } },
-        ],
+        sentToAiAt: null, // Use dedicated field instead of metadata
       })
       .sort({ createdAt: 1 }) // Oldest first
       .limit(10) // Max 10 images per batch
@@ -294,7 +288,7 @@ export class AIBatchingService {
         _id: { $in: messageIds },
       },
       {
-        $set: { "metadata.sentToAI": true },
+        $set: { sentToAiAt: new Date() },
       }
     );
 
@@ -316,7 +310,7 @@ export class AIBatchingService {
         type: MessageType.IMAGE,
       },
       {
-        $set: { "metadata.sentToAI": true },
+        $set: { sentToAiAt: new Date() },
       }
     );
 

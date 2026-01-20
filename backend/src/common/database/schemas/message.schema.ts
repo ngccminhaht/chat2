@@ -69,6 +69,10 @@ export class Message {
     error?: string;
     [key: string]: any;
   };
+
+  // AI batching: Track when message was sent to AI (null = not sent yet)
+  @Prop({ type: Date, default: null })
+  sentToAiAt?: Date;
 }
 
 export const MessageSchema = SchemaFactory.createForClass(Message);
@@ -88,3 +92,6 @@ MessageSchema.index(
   { status: 1, createdAt: 1 },
   { partialFilterExpression: { status: 'PENDING' } },
 ); // Retry queue (partial - only PENDING messages)
+MessageSchema.index(
+  { conversationId: 1, sentToAiAt: 1, direction: 1 },
+); // AI batching: unsent inbound messages per conversation
