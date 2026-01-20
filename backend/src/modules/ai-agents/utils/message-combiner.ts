@@ -151,8 +151,8 @@ export class MessageCombiner {
         if (!isMediaLinkPattern && text) {
           // Add prefix to distinguish sender
           if (isInbound && !text.startsWith(`[from: ${platformLabel}]`)) {
-            // Inbound: add platform source prefix
-            text = `${sourcePrefix}\n${text}`;
+            // Inbound: add platform source prefix (inline, not newline)
+            text = `${sourcePrefix} ${text}`;
           } else if (isOutbound && !text.startsWith("Agent:")) {
             // Outbound: add Agent prefix for clarity
             text = `Agent: ${text}`;
