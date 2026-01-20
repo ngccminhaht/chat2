@@ -25,6 +25,7 @@
     "widget": "Widget",
     "aiAgent": "AI Agent",
     "members": "Members",
+    "integrations": "Integrations",
     "settings": "Settings"
   },
   "auth": {

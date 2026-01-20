@@ -21,6 +21,7 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import WidgetsIcon from "@mui/icons-material/Widgets";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import SettingsIcon from "@mui/icons-material/Settings";
+import IntegrationInstructionsIcon from "@mui/icons-material/IntegrationInstructions";
 
 const drawerWidth = 240;
 
@@ -49,6 +50,7 @@ const getMenuSections = (orgSlug: string): MenuSection[] => [
   },
   {
     items: [
+      { textKey: "integrations", icon: <IntegrationInstructionsIcon />, path: `/organizations/${orgSlug}/integrations` },
       { textKey: "settings", icon: <SettingsIcon />, path: `/organizations/${orgSlug}/settings` },
     ],
   },
