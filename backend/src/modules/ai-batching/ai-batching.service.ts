@@ -201,16 +201,20 @@ export class AIBatchingService {
 
   /**
    * Get pending messages for a batch
-   * Ensures messages belong to the specified conversation
+   * IMPORTANT: Query DB directly for unsent messages (both directions)
+   *
+   * Gets:
+   * - INBOUND: Customer messages (sentToAiAt=null)
+   * - OUTBOUND: Human advisor messages (sentToAiAt=null, excludes AI's own)
    */
   async getPendingMessages(
-    conversationId: string,
-    messageIds: string[]
+    conversationId: string
   ): Promise<MessageDocument[]> {
     return this.messageModel
       .find({
         conversationId: new Types.ObjectId(conversationId),
-        _id: { $in: messageIds.map((id) => new Types.ObjectId(id)) },
+        sentToAiAt: null, // Only unsent messages (both directions)
+        'sender.platformUserId': { $ne: 'ai-agent' } // Exclude AI's own messages
       })
       .sort({ createdAt: 1 })
       .exec();

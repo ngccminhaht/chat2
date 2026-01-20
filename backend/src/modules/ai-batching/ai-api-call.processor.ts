@@ -157,13 +157,12 @@ export class AIAPICallProcessor extends WorkerHost {
         }))
       );
 
-      // Load chat history (always load for context continuity)
-      // Skip for comment-type conversations (each comment is standalone)
-      const isCommentType = conversation.metadata?.type === "post_comments";
-      if (!isCommentType) {
-        // Pass messageIds to exclude current batch messages from history
-        await this.loadChatHistory(combinedData, conversation as any, messageIds);
-      }
+      // DISABLED: Chat history loading
+      // When using conversation_id, AI API already has full conversation context
+      // Loading history causes duplicates and sends old messages repeatedly
+      this.logger.log(
+        `⏭️ [AI API Call] Skipping chat history - AI has context via conversation_id`
+      );
 
       // Create AI request
       const maxImages = org.aiAgentSettings?.maxImages || 6; // Get from org settings or default
@@ -625,123 +624,12 @@ export class AIAPICallProcessor extends WorkerHost {
   }
 
   /**
-   * Load chat history
+   * DEPRECATED - DO NOT USE
+   * Chat history loading disabled because:
+   * 1. AI API maintains full context via conversation_id
+   * 2. Loading history causes duplicate messages
+   * 3. Sends old human advisor messages repeatedly
+   * 4. Messages get processed multiple times
    */
-  private async loadChatHistory(
-    combinedData: any,
-    conversation: ConversationDocument,
-    excludeMessageIds?: string[]
-  ): Promise<boolean> {
-    try {
-      // Build query to exclude current batch messages
-      const query: any = {
-        organizationId: conversation.organizationId,
-        conversationId: conversation._id,
-        $or: [
-          // INBOUND: Customer messages not yet sent to AI
-          { direction: MessageDirection.INBOUND, sentToAiAt: null },
-          // OUTBOUND: Human advisor messages (so AI knows what human said)
-          // Exclude AI's own messages to prevent duplicate context
-          {
-            direction: MessageDirection.OUTBOUND,
-            'sender.platformUserId': { $ne: 'ai-agent' }
-          }
-        ]
-      };
-
-      // Exclude current batch messages from history
-      // Convert string IDs to ObjectId for MongoDB query
-      if (excludeMessageIds && excludeMessageIds.length > 0) {
-        query._id = { $nin: excludeMessageIds.map(id => new Types.ObjectId(id)) };
-      }
-
-      const oldMessages = await this.messageModel
-        .find(query)
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .lean();
-
-      if (oldMessages && oldMessages.length > 0) {
-        const sortedMessages = oldMessages.reverse();
-
-        this.logger.log(
-          `📚 [AI API Job] Loaded ${oldMessages.length} history messages (excluded ${excludeMessageIds?.length || 0} current batch messages by _id)`,
-          {
-            excludedMessageIds: excludeMessageIds,
-            historyMessages: sortedMessages.map((msg: any) => ({
-              id: msg._id.toString(),
-              direction: msg.direction,
-              textPreview: msg.content?.text?.substring(0, 50) || null,
-              senderPlatformUserId: msg.sender?.platformUserId,
-            })),
-          }
-        );
-
-        // Filter messages with text content only (current batch already excluded by _id query)
-        const historyMessages = sortedMessages.filter(
-          (msg: any) =>
-            msg.content?.text &&
-            msg.content.text.trim()
-        );
-
-        this.logger.log(
-          `📝 [AI API Job] After filtering: ${historyMessages.length} history messages`,
-          {
-            filtered: historyMessages.map((msg: any) => ({
-              id: msg._id.toString(),
-              direction: msg.direction,
-              textPreview: msg.content.text.substring(0, 50),
-              senderPlatformUserId: msg.sender?.platformUserId,
-              senderName: msg.sender?.name,
-            })),
-          }
-        );
-
-        if (historyMessages.length > 0) {
-          const chatHistory = historyMessages
-            .map((msg: any) => {
-              // Determine sender label based on direction and sender type
-              let sender: string;
-              if (msg.direction === MessageDirection.OUTBOUND) {
-                // Check if this is an AI message or manual message from human advisor
-                if (msg.sender?.platformUserId === 'ai-agent') {
-                  sender = "Agent"; // AI agent
-                } else {
-                  sender = "Người tư vấn"; // Manual message from human advisor
-                }
-              } else {
-                // Inbound message from customer
-                sender = msg.sender?.name || "Customer";
-              }
-              return `${sender}: ${msg.content.text}`;
-            })
-            .join("\n");
-
-          if (chatHistory && combinedData.texts.length > 0) {
-            // Bỏ [Previous conversation history] vì hệ thống AI tự thêm
-            // Chỉ thêm chat history không có wrapper
-            const originalContent = combinedData.texts[0].content;
-            combinedData.texts[0].content =
-              `${chatHistory}\n\n` + combinedData.texts[0].content;
-
-            this.logger.log(
-              `📜 [AI API Job] Loaded ${historyMessages.length} history messages for conversation ${conversation._id}`,
-              {
-                historyPreview: chatHistory.substring(0, 200),
-                originalContentPreview: originalContent.substring(0, 100),
-                finalContentPreview: combinedData.texts[0].content.substring(0, 300),
-                fullChatHistory: chatHistory, // Log full history to debug
-              }
-            );
-
-            return true;
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.error("Error loading chat history:", error);
-    }
-
-    return false;
-  }
+  // private async loadChatHistory(...) - REMOVED
 }

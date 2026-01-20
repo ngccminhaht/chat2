@@ -64,10 +64,9 @@ export class AIBatchingProcessor extends WorkerHost {
       // Update state to AI_RESPONDING (atomic check)
       await this.batchingService.updateAIState(conversationId, "AI_RESPONDING");
 
-      // Get pending messages for this conversation
+      // Get pending messages for this conversation (query DB directly)
       const messages = await this.batchingService.getPendingMessages(
-        conversationId,
-        messageIds,
+        conversationId
       );
 
       if (messages.length === 0) {

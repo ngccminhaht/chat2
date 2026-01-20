@@ -125,12 +125,13 @@ export class AIResponseService {
       }))
     );
 
-    // Load chat history (always load for context continuity)
-    // Skip for comment-type conversations (each comment is standalone)
-    const isCommentType = conversation.metadata?.type === "post_comments";
-    if (!isCommentType) {
-      await this.loadChatHistory(combinedData, conversation);
-    }
+    // DISABLED: Chat history loading
+    // When using conversation_id, AI API already has full conversation context
+    // Loading history causes duplicates and sends old messages repeatedly
+    // See loadChatHistory() method for details
+    this.logger.log(
+      `⏭️ [AI Response] Skipping chat history - AI has context via conversation_id`
+    );
 
     // Create AI request with customer info and files
     const maxImages = org.aiAgentSettings?.maxImages || 3; // Get from org settings or default
@@ -457,82 +458,14 @@ export class AIResponseService {
   }
 
   /**
-   * Load chat history and add to combined data
+   * DEPRECATED - DO NOT USE
+   * Chat history loading disabled because:
+   * 1. AI API maintains full context via conversation_id
+   * 2. Loading history causes duplicate messages
+   * 3. Sends old human advisor messages repeatedly
+   * 4. Messages get processed multiple times
    */
-  private async loadChatHistory(
-    combinedData: any,
-    conversation: ConversationDocument
-  ): Promise<boolean> {
-    try {
-      const oldMessages = await this.messageModel
-        .find({
-          organizationId: conversation.organizationId,
-          conversationId: conversation._id,
-          $or: [
-            // INBOUND: Customer messages not yet sent to AI
-            { direction: MessageDirection.INBOUND, sentToAiAt: null },
-            // OUTBOUND: Human advisor messages (so AI knows what human said)
-            // Exclude AI's own messages to prevent duplicate context
-            {
-              direction: MessageDirection.OUTBOUND,
-              'sender.platformUserId': { $ne: 'ai-agent' }
-            }
-          ]
-        })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .lean();
-
-      if (oldMessages && oldMessages.length > 0) {
-        const sortedMessages = oldMessages.reverse();
-
-        const currentMessageContent = combinedData.texts[0]?.content;
-        const historyMessages = sortedMessages.filter(
-          (msg: any) =>
-            msg.content?.text &&
-            msg.content.text.trim() &&
-            msg.content.text !== currentMessageContent
-        );
-
-        if (historyMessages.length > 0) {
-          const chatHistory = historyMessages
-            .map((msg: any) => {
-              // Determine sender label based on direction and sender type
-              let sender: string;
-              if (msg.direction === MessageDirection.OUTBOUND) {
-                // Check if this is an AI message or manual message from human advisor
-                if (msg.sender?.platformUserId === 'ai-agent') {
-                  sender = "Agent"; // AI agent
-                } else {
-                  sender = "Người tư vấn"; // Manual message from human advisor
-                }
-              } else {
-                // Inbound message from customer
-                sender = msg.sender?.name || "Customer";
-              }
-              return `${sender}: ${msg.content.text}`;
-            })
-            .join("\n");
-
-          if (chatHistory && combinedData.texts.length > 0) {
-            // Bỏ [Previous conversation history] vì hệ thống AI tự thêm
-            // Chỉ thêm chat history không có wrapper
-            combinedData.texts[0].content = `${chatHistory}\n\n${combinedData.texts[0].content}`;
-
-            this.logger.log(
-              `📜 [AI API Call] Loaded ${historyMessages.length} history messages for conversation ${conversation._id}`
-            );
-
-            return true;
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.error("Error loading chat history:", error);
-    }
-
-    return false;
-  }
+  // private async loadChatHistory(...) - REMOVED
 
   /**
    * Save AI response as outbound message
