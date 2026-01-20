@@ -163,7 +163,7 @@ export class AIAPICallProcessor extends WorkerHost {
       }
 
       // Create AI request
-      const maxImages = org.aiAgentSettings?.maxImages || 3; // Get from org settings or default
+      const maxImages = org.aiAgentSettings?.maxImages || 6; // Get from org settings or default
       const requestData = MessageCombiner.createAIRequest(
         combinedData,
         {
@@ -210,16 +210,44 @@ export class AIAPICallProcessor extends WorkerHost {
             response_mode: requestData.response_mode,
             user: requestData.user,
             conversation_id: requestData.conversation_id,
-            files: requestData.files?.map((f) => ({
+            files: requestData.files?.map((f, idx) => ({
+              index: idx + 1,
               type: f.type,
-              url: f.url?.substring(0, 100) + (f.url?.length > 100 ? "..." : ""),
               transfer_method: f.transfer_method,
+              url: f.url, // Full URL without truncation
+              urlLength: f.url?.length || 0,
             })),
+            filesCount: requestData.files?.length || 0,
           },
           null,
           2
         )
       );
+
+      // Log individual files for easier debugging
+      if (requestData.files && requestData.files.length > 0) {
+        this.logger.log(
+          `📸 [AI API Input] Detailed files being sent to AI:`
+        );
+        requestData.files.forEach((file, idx) => {
+          this.logger.log(
+            `  File ${idx + 1}/${requestData.files.length}:`,
+            JSON.stringify(
+              {
+                type: file.type,
+                transfer_method: file.transfer_method,
+                url: file.url,
+              },
+              null,
+              2
+            )
+          );
+        });
+      } else {
+        this.logger.log(
+          `⚠️ [AI API Input] No files/images in request - files array is ${requestData.files ? 'empty' : 'undefined'}`
+        );
+      }
 
       // Log messages being sent to AI for debugging
       this.logger.log(

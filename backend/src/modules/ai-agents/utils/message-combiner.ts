@@ -175,6 +175,23 @@ export class MessageCombiner {
             type: messageType,
             order: index,
           });
+          console.log(
+            `📸 [MessageCombiner] Found ${messageType} in message ${(message as any)._id}:`,
+            {
+              url: message.content.mediaUrl,
+              order: index,
+              messageType,
+              direction: (message as any).direction,
+            }
+          );
+        } else {
+          console.log(
+            `⏭️ [MessageCombiner] Skipped non-image/video media in message ${(message as any)._id}:`,
+            {
+              type: messageType,
+              hasMediaUrl: true,
+            }
+          );
         }
       }
     });
@@ -213,7 +230,7 @@ export class MessageCombiner {
       pageId?: string;
     },
     customer?: CustomerDocument | null,
-    maxImages?: number // Maximum number of images (from org settings, default: 3)
+    maxImages?: number // Maximum number of images (from org settings, default: 6)
   ): AIRequestData {
     const { texts, images } = combinedData;
     let queryText = texts[0]?.content || "";
@@ -377,16 +394,41 @@ export class MessageCombiner {
     // Add files (images) if any
     // Wrap image URLs through middleware proxy
     if (images.length > 0) {
-      const maxImagesLimit = maxImages || 3; // Use org setting or default to 3
+      const maxImagesLimit = maxImages || 6; // Use org setting or default to 6
       const imagesToSend = images
         .sort((a, b) => a.order - b.order)
         .slice(0, maxImagesLimit);
 
-      requestData.files = imagesToSend.map((img) => {
+      console.log(
+        `📸 [MessageCombiner] Processing images for AI request:`,
+        {
+          totalImages: images.length,
+          maxImagesLimit,
+          imagesToSendCount: imagesToSend.length,
+          allImages: images.map((img, idx) => ({
+            index: idx,
+            order: img.order,
+            type: img.type,
+            originalUrl: img.url,
+          })),
+        }
+      );
+
+      requestData.files = imagesToSend.map((img, idx) => {
         // Encode original URL to base64
         const base64URL = Buffer.from(img.url, "utf8").toString("base64");
         // Wrap through middleware proxy
         const proxiedUrl = `https://middleware.ictuer.workers.dev/tuha${base64URL}.webp`;
+
+        console.log(
+          `🔄 [MessageCombiner] Image ${idx + 1}/${imagesToSend.length}:`,
+          {
+            type: img.type,
+            originalUrl: img.url,
+            base64Length: base64URL.length,
+            proxiedUrl: proxiedUrl,
+          }
+        );
 
         return {
           type: img.type, // Use actual type (image or video)
@@ -394,6 +436,15 @@ export class MessageCombiner {
           url: proxiedUrl,
         };
       });
+
+      console.log(
+        `✅ [MessageCombiner] Final files array for AI request:`,
+        JSON.stringify(requestData.files, null, 2)
+      );
+    } else {
+      console.log(
+        `⚠️ [MessageCombiner] No images found to send to AI - images array is empty`
+      );
     }
 
     return requestData;
