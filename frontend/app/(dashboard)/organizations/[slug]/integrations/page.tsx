@@ -10,14 +10,12 @@ import {
   Divider,
 } from '@mui/material';
 import { ApiKeySection } from '@/features/organizations';
-import { useAuthStore } from '@/features/auth/stores/authStore';
 import CodeBlock from '@/components/common/CodeBlock';
 
 interface ApiEndpoint {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   description: string;
-  auth: boolean;
   requestBody?: string;
   responseBody: string;
   curl: string;
@@ -44,9 +42,6 @@ function ApiEndpointCard({ endpoint }: { endpoint: ApiEndpoint }) {
           <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
             {endpoint.path}
           </Typography>
-          {endpoint.auth && (
-            <Chip label="Auth Required" size="small" variant="outlined" />
-          )}
         </Stack>
 
         <Typography variant="body2" color="text.secondary">
@@ -71,14 +66,12 @@ function ApiEndpointCard({ endpoint }: { endpoint: ApiEndpoint }) {
 }
 
 export default function IntegrationsPage() {
-  const organizationId = useAuthStore((state) => state.organizationId);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
   const updateConversationEndpoint: ApiEndpoint = {
     method: 'PATCH',
-    path: `/organizations/${organizationId || ':orgId'}/conversations/:id`,
-    description: 'Update conversation settings. Use aiEnabled to enable/disable AI auto-reply for this conversation.',
-    auth: true,
+    path: '/external/conversations/:id',
+    description: 'Update conversation settings. Use aiEnabled to enable/disable AI auto-reply for this conversation. Organization is automatically determined from your API key.',
     requestBody: `{
   "aiEnabled": true
 }`,
@@ -90,9 +83,9 @@ export default function IntegrationsPage() {
   "customerName": "John Doe",
   "updatedAt": "2024-01-20T10:30:00Z"
 }`,
-    curl: `curl -X PATCH "${baseUrl}/organizations/${organizationId || ':orgId'}/conversations/CONVERSATION_ID" \\
+    curl: `curl -X PATCH "${baseUrl}/external/conversations/CONVERSATION_ID" \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  -H "X-API-Key: YOUR_API_KEY" \\
   -d '{
     "aiEnabled": true
   }'`,
@@ -120,7 +113,7 @@ export default function IntegrationsPage() {
           </Typography>
 
           <Alert severity="info" sx={{ mb: 2 }}>
-            All API requests require authentication using <code>Authorization: Bearer TOKEN</code> header.
+            Use your API key in the <code>X-API-Key</code> header. Organization is automatically determined from your API key.
           </Alert>
 
           <Stack spacing={2}>
