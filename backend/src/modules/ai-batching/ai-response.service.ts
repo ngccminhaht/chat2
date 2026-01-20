@@ -164,6 +164,7 @@ export class AIResponseService {
           customer_phone: requestData.inputs?.customer_phone,
           customer_email: requestData.inputs?.customer_email,
           customer_info: requestData.inputs?.customer_info,
+          miagent_conversation_id: requestData.inputs?.miagent_conversation_id,
         },
         null,
         2

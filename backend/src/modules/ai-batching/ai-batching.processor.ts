@@ -136,19 +136,12 @@ export class AIBatchingProcessor extends WorkerHost {
             `Conversation: ${conversationId} | Length: ${aiResponse.answer.length} chars`
         );
 
-        // Mark all image messages in batch as sent to AI
-        const imageMessages = messages.filter(
-          (msg) => msg.type === MessageType.IMAGE
+        // Mark ALL messages in batch as sent to AI (not just images)
+        const messageIdsToMark = messages.map((msg) => msg._id as Types.ObjectId);
+        await this.batchingService.markMessagesAsSent(messageIdsToMark);
+        this.logger.log(
+          `✅ [AI Batch] Marked ${messageIdsToMark.length} message(s) as sent to AI`
         );
-        if (imageMessages.length > 0) {
-          const imageIds = imageMessages.map(
-            (msg) => msg._id as Types.ObjectId
-          );
-          await this.batchingService.markImagesAsSent(imageIds);
-          this.logger.log(
-            `✅ [AI Batch] Marked ${imageMessages.length} image(s) as sent to AI`
-          );
-        }
 
         // Save AI response as message
         const {

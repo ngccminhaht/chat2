@@ -284,7 +284,28 @@ export class AIBatchingService {
   }
 
   /**
+   * Mark messages as sent to AI (all types)
+   */
+  async markMessagesAsSent(messageIds: Types.ObjectId[]): Promise<void> {
+    if (messageIds.length === 0) return;
+
+    await this.messageModel.updateMany(
+      {
+        _id: { $in: messageIds },
+      },
+      {
+        $set: { "metadata.sentToAI": true },
+      }
+    );
+
+    this.logger.debug(
+      `✅ [AI Batch] Marked ${messageIds.length} message(s) as sent to AI`
+    );
+  }
+
+  /**
    * Mark image messages as sent to AI
+   * @deprecated Use markMessagesAsSent instead
    */
   async markImagesAsSent(messageIds: Types.ObjectId[]): Promise<void> {
     if (messageIds.length === 0) return;
