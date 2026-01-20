@@ -652,6 +652,7 @@ export class AIAPICallProcessor extends WorkerHost {
               id: msg._id.toString(),
               direction: msg.direction,
               textPreview: msg.content?.text?.substring(0, 50) || null,
+              senderPlatformUserId: msg.sender?.platformUserId,
             })),
           }
         );
@@ -670,6 +671,8 @@ export class AIAPICallProcessor extends WorkerHost {
               id: msg._id.toString(),
               direction: msg.direction,
               textPreview: msg.content.text.substring(0, 50),
+              senderPlatformUserId: msg.sender?.platformUserId,
+              senderName: msg.sender?.name,
             })),
           }
         );
@@ -698,6 +701,7 @@ export class AIAPICallProcessor extends WorkerHost {
                 historyPreview: chatHistory.substring(0, 200),
                 originalContentPreview: originalContent.substring(0, 100),
                 finalContentPreview: combinedData.texts[0].content.substring(0, 300),
+                fullChatHistory: chatHistory, // Log full history to debug
               }
             );
 
