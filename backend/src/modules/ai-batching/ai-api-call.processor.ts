@@ -30,6 +30,7 @@ import {
   CustomerDocument,
 } from "@/common/database/schemas/customer.schema";
 import { MessageCombiner } from "@/modules/ai-agents/utils/message-combiner";
+import { MessageDirection } from "@/common/constants";
 import axios from "axios";
 import {
   categorizeAIError,
@@ -677,7 +678,7 @@ export class AIAPICallProcessor extends WorkerHost {
           const chatHistory = historyMessages
             .map((msg: any) => {
               const sender =
-                msg.direction === "OUTBOUND"
+                msg.direction === MessageDirection.OUTBOUND
                   ? "Agent"
                   : msg.sender?.name || "Customer";
               return `${sender}: ${msg.content.text}`;
