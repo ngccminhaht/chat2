@@ -224,17 +224,45 @@ export class AIBatchingProcessor extends WorkerHost {
               timestamp: Date.now(),
             };
 
-            // Publish to Kafka for async processing
-            await this.kafkaProducer.publish(KAFKA_TOPICS.MESSAGES_OUTGOING, {
-              key: conversationId,
-              value: outgoingEvent,
-            });
-
             this.logger.log(
-              `📤 [AI Batch] Published AI message to Kafka | ` +
-                `Topic: ${KAFKA_TOPICS.MESSAGES_OUTGOING} | ` +
-                `Message: ${message._id} | Platform: ${conversation.platform}`
+              `📤 [AI Batch] Publishing AI message to Kafka...`,
+              JSON.stringify(
+                {
+                  topic: KAFKA_TOPICS.MESSAGES_OUTGOING,
+                  key: conversationId,
+                  messageId: outgoingEvent.messageId,
+                  platform: outgoingEvent.platform,
+                  recipientId: outgoingEvent.recipientId,
+                  messageType: outgoingEvent.message.type,
+                  messageTextLength: outgoingEvent.message.text?.length || 0,
+                  hasAccessToken: !!outgoingEvent.credentials.accessToken,
+                },
+                null,
+                2
+              )
             );
+
+            // Publish to Kafka for async processing
+            try {
+              await this.kafkaProducer.publish(KAFKA_TOPICS.MESSAGES_OUTGOING, {
+                key: conversationId,
+                value: outgoingEvent,
+              });
+
+              this.logger.log(
+                `✅ [AI Batch] Successfully published AI message to Kafka | ` +
+                  `Topic: ${KAFKA_TOPICS.MESSAGES_OUTGOING} | ` +
+                  `Message: ${message._id} | Platform: ${conversation.platform} | ` +
+                  `RecipientId: ${conversation.customerPlatformUserId}`
+              );
+            } catch (kafkaError) {
+              this.logger.error(
+                `❌ [AI Batch] Failed to publish to Kafka | ` +
+                  `Error: ${kafkaError.message} | ` +
+                  `Message: ${message._id} | Platform: ${conversation.platform}`
+              );
+              throw kafkaError;
+            }
           }
         }
 

@@ -80,21 +80,33 @@ export class MessageSenderConsumer {
     const retryCount = event.retryCount || 0;
 
     this.logger.log(
-      `📤 Processing outgoing message: ${event.messageId} to ${event.platform}` +
+      `📤 [Message Sender Consumer] ========== RECEIVED KAFKA EVENT ========== | ` +
+        `Message: ${event.messageId} | Platform: ${event.platform}` +
         (retryCount > 0
-          ? ` (retry ${retryCount}/${DEFAULT_RETRY_CONFIG.maxRetries})`
+          ? ` | Retry ${retryCount}/${DEFAULT_RETRY_CONFIG.maxRetries}`
           : "")
     );
-    this.logger.log(`📋 Event details:`, {
-      messageId: event.messageId,
-      conversationId: event.conversationId,
-      platform: event.platform,
-      platformConnectionId: event.platformConnectionId,
-      recipientId: event.recipientId,
-      messageType: event.message?.type,
-      messageText: event.message?.text?.substring(0, 50),
-      retryCount,
-    });
+    this.logger.log(
+      `📋 [Message Sender Consumer] Event Details:`,
+      JSON.stringify(
+        {
+          messageId: event.messageId,
+          conversationId: event.conversationId,
+          platform: event.platform,
+          platformConnectionId: event.platformConnectionId,
+          platformAccountId: event.platformAccountId,
+          recipientId: event.recipientId,
+          messageType: event.message?.type,
+          messageTextPreview: event.message?.text?.substring(0, 100) || null,
+          messageTextLength: event.message?.text?.length || 0,
+          hasAccessToken: !!event.credentials?.accessToken,
+          retryCount,
+          timestamp: event.timestamp,
+        },
+        null,
+        2
+      )
+    );
 
     try {
       // Handle Web platform separately - emit directly via WebSocket
