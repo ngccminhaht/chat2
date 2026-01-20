@@ -161,7 +161,8 @@ export class AIAPICallProcessor extends WorkerHost {
       // Skip for comment-type conversations (each comment is standalone)
       const isCommentType = conversation.metadata?.type === "post_comments";
       if (!isCommentType) {
-        await this.loadChatHistory(combinedData, conversation as any);
+        // Pass messageIds to exclude current batch messages from history
+        await this.loadChatHistory(combinedData, conversation as any, messageIds);
       }
 
       // Create AI request
@@ -628,27 +629,35 @@ export class AIAPICallProcessor extends WorkerHost {
    */
   private async loadChatHistory(
     combinedData: any,
-    conversation: ConversationDocument
+    conversation: ConversationDocument,
+    excludeMessageIds?: string[]
   ): Promise<boolean> {
     try {
+      // Build query to exclude current batch messages
+      const query: any = {
+        organizationId: conversation.organizationId,
+        conversationId: conversation._id,
+      };
+
+      // Exclude current batch messages from history
+      if (excludeMessageIds && excludeMessageIds.length > 0) {
+        query._id = { $nin: excludeMessageIds };
+      }
+
       const oldMessages = await this.messageModel
-        .find({
-          organizationId: conversation.organizationId,
-          conversationId: conversation._id,
-        })
+        .find(query)
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
 
       if (oldMessages && oldMessages.length > 0) {
         const sortedMessages = oldMessages.reverse();
-        const currentMessageContent = combinedData.texts[0]?.content;
 
         this.logger.log(
-          `📚 [AI API Job] Found ${oldMessages.length} old messages, filtering for history`,
+          `📚 [AI API Job] Loaded ${oldMessages.length} history messages (excluded ${excludeMessageIds?.length || 0} current batch messages by _id)`,
           {
-            currentMessagePreview: currentMessageContent?.substring(0, 100),
-            allMessages: sortedMessages.map((msg: any) => ({
+            excludedMessageIds: excludeMessageIds,
+            historyMessages: sortedMessages.map((msg: any) => ({
               id: msg._id.toString(),
               direction: msg.direction,
               textPreview: msg.content?.text?.substring(0, 50) || null,
@@ -657,11 +666,11 @@ export class AIAPICallProcessor extends WorkerHost {
           }
         );
 
+        // Filter messages with text content only (current batch already excluded by _id query)
         const historyMessages = sortedMessages.filter(
           (msg: any) =>
             msg.content?.text &&
-            msg.content.text.trim() &&
-            msg.content.text !== currentMessageContent
+            msg.content.text.trim()
         );
 
         this.logger.log(
