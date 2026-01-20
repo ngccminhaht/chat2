@@ -12,6 +12,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { ApiKeySection } from '@/features/organizations';
 
 export default function SettingsPage() {
   const t = useTranslations('settings');
@@ -57,13 +58,19 @@ export default function SettingsPage() {
           </Stack>
 
           {isOwner && (
-            <>
-              <Box>
-                <Button variant="contained" disabled>
-                  {t('saveChanges')}
-                </Button>
-              </Box>
+            <Box>
+              <Button variant="contained" disabled>
+                {t('saveChanges')}
+              </Button>
+            </Box>
+          )}
 
+          <Divider />
+
+          <ApiKeySection />
+
+          {isOwner && (
+            <>
               <Divider />
 
               <Stack spacing={2}>
