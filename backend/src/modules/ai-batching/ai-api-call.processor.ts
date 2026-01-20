@@ -637,10 +637,16 @@ export class AIAPICallProcessor extends WorkerHost {
       const query: any = {
         organizationId: conversation.organizationId,
         conversationId: conversation._id,
-        // Only load INBOUND messages that haven't been sent to AI yet
-        // Outbound messages (AI replies, human advisor) should never be in history for AI
-        direction: MessageDirection.INBOUND,
-        sentToAiAt: null,
+        $or: [
+          // INBOUND: Customer messages not yet sent to AI
+          { direction: MessageDirection.INBOUND, sentToAiAt: null },
+          // OUTBOUND: Human advisor messages (so AI knows what human said)
+          // Exclude AI's own messages to prevent duplicate context
+          {
+            direction: MessageDirection.OUTBOUND,
+            'sender.platformUserId': { $ne: 'ai-agent' }
+          }
+        ]
       };
 
       // Exclude current batch messages from history
