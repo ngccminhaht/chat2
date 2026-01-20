@@ -42,6 +42,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textFieldRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const isPending = isSending || isUploading;
 
@@ -90,6 +91,8 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
               isSendingRef.current = false;
               setFilePreview(null);
               setMessage('');
+              // Focus input after sending
+              setTimeout(() => inputRef.current?.focus(), 0);
             },
             onError: () => {
               isSendingRef.current = false;
@@ -118,6 +121,8 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
       {
         onSuccess: () => {
           isSendingRef.current = false;
+          // Focus input after sending
+          setTimeout(() => inputRef.current?.focus(), 0);
         },
         onError: () => {
           isSendingRef.current = false;
@@ -244,6 +249,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
             disabled={isPending || !!filePreview}
             size="small"
             ref={textFieldRef}
+            inputRef={inputRef}
           />
           <QuickReplyPicker
             anchorEl={textFieldRef.current}
