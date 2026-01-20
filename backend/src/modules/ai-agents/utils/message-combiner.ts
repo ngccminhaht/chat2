@@ -124,17 +124,7 @@ export class MessageCombiner {
     );
 
     sortedMessages.forEach((item, index) => {
-      const { message, conversation } = item;
-      // Get platform from conversation or message, with fallback
-      const platform = (conversation?.platform ||
-        (message as any)?.platform ||
-        "web") as string;
-      const platformLabel = this.getPlatformLabel(
-        platform,
-        conversation,
-        message
-      );
-      const sourcePrefix = `[from: ${platformLabel}]`;
+      const { message } = item;
 
       // Determine message direction
       const isInbound = (message as any).direction === "inbound";
@@ -150,10 +140,8 @@ export class MessageCombiner {
           );
         if (!isMediaLinkPattern && text) {
           // Add prefix to distinguish sender
-          if (isInbound && !text.startsWith(`[from: ${platformLabel}]`)) {
-            // Inbound: add platform source prefix (inline, not newline)
-            text = `${sourcePrefix} ${text}`;
-          } else if (isOutbound && !text.startsWith("Agent:")) {
+          // Platform source is now in customer info header, so we don't add it here anymore
+          if (isOutbound && !text.startsWith("Agent:")) {
             // Outbound: add Agent prefix for clarity
             text = `Agent: ${text}`;
           }
@@ -179,7 +167,7 @@ export class MessageCombiner {
           );
         }
       } else if (isInbound && (message as any).type !== "text") {
-        // For non-text inbound messages without text, add source with message type
+        // For non-text inbound messages without text, add message type label
         const typeLabels: Record<string, string> = {
           image: "Ảnh",
           video: "Video",
@@ -190,7 +178,7 @@ export class MessageCombiner {
         };
         const typeLabel = typeLabels[message.type] || message.type;
         texts.push({
-          content: `${sourcePrefix}\n[${typeLabel}]`,
+          content: `[${typeLabel}]`,
           timestamp: (message as any).createdAt?.getTime() || Date.now(),
         });
         console.log(
@@ -329,6 +317,10 @@ export class MessageCombiner {
     // Add Zalo profile information from conversation metadata if available
     const conversation = combinedData.latestMessage?.conversation;
 
+    // Extract platform label for customer info header
+    const platform = (conversation?.platform || "web") as string;
+    const platformLabel = this.getPlatformLabel(platform, conversation);
+
     // Debug log
     console.log("🔍 [MessageCombiner] Conversation metadata:", {
       hasConversation: !!conversation,
@@ -432,6 +424,8 @@ export class MessageCombiner {
     if (conversation?._id) {
       customerContext.push(`Conversation ID: ${conversation._id.toString()}`);
     }
+    // Add platform source
+    customerContext.push(`from: ${platformLabel}`);
 
     // Add customer info to inputs
     requestData.inputs = {
