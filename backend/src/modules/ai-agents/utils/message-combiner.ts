@@ -93,6 +93,21 @@ export class MessageCombiner {
       throw new Error("Cannot combine empty messages array");
     }
 
+    // Log all incoming messages for debugging
+    console.log(
+      `📥 [MessageCombiner] Received ${messages.length} messages to combine:`,
+      messages.map((item, idx) => ({
+        index: idx,
+        messageId: (item.message as any)._id?.toString(),
+        type: item.message.type,
+        direction: (item.message as any).direction,
+        hasText: !!item.message.content?.text,
+        textPreview: item.message.content?.text?.substring(0, 50) || null,
+        hasMediaUrl: !!item.message.content?.mediaUrl,
+        createdAt: (item.message as any).createdAt,
+      }))
+    );
+
     const texts: Array<{ content: string; timestamp: number }> = [];
     const images: Array<{
       url: string;
@@ -146,6 +161,22 @@ export class MessageCombiner {
             content: text,
             timestamp: (message as any).createdAt?.getTime() || Date.now(),
           });
+          console.log(
+            `✅ [MessageCombiner] Added text from message ${(message as any)._id}:`,
+            {
+              direction: (message as any).direction,
+              textPreview: text.substring(0, 100),
+            }
+          );
+        } else if (isMediaLinkPattern) {
+          console.log(
+            `⏭️ [MessageCombiner] Skipped media link pattern in message ${(message as any)._id}:`,
+            text.substring(0, 100)
+          );
+        } else {
+          console.log(
+            `⏭️ [MessageCombiner] Skipped empty text in message ${(message as any)._id}`
+          );
         }
       } else if (isInbound && (message as any).type !== "text") {
         // For non-text inbound messages without text, add source with message type
@@ -162,6 +193,23 @@ export class MessageCombiner {
           content: `${sourcePrefix}\n[${typeLabel}]`,
           timestamp: (message as any).createdAt?.getTime() || Date.now(),
         });
+        console.log(
+          `📎 [MessageCombiner] Added media placeholder for message ${(message as any)._id}:`,
+          {
+            type: message.type,
+            label: typeLabel,
+          }
+        );
+      } else {
+        console.log(
+          `⚠️ [MessageCombiner] No text content in message ${(message as any)._id}:`,
+          {
+            hasText: !!message.content?.text,
+            type: (message as any).type,
+            direction: (message as any).direction,
+            isInbound,
+          }
+        );
       }
 
       // Extract image/media content from ALL messages (not just type=image)
@@ -198,6 +246,20 @@ export class MessageCombiner {
 
     // Combine all text messages
     const combinedText = texts.map((t) => t.content).join("\n");
+
+    console.log(
+      `📊 [MessageCombiner] Combination complete:`,
+      {
+        totalMessagesReceived: messages.length,
+        textsExtracted: texts.length,
+        imagesExtracted: images.length,
+        combinedTextLength: combinedText.length,
+        textsPreview: texts.map((t, idx) => ({
+          index: idx,
+          preview: t.content.substring(0, 100),
+        })),
+      }
+    );
 
     return {
       texts: combinedText
