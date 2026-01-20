@@ -322,10 +322,18 @@ export class WebhookProcessorService {
       isComment: normalized.metadata?.isComment || false,
     };
 
-    // For Facebook, store profile data in userProfileMetadata to save to conversation
+    // Store profile metadata to save to conversation (Zalo profile, Facebook profile, etc.)
     let userProfileMetadata: Record<string, unknown> | undefined;
+
+    // Include platform-specific profile data from adapter
+    if (userProfile.metadata && Object.keys(userProfile.metadata).length > 0) {
+      userProfileMetadata = { ...userProfile.metadata };
+    }
+
+    // For Facebook, also store gender in facebookProfile
     if (adapter.platform === Platform.FACEBOOK && userProfile.gender) {
       userProfileMetadata = {
+        ...userProfileMetadata,
         facebookProfile: {
           gender: userProfile.gender,
         },

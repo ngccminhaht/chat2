@@ -181,14 +181,13 @@ export class InboundMessageHandlerService {
       return { message: null, conversation, isNew: false };
     }
 
-    if (isComment) {
-      this.logger.log(
-        `  ✅ Comment message saved successfully: messageId=${message._id}, type: ${message.type}, conversationId=${conversation._id}`
-      );
-    }
+    this.logger.log(
+      `💾 Message SAVED: ${message._id} | Conv: ${conversation._id} | Org: ${organizationId} | Type: ${message.type}${isComment ? " (comment)" : ""}`
+    );
 
     // 4. Update conversation lastMessage
     await this.updateConversationLastMessage(conversation, message, input);
+    this.logger.log(`📝 Updated lastMessage for conv ${conversation._id}`);
 
     // 5. Trigger AI batching for inbound messages
     // AI is now allowed for comments - reply loops are prevented by skipping
@@ -197,7 +196,9 @@ export class InboundMessageHandlerService {
       await this.triggerAiBatching(message, conversation);
     }
 
-    this.logger.log(`✅ Processed message: ${message._id}`);
+    this.logger.log(
+      `✅ Processed message: ${message._id} | Ready for notification`
+    );
     return { message, conversation, isNew: true };
   }
 
