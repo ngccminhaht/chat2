@@ -4,6 +4,7 @@ export { default as OrganizationSelector } from './components/OrganizationSelect
 export { default as OrganizationCard } from './components/OrganizationCard';
 export { default as EmptyOrganizationState } from './components/EmptyOrganizationState';
 export { default as CreateOrganizationForm } from './components/CreateOrganizationForm';
+export { default as ApiKeySection } from './components/ApiKeySection';
 
 // Hooks
 export { useOrganizations } from './hooks/useOrganizations';
@@ -14,6 +15,7 @@ export {
   useUpdateMemberRole,
   useRemoveMember,
 } from './hooks/useOrganizationMembers';
+export { useApiKey, useGenerateApiKey, useRevokeApiKey } from './hooks/useApiKey';
 
 // Types
 export * from './types/organization.types';

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { randomBytes } from 'crypto';
 import {
   Organization,
   OrganizationDocument,
@@ -336,5 +337,61 @@ export class OrganizationsService {
     }
 
     return org.aiAgentSettings;
+  }
+
+  /**
+   * Get API key for organization (masked)
+   */
+  async getApiKey(id: string): Promise<{ apiKey: string | null; masked: string | null }> {
+    const org = await this.findById(id);
+    if (!org.apiKey) {
+      return { apiKey: null, masked: null };
+    }
+    // Mask API key: show only last 8 characters
+    const masked = '•'.repeat(24) + org.apiKey.slice(-8);
+    return { apiKey: org.apiKey, masked };
+  }
+
+  /**
+   * Generate or regenerate API key for organization
+   */
+  async generateApiKey(id: string): Promise<{ apiKey: string }> {
+    const apiKey = `mia_${randomBytes(24).toString('hex')}`;
+
+    const org = await this.organizationModel.findByIdAndUpdate(
+      id,
+      { $set: { apiKey } },
+      { new: true },
+    );
+
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return { apiKey };
+  }
+
+  /**
+   * Revoke API key for organization
+   */
+  async revokeApiKey(id: string): Promise<{ success: boolean }> {
+    const org = await this.organizationModel.findByIdAndUpdate(
+      id,
+      { $unset: { apiKey: 1 } },
+      { new: true },
+    );
+
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Validate API key and return organization
+   */
+  async validateApiKey(apiKey: string): Promise<OrganizationDocument | null> {
+    return this.organizationModel.findOne({ apiKey, isActive: true });
   }
 }

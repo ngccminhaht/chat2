@@ -11,7 +11,7 @@ import {
   FormControlLabel,
   Divider,
 } from '@mui/material';
-import { OrganizationMembers } from '@/features/organizations';
+import { OrganizationMembers, ApiKeySection } from '@/features/organizations';
 
 export default function OrganizationPage() {
   return (
@@ -71,6 +71,12 @@ export default function OrganizationPage() {
         <Paper>
           <Box p={3}>
             <OrganizationMembers />
+          </Box>
+        </Paper>
+
+        <Paper>
+          <Box p={3}>
+            <ApiKeySection />
           </Box>
         </Paper>
       </Stack>

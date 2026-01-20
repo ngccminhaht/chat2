@@ -271,4 +271,47 @@ export class OrganizationsController {
     ]);
     return this.organizationsService.updateAIAgentSettings(id, dto);
   }
+
+  /**
+   * Get API key for organization
+   * GET /api/organizations/:id/api-key
+   */
+  @Get(':id/api-key')
+  async getApiKey(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.organizationsService.assertRole(id, user.sub, [
+      OrganizationRole.OWNER,
+      OrganizationRole.ADMIN,
+    ]);
+    return this.organizationsService.getApiKey(id);
+  }
+
+  /**
+   * Generate or regenerate API key for organization
+   * POST /api/organizations/:id/api-key
+   */
+  @Post(':id/api-key')
+  async generateApiKey(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.organizationsService.assertRole(id, user.sub, [
+      OrganizationRole.OWNER,
+      OrganizationRole.ADMIN,
+    ]);
+    return this.organizationsService.generateApiKey(id);
+  }
+
+  /**
+   * Revoke API key for organization
+   * DELETE /api/organizations/:id/api-key
+   */
+  @Delete(':id/api-key')
+  @HttpCode(HttpStatus.OK)
+  async revokeApiKey(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.organizationsService.assertRole(id, user.sub, [
+      OrganizationRole.OWNER,
+      OrganizationRole.ADMIN,
+    ]);
+    return this.organizationsService.revokeApiKey(id);
+  }
 }

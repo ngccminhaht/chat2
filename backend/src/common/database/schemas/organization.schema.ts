@@ -101,6 +101,9 @@ export class Organization {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  @Prop({ type: String, unique: true, sparse: true })
+  apiKey?: string; // API key for webhook authentication
 }
 
 export const OrganizationSchema = SchemaFactory.createForClass(Organization);
@@ -108,3 +111,4 @@ export const OrganizationSchema = SchemaFactory.createForClass(Organization);
 // Indexes
 OrganizationSchema.index({ owner: 1 });
 OrganizationSchema.index({ isActive: 1 });
+OrganizationSchema.index({ apiKey: 1 });
