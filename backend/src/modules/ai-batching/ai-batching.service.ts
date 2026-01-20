@@ -287,7 +287,7 @@ export class AIBatchingService {
   async markMessagesAsSent(messageIds: Types.ObjectId[]): Promise<void> {
     if (messageIds.length === 0) return;
 
-    await this.messageModel.updateMany(
+    const result = await this.messageModel.updateMany(
       {
         _id: { $in: messageIds },
       },
@@ -296,8 +296,9 @@ export class AIBatchingService {
       }
     );
 
-    this.logger.debug(
-      `✅ [AI Batch] Marked ${messageIds.length} message(s) as sent to AI`
+    this.logger.log(
+      `✅ [AI Batch] Marked ${result.modifiedCount}/${messageIds.length} message(s) as sent to AI | ` +
+      `IDs: ${messageIds.map(id => id.toString()).join(', ')}`
     );
   }
 
