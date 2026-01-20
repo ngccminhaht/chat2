@@ -487,10 +487,19 @@ export class AIResponseService {
         if (historyMessages.length > 0) {
           const chatHistory = historyMessages
             .map((msg: any) => {
-              const sender =
-                msg.direction === MessageDirection.OUTBOUND
-                  ? "Agent"
-                  : msg.sender?.name || "Customer";
+              // Determine sender label based on direction and sender type
+              let sender: string;
+              if (msg.direction === MessageDirection.OUTBOUND) {
+                // Check if this is an AI message or manual message from human advisor
+                if (msg.sender?.platformUserId === 'ai-agent') {
+                  sender = "Agent"; // AI agent
+                } else {
+                  sender = "Người tư vấn"; // Manual message from human advisor
+                }
+              } else {
+                // Inbound message from customer
+                sender = msg.sender?.name || "Customer";
+              }
               return `${sender}: ${msg.content.text}`;
             })
             .join("\n");
