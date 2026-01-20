@@ -159,13 +159,18 @@ export class MessageCombiner {
         });
       }
 
-      // Extract image/media content
-      if (message.content?.mediaUrl && message.type === "image") {
-        images.push({
-          url: message.content.mediaUrl,
-          type: "image",
-          order: index,
-        });
+      // Extract image/media content from ALL messages (not just type=image)
+      // Facebook can send images with type=image OR with attachments in text messages
+      if (message.content?.mediaUrl) {
+        const messageType = message.type || "unknown";
+        // Only process image and video types (not audio, file, sticker, etc.)
+        if (messageType === "image" || messageType === "video") {
+          images.push({
+            url: message.content.mediaUrl,
+            type: messageType,
+            order: index,
+          });
+        }
       }
     });
 
@@ -379,7 +384,7 @@ export class MessageCombiner {
         const proxiedUrl = `https://middleware.ictuer.workers.dev/tuha${base64URL}.webp`;
 
         return {
-          type: "image",
+          type: img.type, // Use actual type (image or video)
           transfer_method: "remote_url", // Required by MiAgent API
           url: proxiedUrl,
         };
