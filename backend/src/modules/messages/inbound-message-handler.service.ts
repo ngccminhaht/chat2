@@ -304,12 +304,28 @@ export class InboundMessageHandlerService {
       }
 
       // Update metadata with user profile data if available (e.g., Zalo profile)
+      // Only update if we have new profile data and conversation doesn't have it yet
       if (userProfileMetadata && Object.keys(userProfileMetadata).length > 0) {
-        conversation.metadata = {
-          ...conversation.metadata,
-          ...userProfileMetadata,
-        };
-        await conversation.save();
+        const hasZaloProfile = !!conversation.metadata?.zaloProfile;
+        const hasFacebookProfile = !!conversation.metadata?.facebookProfile;
+        const newHasZaloProfile = !!userProfileMetadata.zaloProfile;
+        const newHasFacebookProfile = !!userProfileMetadata.facebookProfile;
+
+        // Update if: (1) new data available and (2) conversation doesn't have it yet
+        const shouldUpdate =
+          (newHasZaloProfile && !hasZaloProfile) ||
+          (newHasFacebookProfile && !hasFacebookProfile);
+
+        if (shouldUpdate) {
+          conversation.metadata = {
+            ...conversation.metadata,
+            ...userProfileMetadata,
+          };
+          await conversation.save();
+          this.logger.log(
+            `🔄 Updated conversation metadata with profile data`
+          );
+        }
       }
       return conversation;
     }
