@@ -468,6 +468,9 @@ export class AIResponseService {
         .find({
           organizationId: conversation.organizationId,
           conversationId: conversation._id,
+          // Only load messages that haven't been sent to AI yet
+          // This prevents re-sending old messages that AI already processed
+          sentToAiAt: null,
         })
         .sort({ createdAt: -1 })
         .limit(50)
