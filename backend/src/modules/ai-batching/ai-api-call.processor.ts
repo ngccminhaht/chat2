@@ -6,7 +6,7 @@
 import { Processor, WorkerHost, OnWorkerEvent } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { Job } from "bullmq";
 import {
   AI_API_CALL_QUEUE,
@@ -640,8 +640,9 @@ export class AIAPICallProcessor extends WorkerHost {
       };
 
       // Exclude current batch messages from history
+      // Convert string IDs to ObjectId for MongoDB query
       if (excludeMessageIds && excludeMessageIds.length > 0) {
-        query._id = { $nin: excludeMessageIds };
+        query._id = { $nin: excludeMessageIds.map(id => new Types.ObjectId(id)) };
       }
 
       const oldMessages = await this.messageModel
