@@ -689,10 +689,19 @@ export class AIAPICallProcessor extends WorkerHost {
         if (historyMessages.length > 0) {
           const chatHistory = historyMessages
             .map((msg: any) => {
-              const sender =
-                msg.direction === MessageDirection.OUTBOUND
-                  ? "Agent"
-                  : msg.sender?.name || "Customer";
+              // Determine sender label based on direction and sender type
+              let sender: string;
+              if (msg.direction === MessageDirection.OUTBOUND) {
+                // Check if this is an AI message or manual message from human
+                if (msg.sender?.platformUserId === 'ai-agent') {
+                  sender = "Agent"; // AI agent
+                } else {
+                  sender = "Human"; // Manual message from human agent
+                }
+              } else {
+                // Inbound message from customer
+                sender = msg.sender?.name || "Customer";
+              }
               return `${sender}: ${msg.content.text}`;
             })
             .join("\n");
