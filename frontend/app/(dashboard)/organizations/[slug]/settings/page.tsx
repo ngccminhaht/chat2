@@ -12,7 +12,6 @@ import {
   Alert,
 } from '@mui/material';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import { ApiKeySection } from '@/features/organizations';
 
 export default function SettingsPage() {
   const t = useTranslations('settings');
@@ -64,10 +63,6 @@ export default function SettingsPage() {
               </Button>
             </Box>
           )}
-
-          <Divider />
-
-          <ApiKeySection />
 
           {isOwner && (
             <>
