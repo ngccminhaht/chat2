@@ -139,19 +139,26 @@ export class MessageCombiner {
             text
           );
         if (!isMediaLinkPattern && text) {
-          // Add prefix to distinguish sender
-          // Platform source is now in customer info header, so we don't add it here anymore
-          if (isOutbound && !text.startsWith("Agent:") && !text.startsWith("Người tư vấn:")) {
-            // Check if this is an AI message or manual message from human advisor
-            const sender = (message as any).sender;
-            if (sender?.platformUserId === 'ai-agent') {
-              // AI agent message - use "Agent" label
-              text = `Agent: ${text}`;
-            } else {
-              // Manual message from human advisor - use "Người tư vấn" label
-              text = `Người tư vấn: ${text}`;
+          // Add prefix to distinguish sender for ALL messages
+          const sender = (message as any).sender;
+
+          if (isInbound) {
+            // Customer message - add customer name prefix
+            const customerName = sender?.name || "Customer";
+            if (!text.startsWith(`${customerName}:`)) {
+              text = `${customerName}: ${text}`;
+            }
+          } else if (isOutbound) {
+            // Outbound message - distinguish AI vs Human advisor
+            if (!text.startsWith("Agent:") && !text.startsWith("Người tư vấn:")) {
+              if (sender?.platformUserId === 'ai-agent') {
+                text = `Agent: ${text}`;
+              } else {
+                text = `Người tư vấn: ${text}`;
+              }
             }
           }
+
           texts.push({
             content: text,
             timestamp: (message as any).createdAt?.getTime() || Date.now(),
