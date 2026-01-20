@@ -350,6 +350,8 @@ export class MessageCombiner {
       customer_birth_date: customerBirthDate,
       // Thông tin khách hàng dạng text để AI dễ hiểu
       customer_info: customerContext.join(" | "),
+      // Conversation ID từ hệ thống MiAgent (MongoDB _id)
+      miagent_conversation_id: conversation?._id?.toString(),
     };
 
     // Chèn thông tin khách hàng trực tiếp vào đầu tin nhắn
