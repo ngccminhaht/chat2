@@ -81,9 +81,6 @@ export class Conversation {
   @Prop()
   aiConversationId?: string; // External AI platform conversation ID
 
-  @Prop({ type: Boolean, default: false })
-  aiChatHistorySent?: boolean; // Whether chat history has been sent to AI
-
   @Prop()
   aiLastSentPostId?: string; // Last post ID for which images were sent (Facebook comments)
 }

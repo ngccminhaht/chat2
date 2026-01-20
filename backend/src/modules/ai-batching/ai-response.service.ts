@@ -125,9 +125,10 @@ export class AIResponseService {
       }))
     );
 
-    // Load chat history if not sent before (for messaging, not comments)
+    // Load chat history (always load for context continuity)
+    // Skip for comment-type conversations (each comment is standalone)
     const isCommentType = conversation.metadata?.type === "post_comments";
-    if (!isCommentType && !conversation.aiChatHistorySent) {
+    if (!isCommentType) {
       await this.loadChatHistory(combinedData, conversation);
     }
 
@@ -499,10 +500,9 @@ export class AIResponseService {
             // Chỉ thêm chat history không có wrapper
             combinedData.texts[0].content = `${chatHistory}\n\n${combinedData.texts[0].content}`;
 
-            // Mark as sent
-            await this.conversationModel.findByIdAndUpdate(conversation._id, {
-              aiChatHistorySent: true,
-            });
+            this.logger.log(
+              `📜 [AI API Call] Loaded ${historyMessages.length} history messages for conversation ${conversation._id}`
+            );
 
             return true;
           }

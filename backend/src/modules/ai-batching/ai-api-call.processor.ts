@@ -156,9 +156,10 @@ export class AIAPICallProcessor extends WorkerHost {
         }))
       );
 
-      // Load chat history if needed
+      // Load chat history (always load for context continuity)
+      // Skip for comment-type conversations (each comment is standalone)
       const isCommentType = conversation.metadata?.type === "post_comments";
-      if (!isCommentType && !conversation.aiChatHistorySent) {
+      if (!isCommentType) {
         await this.loadChatHistory(combinedData, conversation as any);
       }
 
@@ -665,9 +666,9 @@ export class AIAPICallProcessor extends WorkerHost {
             combinedData.texts[0].content =
               `${chatHistory}\n\n` + combinedData.texts[0].content;
 
-            await this.conversationModel.findByIdAndUpdate(conversation._id, {
-              aiChatHistorySent: true,
-            });
+            this.logger.log(
+              `📜 [AI API Job] Loaded ${historyMessages.length} history messages for conversation ${conversation._id}`
+            );
 
             return true;
           }
