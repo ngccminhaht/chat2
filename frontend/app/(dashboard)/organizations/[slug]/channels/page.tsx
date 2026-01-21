@@ -219,7 +219,10 @@ export default function ChannelsPage() {
                         spacing={2}
                         alignItems="flex-start"
                       >
-                        <Avatar sx={{ bgcolor: "background.default" }}>
+                        <Avatar
+                          src={connection.metadata?.avatar}
+                          sx={{ bgcolor: "background.default" }}
+                        >
                           {PLATFORMS[tab].name.charAt(0)}
                         </Avatar>
                         <Box sx={{ flexGrow: 1 }}>
