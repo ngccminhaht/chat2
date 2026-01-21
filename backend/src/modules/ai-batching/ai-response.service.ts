@@ -485,7 +485,23 @@ export class AIResponseService {
       throw new Error(`Conversation ${conversationId} not found`);
     }
 
-    // Check if AI is still enabled (may have been disabled while processing)
+    // Fetch fresh organization settings to check if AI is still enabled
+    const org = await this.organizationModel
+      .findById(conversation.organizationId)
+      .lean()
+      .exec();
+
+    // Check if AI is still enabled at organization level
+    if (!org?.aiAgentSettings?.enabled) {
+      this.logger.log(
+        `⏭️ [AI Response] AI disabled at organization level | ` +
+        `Org: ${conversation.organizationId} | Conversation: ${conversationId} | ` +
+        `Discarding response (not saving or sending)`
+      );
+      return null;
+    }
+
+    // Check if AI is still enabled at conversation level
     if (conversation.aiEnabled === false) {
       this.logger.log(
         `⏭️ [AI Response] AI disabled for conversation ${conversationId} | ` +
