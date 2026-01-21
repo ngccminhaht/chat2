@@ -1016,41 +1016,56 @@ export class FacebookService {
     this.logger.log(`Page ID: ${pageInfo.id}`);
     this.logger.log(`Page Name: ${pageInfo.name}`);
 
-    // Find by organizationId (multi-tenant) instead of userId
-    let existing = await this.platformConnectionModel
+    // GLOBAL CHECK: Is this page already connected to ANY organization?
+    const existingGlobal = await this.platformConnectionModel
       .findOne({
-        organizationId: new Types.ObjectId(organizationId),
         platform: 'facebook',
         platformAccountId: pageInfo.id,
       })
       .exec();
 
-    if (existing) {
-      this.logger.log(`Found existing connection: ${existing._id}`);
+    if (existingGlobal) {
+      const existingOrgId = existingGlobal.organizationId.toString();
 
-      existing.platformAccountName = pageInfo.name;
-      existing.credentials = {
-        accessToken: pageInfo.access_token,
-      };
-      existing.status = ConnectionStatus.ACTIVE;
-      existing.connectedBy = new Types.ObjectId(userId);
-      existing.metadata = {
-        ...existing.metadata,
-        pageId: pageInfo.id,
-        pageName: pageInfo.name,
-        picture: pageInfo.picture,
-        category: pageInfo.category,
-      };
-      existing.lastSyncAt = new Date();
+      // Check if it's the SAME organization trying to reconnect (allow update)
+      if (existingOrgId === organizationId) {
+        this.logger.log(`Found existing connection for same organization: ${existingGlobal._id}`);
 
-      const savedConnection = await existing.save();
+        // Update existing connection
+        existingGlobal.platformAccountName = pageInfo.name;
+        existingGlobal.credentials = {
+          accessToken: pageInfo.access_token,
+        };
+        existingGlobal.status = ConnectionStatus.ACTIVE;
+        existingGlobal.connectedBy = new Types.ObjectId(userId);
+        existingGlobal.metadata = {
+          ...existingGlobal.metadata,
+          pageId: pageInfo.id,
+          pageName: pageInfo.name,
+          picture: pageInfo.picture,
+          category: pageInfo.category,
+        };
+        existingGlobal.lastSyncAt = new Date();
 
-      this.logger.log(`✅ Updated existing connection: ${savedConnection._id}`);
+        const savedConnection = await existingGlobal.save();
 
-      // Subscribe to webhook events (comments, feed) for receiving comment notifications
-      await this.subscribePageToWebhooks(pageInfo.id, pageInfo.access_token);
+        this.logger.log(`✅ Updated existing connection: ${savedConnection._id}`);
 
-      return savedConnection;
+        // Subscribe to webhook events
+        await this.subscribePageToWebhooks(pageInfo.id, pageInfo.access_token);
+
+        return savedConnection;
+      } else {
+        // DIFFERENT organization trying to connect the same page - REJECT
+        this.logger.error(
+          `❌ Page ${pageInfo.name} (${pageInfo.id}) is already connected to another organization (${existingOrgId})`
+        );
+        throw new BadRequestException(
+          `This Facebook page "${pageInfo.name}" is already connected to another organization. ` +
+          `Each page can only be connected to one organization at a time. ` +
+          `Please disconnect it from the other organization first, or contact support.`
+        );
+      }
     }
 
     const newConnection = await this.platformConnectionModel.create({

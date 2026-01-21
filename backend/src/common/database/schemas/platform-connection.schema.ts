@@ -62,8 +62,12 @@ export const PlatformConnectionSchema = SchemaFactory.createForClass(PlatformCon
 
 // Indexes - All queries MUST include organizationId for tenant isolation
 PlatformConnectionSchema.index({ organizationId: 1, status: 1 }); // Org's connections
+
+// GLOBAL unique constraint: One page can only be connected to ONE organization
+// This prevents multiple organizations from connecting to the same page
 PlatformConnectionSchema.index(
-  { organizationId: 1, platform: 1, platformAccountId: 1 },
+  { platform: 1, platformAccountId: 1 },
   { unique: true },
-); // Unique per org
+); // Unique globally (not per org)
+
 PlatformConnectionSchema.index({ connectedBy: 1 }); // Audit trail

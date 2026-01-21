@@ -1,154 +1,160 @@
-# Multi-Organization Webhook Processing Fix
+# Single Organization Per Page Constraint
 
-## Problem
+## Business Requirement
 
-When a Facebook page was connected to multiple organizations, only the **first organization** received incoming messages. This was because the webhook processor used `findOne()` which only returned a single connection.
+**Each Facebook page can only be connected to ONE organization** in the system. If a different organization tries to connect a page that's already linked to another organization, the system will reject the connection with a clear error message.
 
-## Root Cause
+## Implementation
 
-**Location:** `backend/src/modules/platforms/core/services/webhook-processor.service.ts`
+### 1. Database Schema Constraint
 
-The `findConnection()` method used `findOne()` to search for platform connections:
+**Location:** `backend/src/common/database/schemas/platform-connection.schema.ts`
+
+Added **global unique index** on `(platform, platformAccountId)`:
 
 ```typescript
-// ❌ OLD - Only returns ONE connection
-private async findConnection(
-  platform: Platform,
-  accountId: string
-): Promise<PlatformConnectionDocument | null> {
-  return this.platformConnectionModel
-    .findOne({
-      platform,
-      platformAccountId: accountId,
-    })
-    .exec();
-}
+// GLOBAL unique constraint: One page can only be connected to ONE organization
+PlatformConnectionSchema.index(
+  { platform: 1, platformAccountId: 1 },
+  { unique: true },
+);
 ```
 
-This meant only the first organization that connected the page would receive messages.
+This enforces at database level that the same page cannot be connected to multiple organizations.
 
-## Solution
+### 2. Application-Level Validation
 
-Changed the method to return **ALL** connections for the same page:
+**Location:** `backend/src/modules/platforms/facebook/facebook.service.ts`
 
-```typescript
-// ✅ NEW - Returns ALL connections for the same page
-private async findConnections(
-  platform: Platform,
-  accountId: string
-): Promise<PlatformConnectionDocument[]> {
-  return this.platformConnectionModel
-    .find({  // Changed from findOne() to find()
-      platform,
-      platformAccountId: accountId,
-    })
-    .exec();
-}
-```
-
-Then updated the `process()` method to iterate through all connections and process events for each organization:
+In `savePlatformConnection()` method, added validation logic:
 
 ```typescript
-// Find ALL platform connections for this account
-const connections = await this.findConnections(platform, accountId);
+// Check if this page is already connected to ANY organization (global check)
+const existingGlobal = await this.platformConnectionModel
+  .findOne({
+    platform: 'facebook',
+    platformAccountId: pageInfo.id,
+  })
+  .exec();
 
-// Process each event for EACH connection (organization)
-for (const connection of connections) {
-  for (const event of events) {
-    const processed = await this.processEvent(adapter, event, connection);
-    // ...
+if (existingGlobal) {
+  // Same organization reconnecting - ALLOW (update)
+  if (existingGlobal.organizationId.toString() === organizationId) {
+    // Update existing connection...
+    return savedConnection;
+  } else {
+    // Different organization - REJECT
+    throw new BadRequestException(
+      `This Facebook page "${pageInfo.name}" is already connected to another organization. ` +
+      `Each page can only be connected to one organization at a time.`
+    );
   }
 }
 ```
 
-## Impact
+## Behavior
 
-### Before Fix
-- Page connected to Org A: ✅ Receives messages
-- Same page connected to Org B: ❌ Does NOT receive messages
-- Same page connected to Org C: ❌ Does NOT receive messages
+### Connecting a Page
 
-### After Fix
-- Page connected to Org A: ✅ Receives messages
-- Same page connected to Org B: ✅ Receives messages
-- Same page connected to Org C: ✅ Receives messages
+**Scenario 1: First Connection**
+- Org A connects page_123 → ✅ Success
+- page_123 is now owned by Org A
 
-## Changes Made
+**Scenario 2: Same Organization Reconnects**
+- Org A reconnects page_123 → ✅ Success (updates existing connection)
+- Credentials refreshed, status updated
 
-### 1. Webhook Processor Service
+**Scenario 3: Different Organization Attempts Connection**
+- Org B tries to connect page_123 → ❌ Error
+- Error message: "This Facebook page is already connected to another organization"
+
+### User Experience
+
+When Org B tries to connect an already-connected page:
+```
+{
+  "statusCode": 400,
+  "message": "This Facebook page \"My Page\" is already connected to another organization. Each page can only be connected to one organization at a time. Please disconnect it from the other organization first, or contact support.",
+  "error": "Bad Request"
+}
+```
+
+## Files Modified
+
+### 1. Platform Connection Schema
+**File:** `backend/src/common/database/schemas/platform-connection.schema.ts`
+
+- Added global unique index on `(platform, platformAccountId)`
+- Removed per-org unique index `(organizationId, platform, platformAccountId)`
+
+### 2. Facebook Service (OAuth Logic)
+**File:** `backend/src/modules/platforms/facebook/facebook.service.ts`
+
+- Added global check for existing connections before creating new ones
+- Throws `BadRequestException` if different org tries to connect same page
+- Allows same org to reconnect (updates credentials)
+
+### 3. Webhook Processor (Reverted)
 **File:** `backend/src/modules/platforms/core/services/webhook-processor.service.ts`
 
-- Renamed `findConnection()` → `findConnections()` (now returns array)
-- Updated `process()` to loop through all connections
-- Added logging to show which organization is processing each event
+- Uses `findOne()` (not `find()`) - only one connection exists per page
+- Simplified processing logic - no multi-org loop needed
 
-### 2. Unit Tests
+### 4. Unit Tests
 **File:** `backend/src/modules/platforms/core/services/webhook-processor.service.spec.ts`
 
-Added new test case: `should process webhook for multiple organizations connected to same page`
-
-**Test scenario:**
-- 2 organizations connect to the same Facebook page
-- 1 message arrives via webhook
-- Both organizations should receive the message
-
-**Test result:** ✅ All 10 tests pass
+- Removed multi-org test case (no longer valid)
+- All 9 tests pass
 
 ## Technical Details
 
-### Message Flow (Multi-Org)
+### Message Flow (Single-Org)
 
 ```
 Facebook Webhook
     ↓
 Extract accountId (e.g., page_123)
     ↓
-Find ALL connections with platformAccountId = page_123
+Find ONE connection with platformAccountId = page_123
     ↓
-    ├─→ Connection 1 (Org A)
-    │       ↓
-    │   Process events for Org A
-    │       ↓
-    │   Save message to Org A's database
-    │       ↓
-    │   Publish WebSocket notification to Org A agents
-    │
-    ├─→ Connection 2 (Org B)
-    │       ↓
-    │   Process events for Org B
-    │       ↓
-    │   Save message to Org B's database
-    │       ↓
-    │   Publish WebSocket notification to Org B agents
-    │
-    └─→ Connection 3 (Org C)
-            ↓
-        Process events for Org C
-            ↓
-        Save message to Org C's database
-            ↓
-        Publish WebSocket notification to Org C agents
+Connection found (Org A)
+    ↓
+Process events for Org A
+    ↓
+Save message to Org A's database
+    ↓
+Publish WebSocket notification to Org A agents
 ```
 
-### Deduplication
+### Database Constraints
 
-Each organization maintains its own message deduplication via:
-- `organizationId + platform + platformMessageId` unique index
+**Global unique constraint:**
+```typescript
+PlatformConnectionSchema.index(
+  { platform: 1, platformAccountId: 1 },
+  { unique: true }
+);
+```
 
-This ensures messages are not duplicated **within** an organization, while allowing the **same message** to be saved for **different organizations**.
+This means:
+- ✅ facebook + page_123 → Can exist ONCE
+- ❌ facebook + page_123 → Cannot create again (MongoDB duplicate key error)
+
+**Message deduplication (per organization):**
+```typescript
+MessageSchema.index(
+  { organizationId: 1, platform: 1, platformMessageId: 1 },
+  { unique: true }
+);
+```
 
 ### Logging Example
 
 ```
 🔍 Processing facebook webhook for account: page_123
-✅ Found 3 platform connection(s): 507f..., 507e..., 507d...
+✅ Found platform connection: 507f1f77bcf86cd799439011
 📦 Extracted 1 events from payload
-🔄 Processing events for organization: 507f... (connection: 507f...)
-✅ Message processed for org 507f...
-🔄 Processing events for organization: 507e... (connection: 507e...)
-✅ Message processed for org 507e...
-🔄 Processing events for organization: 507c... (connection: 507d...)
-✅ Message processed for org 507c...
+✅ Message processed successfully
 ```
 
 ## Testing
@@ -159,32 +165,58 @@ cd backend
 npm test -- webhook-processor.service.spec.ts
 ```
 
-All 10 tests pass, including the new multi-org test.
+All 9 tests pass (multi-org test removed).
 
 ### Manual Testing
 
-1. Connect Page A to Organization 1
-2. Connect Page A to Organization 2 (same page)
-3. Send message to Page A via Facebook
-4. Verify both organizations receive the message in their inbox
+**Test 1: First Connection**
+1. Login to Org A
+2. Connect Page "Test Page" → ✅ Success
+3. Verify page appears in connections list
+
+**Test 2: Same Org Reconnects**
+1. Disconnect "Test Page" from Org A
+2. Reconnect "Test Page" to Org A → ✅ Success (updates credentials)
+
+**Test 3: Different Org Attempts Connection**
+1. Login to Org B (different organization)
+2. Try to connect "Test Page" → ❌ Error
+3. Verify error message: "This Facebook page is already connected to another organization"
+
+**Test 4: Webhook Delivery**
+1. Send message to connected page via Facebook
+2. Verify only the owning organization receives the message
 
 ## Migration Notes
 
-This is a **non-breaking change**:
-- Existing single-organization connections work exactly as before
-- No database schema changes required
-- No API changes required
-- Backward compatible with all existing webhooks
+This is a **BREAKING change** if you had multiple organizations connected to the same page:
+- Existing connections: First connection survives, others will fail on next update
+- Database migration: Run migration to remove duplicate connections
+- Admin UI: Add page "ownership" management (transfer page between orgs)
 
-## Performance Impact
+**Migration script needed:**
+```typescript
+// Find duplicate pages (same platformAccountId)
+// Keep the oldest connection, delete others
+// Notify affected organizations
+```
 
-Minimal performance impact:
-- Database query changed from `findOne()` to `find()` (same index used)
-- Processing time increases linearly with number of organizations (typically 1-5 orgs per page)
-- Each organization's message processing is independent (no blocking)
+## Business Implications
+
+### Pros
+- Clear ownership model - no confusion about which org owns a page
+- Simpler debugging - messages go to exactly one organization
+- No duplicate webhook processing
+- Prevents data leakage between organizations
+
+### Cons
+- Pages cannot be shared between organizations (by design)
+- Requires admin intervention to transfer page ownership
+- May require UI changes to show "Page already connected" state
 
 ## Future Improvements
 
-- Add batch processing for very large numbers of organizations (>10)
-- Add configuration to limit max organizations per page
-- Add metrics to track webhook processing time per organization
+- **Page Transfer Feature**: Allow admins to transfer page ownership between orgs
+- **Page Ownership UI**: Show which org owns each page in admin panel
+- **Connection Request System**: Allow orgs to "request" connection to a page
+- **Shared Pages** (if needed): Add optional "shared" flag to allow multi-org access
