@@ -63,6 +63,10 @@ export class Conversation {
   @Prop({ default: 0 })
   unreadCount: number;
 
+  // Count of messages not sent to AI and exceeded timeout
+  @Prop({ default: 0 })
+  unsentCount: number;
+
   // Last time a human viewed this conversation (for auto-unseen feature)
   @Prop({ type: Date })
   lastSeenAt?: Date;

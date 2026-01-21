@@ -75,6 +75,16 @@ export class AIBatchingProcessor extends WorkerHost {
           `⚠️ [AI Batch] No messages found for job ${job.id} | Conversation: ${conversationId}`,
         );
         await this.batchingService.updateAIState(conversationId, "AI_ACTIVE");
+
+        // Reset unsentCount since no messages to process (likely timeout expired)
+        const conversation = await this.batchingService.getConversation(conversationId);
+        if (conversation && conversation.unsentCount > 0) {
+          await conversation.updateOne({ unsentCount: 0 });
+          this.logger.log(
+            `📊 [AI Batch] Reset unsentCount to 0 (timeout expired) | Conversation: ${conversationId}`
+          );
+        }
+
         return;
       }
 

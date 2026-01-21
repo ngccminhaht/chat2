@@ -19,6 +19,7 @@ export interface Conversation {
   tags: string[];
   lastMessage?: LastMessage;
   unreadCount: number;
+  unsentCount: number; // Messages not sent to AI and exceeded timeout
   metadata: Record<string, any>;
   // AI settings
   aiEnabled: boolean;

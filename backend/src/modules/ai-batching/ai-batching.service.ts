@@ -244,6 +244,9 @@ export class AIBatchingService {
    * Auto-unsent logic: If conversation.lastSeenAt exists and is older than
    * org.autoUnseenTimeoutSeconds, include previously sent inbound messages
    * that haven't been replied to (treat them as unsent)
+   *
+   * Message age filter: Messages older than autoUnseenTimeoutSeconds are excluded
+   * from batching (considered expired)
    */
   private async getUnsentMessages(
     conversationId: string
@@ -293,6 +296,18 @@ export class AIBatchingService {
       query.sentToAiAt = null;
     }
 
+    // Filter out messages older than timeout (if configured)
+    // This prevents AI from responding to messages that are too old
+    if (autoUnseenTimeoutSeconds > 0) {
+      const cutoffTime = new Date(Date.now() - autoUnseenTimeoutSeconds * 1000);
+      query.createdAt = { $gte: cutoffTime };
+
+      this.logger.debug(
+        `⏰ [AI Batch] Filtering messages by age | ` +
+        `Cutoff: ${cutoffTime.toISOString()} | Timeout: ${autoUnseenTimeoutSeconds}s`
+      );
+    }
+
     return this.messageModel
       .find(query)
       .sort({ createdAt: 1 }) // Oldest first
@@ -320,9 +335,14 @@ export class AIBatchingService {
 
   /**
    * Mark messages as sent to AI (all types)
+   * Also resets unsentCount to 0 since messages were processed
    */
   async markMessagesAsSent(messageIds: Types.ObjectId[]): Promise<void> {
     if (messageIds.length === 0) return;
+
+    // Get conversationId from first message
+    const firstMessage = await this.messageModel.findById(messageIds[0]).lean();
+    const conversationId = firstMessage?.conversationId;
 
     const result = await this.messageModel.updateMany(
       {
@@ -337,6 +357,16 @@ export class AIBatchingService {
       `✅ [AI Batch] Marked ${result.modifiedCount}/${messageIds.length} message(s) as sent to AI | ` +
       `IDs: ${messageIds.map(id => id.toString()).join(', ')}`
     );
+
+    // Reset unsentCount since messages were processed
+    if (conversationId) {
+      await this.conversationModel.findByIdAndUpdate(conversationId, {
+        unsentCount: 0,
+      });
+      this.logger.debug(
+        `📊 [AI Batch] Reset unsentCount to 0 for conversation ${conversationId}`
+      );
+    }
   }
 
   /**
