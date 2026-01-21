@@ -57,6 +57,7 @@ export class Conversation {
     timestamp: Date;
     senderId: string;
     messageId: Types.ObjectId;
+    direction: string; // 'inbound' | 'outbound'
   };
 
   @Prop({ default: 0 })

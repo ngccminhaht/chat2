@@ -7,6 +7,7 @@ interface UseConversationsParams {
   status?: 'open' | 'closed' | 'archived';
   platform?: 'facebook' | 'zalo' | 'tiktok' | 'shopee' | 'web';
   search?: string;
+  unreadOnly?: boolean;
   page?: number;
   limit?: number;
 }

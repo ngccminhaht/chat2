@@ -3,6 +3,7 @@ export interface LastMessage {
   timestamp: Date;
   senderId: string;
   messageId: string;
+  direction: 'inbound' | 'outbound';
 }
 
 export interface Conversation {

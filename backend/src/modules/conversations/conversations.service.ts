@@ -45,7 +45,7 @@ export class ConversationsService {
    * Returns lastSeenAt field - Frontend will handle auto-unseen logic based on org settings
    */
   async findAll(organizationId: string, dto: GetConversationsDto) {
-    const { status, platform, search, page = 1, limit = 20 } = dto;
+    const { status, platform, search, unreadOnly, page = 1, limit = 20 } = dto;
 
     // CRITICAL: Always filter by organizationId
     const filter: any = {
@@ -60,12 +60,40 @@ export class ConversationsService {
       filter.platform = platform;
     }
 
+    if (unreadOnly) {
+      // Get organization's auto-unseen timeout setting
+      const org = await this.organizationsService.findById(organizationId);
+      const timeoutSeconds = org?.aiAgentSettings?.autoUnseenTimeoutSeconds || 0;
+
+      // Unread logic: unreadCount > 0 OR (last message is inbound AND exceeded timeout)
+      const unreadConditions: any[] = [{ unreadCount: { $gt: 0 } }];
+
+      if (timeoutSeconds > 0) {
+        const timeoutDate = new Date(Date.now() - timeoutSeconds * 1000);
+        unreadConditions.push({
+          "lastMessage.direction": "inbound",
+          "lastMessage.timestamp": { $lt: timeoutDate },
+        });
+      }
+
+      filter.$or = unreadConditions;
+    }
+
     if (search) {
       // Search in customer name or last message text
-      filter.$or = [
+      // Need to merge with existing $or if unreadOnly is active
+      const searchConditions = [
         { customerName: { $regex: search, $options: "i" } },
         { "lastMessage.text": { $regex: search, $options: "i" } },
       ];
+
+      if (filter.$or) {
+        // Combine unread + search with $and
+        filter.$and = [{ $or: filter.$or }, { $or: searchConditions }];
+        delete filter.$or;
+      } else {
+        filter.$or = searchConditions;
+      }
     }
 
     const skip = (page - 1) * limit;
@@ -193,6 +221,7 @@ export class ConversationsService {
             timestamp: message.createdAt,
             senderId: message.sender.platformUserId,
             messageId: message._id,
+            direction: message.direction,
           },
         },
         { new: true }

@@ -59,6 +59,7 @@ export default function ConversationList({
     status: filters.status || status,
     platform: filters.platform,
     search: debouncedSearch || undefined,
+    unreadOnly: filters.unreadOnly,
     page: 1,
     limit: 50,
   });

@@ -9,12 +9,15 @@ import {
   Stack,
   Chip,
   Popover,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { Clear as ClearIcon } from '@mui/icons-material';
 
 export interface ConversationFiltersState {
   status?: 'open' | 'closed' | 'archived';
   platform?: 'facebook' | 'zalo' | 'tiktok' | 'shopee' | 'web';
+  unreadOnly?: boolean;
 }
 
 interface ConversationFiltersProps {
@@ -30,7 +33,7 @@ export default function ConversationFilters({
   anchorEl,
   onClose,
 }: ConversationFiltersProps) {
-  const handleFilterChange = (key: keyof ConversationFiltersState, value: string | undefined) => {
+  const handleFilterChange = (key: keyof ConversationFiltersState, value: string | boolean | undefined) => {
     onFiltersChange({
       ...filters,
       [key]: value || undefined,
@@ -84,6 +87,17 @@ export default function ConversationFilters({
               <MenuItem value="archived">Archived</MenuItem>
             </Select>
           </FormControl>
+
+          {/* Unread Only Filter */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={filters.unreadOnly || false}
+                onChange={(e) => handleFilterChange('unreadOnly', e.target.checked || undefined)}
+              />
+            }
+            label="Unread only"
+          />
 
           {/* Clear All Button */}
           {hasActiveFilters && (

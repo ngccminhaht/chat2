@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsInt, Min, Max, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ConversationStatus, Platform } from '@/common/constants';
 
@@ -14,6 +14,11 @@ export class GetConversationsDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  unreadOnly?: boolean;
 
   @IsOptional()
   @Type(() => Number)
