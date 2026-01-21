@@ -1038,12 +1038,16 @@ export class FacebookService {
         };
         existingGlobal.status = ConnectionStatus.ACTIVE;
         existingGlobal.connectedBy = new Types.ObjectId(userId);
+
+        // Extract avatar URL from picture object if available
+        const avatarUrl = pageInfo.picture?.data?.url || pageInfo.picture;
+
         existingGlobal.metadata = {
           ...existingGlobal.metadata,
           pageId: pageInfo.id,
           pageName: pageInfo.name,
           picture: pageInfo.picture,
-          avatar: pageInfo.picture, // Also store as avatar for consistency with messages.service
+          avatar: avatarUrl, // Store URL string for messages.service
           category: pageInfo.category,
         };
         existingGlobal.lastSyncAt = new Date();
@@ -1069,6 +1073,9 @@ export class FacebookService {
       }
     }
 
+    // Extract avatar URL from picture object if available
+    const avatarUrl = pageInfo.picture?.data?.url || pageInfo.picture;
+
     const newConnection = await this.platformConnectionModel.create({
       organizationId: new Types.ObjectId(organizationId),
       connectedBy: new Types.ObjectId(userId),
@@ -1083,7 +1090,7 @@ export class FacebookService {
         pageId: pageInfo.id,
         pageName: pageInfo.name,
         picture: pageInfo.picture,
-        avatar: pageInfo.picture, // Also store as avatar for consistency with messages.service
+        avatar: avatarUrl, // Store URL string for messages.service
         category: pageInfo.category,
       },
       lastSyncAt: new Date(),
