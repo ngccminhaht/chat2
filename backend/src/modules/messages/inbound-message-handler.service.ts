@@ -499,11 +499,33 @@ export class InboundMessageHandlerService {
 
       if (customer) {
         this.logger.log(`✅ Found existing customer: ${customer._id}`);
-        // Update last seen and link to conversation if not already linked
-        await this.customerModel.findByIdAndUpdate(customer._id, {
+        // Update last seen, avatar, and other fields
+        const updateFields: any = {
           lastSeenAt: now,
           lastContactedAt: now,
           $inc: { totalMessages: 1 },
+        };
+
+        // Update avatar if provided (may have changed)
+        if (avatar) {
+          updateFields.avatar = avatar;
+          // Also update avatar in platformIdentities
+          updateFields['platformIdentities.$[identity].avatar'] = avatar;
+        }
+
+        // Update name if provided
+        if (name) {
+          updateFields.name = name;
+          updateFields['platformIdentities.$[identity].displayName'] = name;
+        }
+
+        await this.customerModel.findByIdAndUpdate(customer._id, updateFields, {
+          arrayFilters: [
+            {
+              'identity.platform': platform,
+              'identity.platformUserId': platformUserId,
+            },
+          ],
         });
 
         // Link customer to conversation
