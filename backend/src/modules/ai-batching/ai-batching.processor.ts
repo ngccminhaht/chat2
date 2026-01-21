@@ -144,14 +144,21 @@ export class AIBatchingProcessor extends WorkerHost {
         );
 
         // Save AI response as message
-        const {
-          message,
-          sessionId,
-          organizationId: orgId,
-        } = await this.aiResponseService.saveAIMessage(
+        const savedMessage = await this.aiResponseService.saveAIMessage(
           conversationId,
           aiResponse.answer,
         );
+
+        // Check if message was discarded (aiEnabled was disabled)
+        if (!savedMessage) {
+          this.logger.log(
+            `⏭️ [AI Batch] Response discarded - AI disabled during processing | ` +
+            `Conversation: ${conversationId}`,
+          );
+          return; // Exit early - don't send message to user
+        }
+
+        const { message, sessionId, organizationId: orgId } = savedMessage;
 
         this.logger.log(
           `💾 [AI Batch] AI response saved | Conversation: ${conversationId} | ` +

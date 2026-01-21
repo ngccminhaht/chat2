@@ -470,6 +470,7 @@ export class AIResponseService {
   /**
    * Save AI response as outbound message
    * Works for all platforms (web, Facebook, Zalo, etc.)
+   * Returns null if aiEnabled is false (user disabled AI during processing)
    */
   async saveAIMessage(
     conversationId: string,
@@ -478,10 +479,19 @@ export class AIResponseService {
     message: MessageDocument;
     sessionId?: string;
     organizationId: string;
-  }> {
+  } | null> {
     const conversation = await this.conversationModel.findById(conversationId);
     if (!conversation) {
       throw new Error(`Conversation ${conversationId} not found`);
+    }
+
+    // Check if AI is still enabled (may have been disabled while processing)
+    if (conversation.aiEnabled === false) {
+      this.logger.log(
+        `⏭️ [AI Response] AI disabled for conversation ${conversationId} | ` +
+        `Discarding response (not saving or sending)`
+      );
+      return null;
     }
 
     // Extract sessionId for web platform only
