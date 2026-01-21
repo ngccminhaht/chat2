@@ -271,7 +271,7 @@ export class AIBatchingService {
       .lean()
       .exec();
 
-    const autoUnseenTimeoutSeconds = org?.settings?.autoUnseenTimeoutSeconds || 0;
+    const autoUnseenTimeoutSeconds = org?.aiAgentSettings?.autoUnseenTimeoutSeconds || 0;
 
     // Check if auto-unsent should apply
     let shouldIncludeSentMessages = false;

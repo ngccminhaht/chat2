@@ -19,9 +19,6 @@ export interface OrganizationSettings {
     schedule?: Record<string, { start: string; end: string }>;
   };
   defaultLanguage?: string;
-  // Auto unseen: Seconds after last seen to automatically mark conversation as unseen
-  // Set to 0 to disable (default: 0 - disabled)
-  autoUnseenTimeoutSeconds?: number;
 }
 
 // AI Agent settings
@@ -31,6 +28,9 @@ export interface AIAgentSettings {
   endpoint?: string; // API endpoint (default: https://api.miagent.io/v1/chat-messages)
   batchDelayMs?: number; // Delay before AI responds (default: 3000ms)
   maxImages?: number; // Maximum number of images to send per request (default: 3)
+  // Auto unseen: Seconds after last seen to automatically mark conversation as unsent to AI
+  // Set to 0 to disable (default: 0 - disabled)
+  autoUnseenTimeoutSeconds?: number;
 }
 
 // Chat widget customization settings
