@@ -20,6 +20,7 @@ import {
   PlatformConnection,
   PlatformConnectionDocument,
 } from "@/common/database/schemas/platform-connection.schema";
+import { AIMessageParser } from "./utils/ai-message-parser";
 
 @Processor(AI_BATCH_QUEUE)
 export class AIBatchingProcessor extends WorkerHost {
@@ -143,145 +144,94 @@ export class AIBatchingProcessor extends WorkerHost {
           `✅ [AI Batch] Marked ${messageIdsToMark.length} message(s) as sent to AI`,
         );
 
-        // Save AI response as message
-        const savedMessage = await this.aiResponseService.saveAIMessage(
-          conversationId,
-          aiResponse.answer,
-        );
-
-        // Check if message was discarded (aiEnabled was disabled)
-        if (!savedMessage) {
-          this.logger.log(
-            `⏭️ [AI Batch] Response discarded - AI disabled during processing | ` +
-            `Conversation: ${conversationId}`,
-          );
-          return; // Exit early - don't send message to user
-        }
-
-        const { message, sessionId, organizationId: orgId } = savedMessage;
-
+        // Parse AI response to extract text and media (images/videos)
+        const messageParts = AIMessageParser.parseTextAndMedia(aiResponse.answer);
         this.logger.log(
-          `💾 [AI Batch] AI response saved | Conversation: ${conversationId} | ` +
-            `Message: ${message._id} | Platform: ${conversation.platform}`,
+          `📋 [AI Batch] Parsed AI response into ${messageParts.length} part(s) | ` +
+            `Types: ${messageParts.map((p) => p.type).join(', ')}`,
         );
 
-        // Handle message delivery based on platform
-        if (conversation.platform === Platform.WEB) {
-          if (sessionId) {
-            // Web chat: emit via WebSocket
-            const widgetPayload = {
-              message: {
-                _id: message._id.toString(),
-                content: {
-                  text: aiResponse.answer,
-                },
-                sender: {
-                  name: "AI Agent",
-                  platformUserId: "ai-agent",
-                },
-                direction: "outbound" as const,
-                createdAt:
-                  (message as any).createdAt?.toISOString() ||
-                  new Date().toISOString(),
-              },
-            };
+        // Send each part as a separate message
+        for (let i = 0; i < messageParts.length; i++) {
+          const part = messageParts[i];
+          const isLastPart = i === messageParts.length - 1;
 
-            this.visitorGateway.emitToVisitor(
-              sessionId,
-              "message:received",
-              widgetPayload,
-            );
-            this.logger.log(
-              `📤 [AI Batch] Emitted AI message to web visitor | ` +
-                `Session: ${sessionId} | Message: ${message._id}`,
-            );
-          } else {
-            this.logger.warn(
-              `⚠️ [AI Batch] Web chat conversation ${conversationId} has no sessionId | ` +
-                `Message saved but not delivered`,
-            );
-          }
-        } else {
-          // Platform messages (Zalo, Facebook, etc.): publish to Kafka
-          const platformConnection = await this.platformConnectionModel
-            .findById(conversation.platformConnectionId)
-            .exec();
+          this.logger.log(
+            `📨 [AI Batch] Processing part ${i + 1}/${messageParts.length} | ` +
+              `Type: ${part.type} | IsLast: ${isLastPart}`,
+          );
 
-          if (platformConnection) {
-            // Build outgoing message event for Kafka
-            const outgoingEvent = {
-              messageId: message._id.toString(),
-              conversationId: conversation._id.toString(),
-              platform: conversation.platform as Platform,
-              platformConnectionId: platformConnection._id.toString(),
-              platformAccountId: platformConnection.platformAccountId,
-              recipientId: conversation.customerPlatformUserId,
-              message: {
-                type: MessageType.TEXT,
-                text: aiResponse.answer,
-              },
-              credentials: {
-                accessToken: platformConnection.credentials.accessToken,
-              },
-              timestamp: Date.now(),
-            };
-
-            this.logger.log(
-              `📤 [AI Batch] Publishing AI message to Kafka...`,
-              JSON.stringify(
-                {
-                  topic: KAFKA_TOPICS.MESSAGES_OUTGOING,
-                  key: conversationId,
-                  messageId: outgoingEvent.messageId,
-                  platform: outgoingEvent.platform,
-                  recipientId: outgoingEvent.recipientId,
-                  messageType: outgoingEvent.message.type,
-                  messageTextLength: outgoingEvent.message.text?.length || 0,
-                  hasAccessToken: !!outgoingEvent.credentials.accessToken,
-                },
-                null,
-                2,
-              ),
-            );
-
-            // Publish to Kafka for async processing
-            try {
-              await this.kafkaProducer.publish(KAFKA_TOPICS.MESSAGES_OUTGOING, {
-                key: conversationId,
-                value: outgoingEvent,
-              });
-
-              this.logger.log(
-                `✅ [AI Batch] Successfully published AI message to Kafka | ` +
-                  `Topic: ${KAFKA_TOPICS.MESSAGES_OUTGOING} | ` +
-                  `Message: ${message._id} | Platform: ${conversation.platform} | ` +
-                  `RecipientId: ${conversation.customerPlatformUserId}`,
+          // Validate media URLs
+          if (part.type === 'image' || part.type === 'video') {
+            if (!AIMessageParser.isValidMediaUrl(part.content, part.type)) {
+              this.logger.warn(
+                `⚠️ [AI Batch] Invalid ${part.type} URL, sending as text fallback | ` +
+                  `URL: ${part.content.substring(0, 100)}...`,
               );
-            } catch (kafkaError) {
-              this.logger.error(
-                `❌ [AI Batch] Failed to publish to Kafka | ` +
-                  `Error: ${kafkaError.message} | ` +
-                  `Message: ${message._id} | Platform: ${conversation.platform}`,
+              // Send as text fallback
+              await this.sendMessagePart(
+                conversationId,
+                conversation,
+                { type: 'text', content: `${part.alt || part.type}\n${part.content}` },
+                isLastPart,
               );
-              throw kafkaError;
+              continue;
             }
           }
-        }
 
-        // Broadcast to org agents so they see the AI reply
-        const serializedMsg = JSON.parse(JSON.stringify(message.toObject()));
-        this.websocketGateway.emitToOrgAgents(orgId, "message:new", {
-          conversationId,
-          message: serializedMsg,
-        });
-        this.websocketGateway.emitToOrgAgents(orgId, "conversation:updated", {
-          _id: conversationId,
-          lastMessage: {
-            text: aiResponse.answer,
-            timestamp: new Date(),
-          },
-          unreadCount: 0,
-        });
+          // Send the message part with retry logic
+          const maxRetries = part.type === 'text' ? 1 : 3; // More retries for media
+          let retryCount = 0;
+          let success = false;
+
+          while (retryCount < maxRetries && !success) {
+            try {
+              await this.sendMessagePart(
+                conversationId,
+                conversation,
+                part,
+                isLastPart,
+              );
+              success = true;
+            } catch (error) {
+              retryCount++;
+              this.logger.warn(
+                `⚠️ [AI Batch] Failed to send ${part.type} part (attempt ${retryCount}/${maxRetries}) | ` +
+                  `Error: ${error.message}`,
+              );
+
+              if (retryCount >= maxRetries) {
+                // Send text fallback after all retries fail
+                if (part.type !== 'text') {
+                  this.logger.error(
+                    `❌ [AI Batch] All retries failed for ${part.type}, sending text fallback`,
+                  );
+                  await this.sendMessagePart(
+                    conversationId,
+                    conversation,
+                    {
+                      type: 'text',
+                      content: `${part.alt || part.type}\n${part.content}`,
+                    },
+                    isLastPart,
+                  );
+                } else {
+                  throw error; // Re-throw for text messages
+                }
+              } else {
+                // Wait before retry (exponential backoff)
+                await new Promise((resolve) =>
+                  setTimeout(resolve, 1000 * retryCount),
+                );
+              }
+            }
+          }
+
+          // Add delay between messages (except after last message)
+          if (!isLastPart) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
       } else {
         this.logger.warn(
           `⚠️ [AI Batch] No AI response generated | Conversation: ${conversationId} | ` +
@@ -318,6 +268,173 @@ export class AIBatchingProcessor extends WorkerHost {
       );
 
       throw error;
+    }
+  }
+
+  /**
+   * Send a single message part (text, image, or video)
+   * Handles both web chat and platform messages
+   */
+  private async sendMessagePart(
+    conversationId: string,
+    conversation: any,
+    part: { type: 'text' | 'image' | 'video'; content: string; alt?: string },
+    isLastPart: boolean,
+  ): Promise<void> {
+    // Build message content based on part type
+    let messageContent: any;
+    let messageType: MessageType;
+
+    if (part.type === 'text') {
+      messageType = MessageType.TEXT;
+      messageContent = { text: part.content };
+    } else if (part.type === 'image') {
+      messageType = MessageType.IMAGE;
+      messageContent = { mediaUrl: part.content, mediaType: 'image' };
+    } else if (part.type === 'video') {
+      messageType = MessageType.VIDEO;
+      messageContent = { mediaUrl: part.content, mediaType: 'video' };
+    } else {
+      throw new Error(`Unknown message part type: ${part.type}`);
+    }
+
+    // Save message to database
+    const savedMessage = await this.aiResponseService.saveAIMessage(
+      conversationId,
+      part.type === 'text' ? part.content : `[${part.type.toUpperCase()}]`,
+    );
+
+    // Check if message was discarded (aiEnabled was disabled)
+    if (!savedMessage) {
+      this.logger.log(
+        `⏭️ [AI Batch] Message part discarded - AI disabled during processing | ` +
+          `Conversation: ${conversationId}`,
+      );
+      return;
+    }
+
+    const { message, sessionId, organizationId: orgId } = savedMessage;
+
+    // Update message with correct type and content
+    message.type = messageType;
+    message.content = messageContent;
+    await message.save();
+
+    this.logger.log(
+      `💾 [AI Batch] Message part saved | Type: ${part.type} | ` +
+        `Message: ${message._id} | Platform: ${conversation.platform}`,
+    );
+
+    // Handle message delivery based on platform
+    if (conversation.platform === Platform.WEB) {
+      if (sessionId) {
+        // Web chat: emit via WebSocket
+        const widgetPayload = {
+          message: {
+            _id: message._id.toString(),
+            type: messageType,
+            content: messageContent,
+            sender: {
+              name: "AI Agent",
+              platformUserId: "ai-agent",
+            },
+            direction: "outbound" as const,
+            createdAt:
+              (message as any).createdAt?.toISOString() ||
+              new Date().toISOString(),
+          },
+        };
+
+        this.visitorGateway.emitToVisitor(
+          sessionId,
+          "message:received",
+          widgetPayload,
+        );
+        this.logger.log(
+          `📤 [AI Batch] Emitted ${part.type} message to web visitor | ` +
+            `Session: ${sessionId} | Message: ${message._id}`,
+        );
+      } else {
+        this.logger.warn(
+          `⚠️ [AI Batch] Web chat conversation ${conversationId} has no sessionId | ` +
+            `Message saved but not delivered`,
+        );
+      }
+    } else {
+      // Platform messages (Zalo, Facebook, etc.): publish to Kafka
+      const platformConnection = await this.platformConnectionModel
+        .findById(conversation.platformConnectionId)
+        .exec();
+
+      if (platformConnection) {
+        // Build outgoing message event for Kafka
+        const outgoingEvent = {
+          messageId: message._id.toString(),
+          conversationId: conversation._id.toString(),
+          platform: conversation.platform as Platform,
+          platformConnectionId: platformConnection._id.toString(),
+          platformAccountId: platformConnection.platformAccountId,
+          recipientId: conversation.customerPlatformUserId,
+          message: {
+            type: messageType,
+            text: part.type === 'text' ? part.content : undefined,
+            mediaUrl:
+              part.type !== 'text' ? part.content : undefined,
+            mediaType: part.type !== 'text' ? part.type : undefined,
+          },
+          credentials: {
+            accessToken: platformConnection.credentials.accessToken,
+          },
+          timestamp: Date.now(),
+        };
+
+        this.logger.log(
+          `📤 [AI Batch] Publishing ${part.type} message to Kafka...`,
+          JSON.stringify(
+            {
+              topic: KAFKA_TOPICS.MESSAGES_OUTGOING,
+              key: conversationId,
+              messageId: outgoingEvent.messageId,
+              platform: outgoingEvent.platform,
+              messageType: outgoingEvent.message.type,
+              hasMedia: !!outgoingEvent.message.mediaUrl,
+            },
+            null,
+            2,
+          ),
+        );
+
+        // Publish to Kafka for async processing
+        await this.kafkaProducer.publish(KAFKA_TOPICS.MESSAGES_OUTGOING, {
+          key: conversationId,
+          value: outgoingEvent,
+        });
+
+        this.logger.log(
+          `✅ [AI Batch] Successfully published ${part.type} message to Kafka | ` +
+            `Message: ${message._id} | Platform: ${conversation.platform}`,
+        );
+      }
+    }
+
+    // Broadcast to org agents (only for last part to avoid spam)
+    if (isLastPart) {
+      const serializedMsg = JSON.parse(JSON.stringify(message.toObject()));
+      this.websocketGateway.emitToOrgAgents(orgId, "message:new", {
+        conversationId,
+        message: serializedMsg,
+      });
+      this.websocketGateway.emitToOrgAgents(orgId, "conversation:updated", {
+        _id: conversationId,
+        lastMessage: {
+          text:
+            part.type === 'text'
+              ? part.content
+              : `[${part.type.toUpperCase()}]`,
+          timestamp: new Date(),
+        },
+        unreadCount: 0,
+      });
     }
   }
 }

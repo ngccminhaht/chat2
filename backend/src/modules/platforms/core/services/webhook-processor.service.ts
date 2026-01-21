@@ -64,6 +64,7 @@ export class WebhookProcessorService {
   /**
    * Process webhook payload for any platform
    * Uses adapter pattern to handle platform-specific logic
+   * Supports multiple organizations connected to the same page/account
    */
   async process(
     platform: Platform,
@@ -84,9 +85,10 @@ export class WebhookProcessorService {
         `🔍 Processing ${platform} webhook for account: ${accountId}`
       );
 
-      // 2. Find platform connection
-      const connection = await this.findConnection(platform, accountId);
-      if (!connection) {
+      // 2. Find ALL platform connections for this account
+      // Multiple organizations can connect to the same page/account
+      const connections = await this.findConnections(platform, accountId);
+      if (connections.length === 0) {
         result.success = false;
         const errorMsg = `Platform connection not found: ${platform}:${accountId}`;
         result.errors.push(errorMsg);
@@ -95,7 +97,9 @@ export class WebhookProcessorService {
         return result;
       }
 
-      this.logger.log(`✅ Found platform connection: ${connection._id}`);
+      this.logger.log(
+        `✅ Found ${connections.length} platform connection(s): ${connections.map((c) => c._id).join(", ")}`
+      );
 
       // 3. Extract events from payload
       const events = adapter.extractEvents(payload);
@@ -120,38 +124,50 @@ export class WebhookProcessorService {
         });
       }
 
-      // 4. Process each event
-      for (const event of events) {
-        try {
-          const isComment = (event as any).rawPayload?.isComment;
-          if (isComment) {
-            this.logger.log(
-              `🔄 Processing comment event: senderId=${
-                event.senderId
-              }, postId=${
-                (event as any).rawPayload?.post_id ||
-                (event as any).rawPayload?.postId
-              }`
-            );
-          }
+      // 4. Process each event for EACH connection (organization)
+      for (const connection of connections) {
+        this.logger.log(
+          `🔄 Processing events for organization: ${connection.organizationId} (connection: ${connection._id})`
+        );
 
-          const processed = await this.processEvent(adapter, event, connection);
-          if (processed) {
-            result.messagesProcessed++;
-            if (isComment) {
-              this.logger.log(`✅ Comment event processed successfully`);
-            }
-          } else {
+        for (const event of events) {
+          try {
+            const isComment = (event as any).rawPayload?.isComment;
             if (isComment) {
               this.logger.log(
-                `⏭️  Comment event skipped (duplicate or filtered)`
+                `🔄 Processing comment event for org ${connection.organizationId}: senderId=${
+                  event.senderId
+                }, postId=${
+                  (event as any).rawPayload?.post_id ||
+                  (event as any).rawPayload?.postId
+                }`
               );
             }
+
+            const processed = await this.processEvent(
+              adapter,
+              event,
+              connection
+            );
+            if (processed) {
+              result.messagesProcessed++;
+              if (isComment) {
+                this.logger.log(
+                  `✅ Comment event processed successfully for org ${connection.organizationId}`
+                );
+              }
+            } else {
+              if (isComment) {
+                this.logger.log(
+                  `⏭️  Comment event skipped for org ${connection.organizationId} (duplicate or filtered)`
+                );
+              }
+            }
+          } catch (error) {
+            const errorMsg = `Failed to process ${event.type} event for org ${connection.organizationId}: ${error.message}`;
+            result.errors.push(errorMsg);
+            this.logger.error(`❌ ${errorMsg}`, error.stack);
           }
-        } catch (error) {
-          const errorMsg = `Failed to process ${event.type} event: ${error.message}`;
-          result.errors.push(errorMsg);
-          this.logger.error(`❌ ${errorMsg}`, error.stack);
         }
       }
 
@@ -442,14 +458,15 @@ export class WebhookProcessorService {
   // ==================== Helper Methods ====================
 
   /**
-   * Find platform connection by platform and account ID
+   * Find all platform connections for a platform and account ID
+   * Multiple organizations can connect to the same page/account
    */
-  private async findConnection(
+  private async findConnections(
     platform: Platform,
     accountId: string
-  ): Promise<PlatformConnectionDocument | null> {
+  ): Promise<PlatformConnectionDocument[]> {
     return this.platformConnectionModel
-      .findOne({
+      .find({
         platform,
         platformAccountId: accountId,
       })

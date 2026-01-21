@@ -590,5 +590,128 @@ describe('WebhookProcessorService', () => {
       expect(result.messagesProcessed).toBe(2);
       expect(mockInboundMessageHandler.processInboundMessage).toHaveBeenCalledTimes(2);
     });
+
+    it('should process webhook for multiple organizations connected to same page', async () => {
+      // Create 2 platform connections for the SAME page from different organizations
+      const org1Id = new Types.ObjectId();
+      const org2Id = new Types.ObjectId();
+
+      const connection1 = await platformConnectionModel.create({
+        organizationId: org1Id,
+        userId: new Types.ObjectId(),
+        platform: Platform.FACEBOOK,
+        platformAccountId: 'page_123', // Same page
+        platformAccountName: 'Test Page',
+        credentials: { accessToken: 'test_token_org1' },
+        status: 'active',
+      });
+
+      const connection2 = await platformConnectionModel.create({
+        organizationId: org2Id,
+        userId: new Types.ObjectId(),
+        platform: Platform.FACEBOOK,
+        platformAccountId: 'page_123', // Same page
+        platformAccountName: 'Test Page',
+        credentials: { accessToken: 'test_token_org2' },
+        status: 'active',
+      });
+
+      // Create conversations for both organizations
+      const conversation1 = await conversationModel.create({
+        organizationId: org1Id,
+        platform: Platform.FACEBOOK,
+        platformConversationId: 'user_456_page_123',
+        platformConnectionId: connection1._id,
+        platformAccountId: 'page_123',
+        customerPlatformUserId: 'user_456',
+        customerName: 'Test User',
+        status: 'open',
+        unreadCount: 0,
+      });
+
+      const conversation2 = await conversationModel.create({
+        organizationId: org2Id,
+        platform: Platform.FACEBOOK,
+        platformConversationId: 'user_456_page_123',
+        platformConnectionId: connection2._id,
+        platformAccountId: 'page_123',
+        customerPlatformUserId: 'user_456',
+        customerName: 'Test User',
+        status: 'open',
+        unreadCount: 0,
+      });
+
+      // Mock InboundMessageHandlerService for both organizations
+      mockInboundMessageHandler.processInboundMessage
+        .mockResolvedValueOnce({
+          message: {
+            _id: new Types.ObjectId(),
+            conversationId: conversation1._id,
+            platformMessageId: 'm_1',
+            platform: Platform.FACEBOOK,
+            direction: MessageDirection.INBOUND,
+            type: MessageType.TEXT,
+            content: { text: 'Hello from user' },
+            sender: { platformUserId: 'user_456', name: 'Test User' },
+            status: 'sent',
+          },
+          conversation: conversation1,
+          isNew: true,
+        })
+        .mockResolvedValueOnce({
+          message: {
+            _id: new Types.ObjectId(),
+            conversationId: conversation2._id,
+            platformMessageId: 'm_1',
+            platform: Platform.FACEBOOK,
+            direction: MessageDirection.INBOUND,
+            type: MessageType.TEXT,
+            content: { text: 'Hello from user' },
+            sender: { platformUserId: 'user_456', name: 'Test User' },
+            status: 'sent',
+          },
+          conversation: conversation2,
+          isNew: true,
+        });
+
+      const events: MessageEvent[] = [
+        {
+          type: 'message',
+          senderId: 'user_456',
+          recipientId: 'page_123',
+          timestamp: new Date(),
+          messageId: 'm_1',
+          messageType: MessageType.TEXT,
+          content: { text: 'Hello from user' },
+          rawPayload: {},
+        },
+      ];
+
+      (mockAdapter.extractEvents as jest.Mock).mockReturnValue(events);
+
+      (mockAdapter.normalizeMessage as jest.Mock).mockReturnValue({
+        platformMessageId: 'm_1',
+        conversationKey: 'user_456_page_123',
+        direction: MessageDirection.INBOUND,
+        type: MessageType.TEXT,
+        senderId: 'user_456',
+        recipientId: 'page_123',
+        content: { text: 'Hello from user' },
+        timestamp: new Date(),
+        metadata: {},
+      });
+
+      const result = await service.process(Platform.FACEBOOK, {});
+
+      // Should successfully process message for BOTH organizations
+      expect(result.success).toBe(true);
+      expect(result.messagesProcessed).toBe(2); // 1 event × 2 organizations
+      expect(mockInboundMessageHandler.processInboundMessage).toHaveBeenCalledTimes(2);
+
+      // Verify both organizations received the message
+      const calls = mockInboundMessageHandler.processInboundMessage.mock.calls;
+      expect(calls[0][0].organizationId).toBe(org1Id.toString());
+      expect(calls[1][0].organizationId).toBe(org2Id.toString());
+    });
   });
 });
