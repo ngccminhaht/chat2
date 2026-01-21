@@ -468,9 +468,7 @@ export class InboundMessageHandlerService {
           senderId: input.sender.platformUserId,
           messageId: message._id,
         },
-        $inc: { unreadCount: 1 },
-        // Mark as unsent (will be reset when AI processes or timeout expires)
-        unsentCount: 1,
+        $inc: { unreadCount: 1, unsentCount: 1 }, // Increment both counts
       },
       { timestamps: true }
     );

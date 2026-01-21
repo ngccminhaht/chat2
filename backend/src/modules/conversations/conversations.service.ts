@@ -194,6 +194,7 @@ export class ConversationsService {
         {
           lastSeenAt: new Date(),
           unreadCount: 0, // Reset unread count when marking as seen
+          unsentCount: 0, // Reset unsent count when marking as seen
         },
         { new: true }
       )
