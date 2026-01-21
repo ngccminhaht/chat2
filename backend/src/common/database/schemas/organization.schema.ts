@@ -19,6 +19,9 @@ export interface OrganizationSettings {
     schedule?: Record<string, { start: string; end: string }>;
   };
   defaultLanguage?: string;
+  // Auto unseen: Seconds after last seen to automatically mark conversation as unseen
+  // Set to 0 to disable (default: 0 - disabled)
+  autoUnseenTimeoutSeconds?: number;
 }
 
 // AI Agent settings

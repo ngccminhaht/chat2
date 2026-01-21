@@ -34,4 +34,10 @@ export class UpdateAIAgentDto {
   @Min(1)
   @Max(10)
   maxImages?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(604800) // Max 7 days in seconds
+  autoUnseenTimeoutSeconds?: number;
 }

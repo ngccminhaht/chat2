@@ -42,6 +42,7 @@ export class ConversationsService {
   /**
    * Find all conversations for an organization
    * IMPORTANT: organizationId is REQUIRED for tenant isolation
+   * Returns lastSeenAt field - Frontend will handle auto-unseen logic based on org settings
    */
   async findAll(organizationId: string, dto: GetConversationsDto) {
     const { status, platform, search, page = 1, limit = 20 } = dto;
@@ -148,6 +149,35 @@ export class ConversationsService {
     return this.conversationModel
       .findByIdAndUpdate(conversationId, { unreadCount: count }, { new: true })
       .exec();
+  }
+
+  /**
+   * Mark conversation as seen by updating lastSeenAt timestamp
+   * Called when a user views/opens a conversation
+   * Used for auto-unsent timeout feature
+   */
+  async markAsSeen(organizationId: string, conversationId: string) {
+    const conversation = await this.conversationModel
+      .findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(conversationId),
+          organizationId: new Types.ObjectId(organizationId),
+        },
+        {
+          lastSeenAt: new Date(),
+          unreadCount: 0, // Reset unread count when marking as seen
+        },
+        { new: true }
+      )
+      .lean()
+      .exec();
+
+    if (!conversation) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    this.logger.log(`Marked conversation ${conversationId} as seen`);
+    return conversation;
   }
 
   /**

@@ -62,6 +62,10 @@ export class Conversation {
   @Prop({ default: 0 })
   unreadCount: number;
 
+  // Last time a human viewed this conversation (for auto-unseen feature)
+  @Prop({ type: Date })
+  lastSeenAt?: Date;
+
   @Prop({ type: Object, default: {} })
   metadata: Record<string, any>;
 

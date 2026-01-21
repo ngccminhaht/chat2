@@ -305,10 +305,14 @@ export class OrganizationsService {
 
   /**
    * Get AI agent settings for an organization
+   * Includes autoUnseenTimeoutSeconds from organization.settings
    */
-  async getAIAgentSettings(id: string): Promise<AIAgentSettings> {
+  async getAIAgentSettings(id: string): Promise<AIAgentSettings & { autoUnseenTimeoutSeconds?: number }> {
     const org = await this.findById(id);
-    return org.aiAgentSettings || { enabled: false };
+    return {
+      ...(org.aiAgentSettings || { enabled: false }),
+      autoUnseenTimeoutSeconds: org.settings?.autoUnseenTimeoutSeconds || 0,
+    };
   }
 
   /**
@@ -320,10 +324,20 @@ export class OrganizationsService {
   ): Promise<AIAgentSettings> {
     // Build update object with dot notation for partial merge
     const updateFields: Record<string, any> = {};
-    for (const [key, value] of Object.entries(dto)) {
+
+    // Extract autoUnseenTimeoutSeconds - it belongs to organization.settings
+    const { autoUnseenTimeoutSeconds, ...aiAgentFields } = dto;
+
+    // Update aiAgentSettings fields
+    for (const [key, value] of Object.entries(aiAgentFields)) {
       if (value !== undefined) {
         updateFields[`aiAgentSettings.${key}`] = value;
       }
+    }
+
+    // Update organization.settings.autoUnseenTimeoutSeconds if provided
+    if (autoUnseenTimeoutSeconds !== undefined) {
+      updateFields['settings.autoUnseenTimeoutSeconds'] = autoUnseenTimeoutSeconds;
     }
 
     const org = await this.organizationModel.findByIdAndUpdate(

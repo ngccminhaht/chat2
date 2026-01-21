@@ -248,16 +248,61 @@ export class AIBatchingService {
   /**
    * Get all unsent inbound messages in conversation
    * Messages are marked as sent when included in a batch that's sent to AI
+   *
+   * Auto-unsent logic: If conversation.lastSeenAt exists and is older than
+   * org.autoUnseenTimeoutSeconds, include previously sent inbound messages
+   * that haven't been replied to (treat them as unsent)
    */
   private async getUnsentMessages(
     conversationId: string
   ): Promise<MessageDocument[]> {
+    // Get conversation and organization settings
+    const conversation = await this.conversationModel
+      .findById(conversationId)
+      .lean()
+      .exec();
+
+    if (!conversation) {
+      return [];
+    }
+
+    const org = await this.organizationModel
+      .findById(conversation.organizationId)
+      .lean()
+      .exec();
+
+    const autoUnseenTimeoutSeconds = org?.settings?.autoUnseenTimeoutSeconds || 0;
+
+    // Check if auto-unsent should apply
+    let shouldIncludeSentMessages = false;
+    if (autoUnseenTimeoutSeconds > 0 && conversation.lastSeenAt) {
+      const timeSinceLastSeen = Date.now() - new Date(conversation.lastSeenAt).getTime();
+      const timeoutMs = autoUnseenTimeoutSeconds * 1000;
+      shouldIncludeSentMessages = timeSinceLastSeen > timeoutMs;
+
+      if (shouldIncludeSentMessages) {
+        this.logger.log(
+          `🔄 [AI Batch] Auto-unsent triggered for conversation ${conversationId} | ` +
+          `Last seen: ${conversation.lastSeenAt} | Timeout: ${autoUnseenTimeoutSeconds}s | ` +
+          `Time since last seen: ${Math.floor(timeSinceLastSeen / 1000)}s`
+        );
+      }
+    }
+
+    // Build query for inbound messages
+    const query: any = {
+      conversationId: new Types.ObjectId(conversationId),
+      direction: "inbound",
+    };
+
+    // If auto-unsent applies, include all inbound messages (ignore sentToAiAt)
+    // Otherwise, only get unsent messages
+    if (!shouldIncludeSentMessages) {
+      query.sentToAiAt = null;
+    }
+
     return this.messageModel
-      .find({
-        conversationId: new Types.ObjectId(conversationId),
-        direction: "inbound",
-        sentToAiAt: null, // Use dedicated field instead of metadata
-      })
+      .find(query)
       .sort({ createdAt: 1 }) // Oldest first
       .exec();
   }

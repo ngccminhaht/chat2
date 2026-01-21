@@ -22,6 +22,7 @@ import {
   Image as ImageIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
+  AccessTime as AccessTimeIcon,
 } from "@mui/icons-material";
 import {
   useAIAgentConfig,
@@ -66,6 +67,7 @@ export default function AIAgentTab() {
     endpoint: "https://api.miagent.io/v1/chat-messages",
     batchDelayMs: 3000,
     maxImages: 3,
+    autoUnseenTimeoutSeconds: 0,
   });
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -78,6 +80,7 @@ export default function AIAgentTab() {
         endpoint: config.endpoint ?? "https://api.miagent.io/v1/chat-messages",
         batchDelayMs: config.batchDelayMs ?? 3000,
         maxImages: config.maxImages ?? 3,
+        autoUnseenTimeoutSeconds: config.autoUnseenTimeoutSeconds ?? 0,
       });
     }
   }, [config]);
@@ -234,6 +237,36 @@ export default function AIAgentTab() {
                 inputProps: { min: 1, max: 10 },
               }}
               helperText="Số lượng ảnh tối đa gửi cho AI trong mỗi request (1-10, mặc định: 3)"
+            />
+          </Box>
+        </Section>
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* Auto-Unseen Timeout */}
+        <Section
+          icon={<AccessTimeIcon />}
+          title="Auto-Unseen Timeout"
+          description="Tự động coi tin nhắn là chưa gửi đến AI nếu quá thời gian không xem"
+        >
+          <Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Thời gian timeout (giây)
+            </Typography>
+            <TextField
+              size="small"
+              type="number"
+              value={form.autoUnseenTimeoutSeconds}
+              onChange={(e) =>
+                setForm({ ...form, autoUnseenTimeoutSeconds: Number(e.target.value) })
+              }
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">giây</InputAdornment>
+                ),
+                inputProps: { min: 0, max: 604800 },
+              }}
+              helperText="Nếu quá thời gian này mà không xem conversation, tin nhắn sẽ được gửi lại cho AI. Đặt 0 để tắt (mặc định: 0). Tối đa: 604800 giây (7 ngày)"
             />
           </Box>
         </Section>

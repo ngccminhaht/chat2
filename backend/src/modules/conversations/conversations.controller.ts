@@ -44,6 +44,14 @@ export class ConversationsController {
     return this.conversationsService.update(organizationId, id, dto);
   }
 
+  @Post(":id/mark-seen")
+  markAsSeen(
+    @Param("organizationId") organizationId: string,
+    @Param("id") id: string
+  ) {
+    return this.conversationsService.markAsSeen(organizationId, id);
+  }
+
   @Delete(":id")
   remove(
     @Param("organizationId") organizationId: string,
