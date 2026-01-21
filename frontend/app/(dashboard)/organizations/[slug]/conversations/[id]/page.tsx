@@ -7,6 +7,7 @@ import { MoreVert as MoreIcon } from '@mui/icons-material';
 import { useInfiniteMessages } from '@/features/conversations/hooks/useInfiniteMessages';
 import { useConversation } from '@/features/conversations/hooks/useConversation';
 import { useMarkAsRead } from '@/features/conversations/hooks/useMarkAsRead';
+import { useMarkAsSeen } from '@/features/conversations/hooks/useMarkAsSeen';
 import { useConversationStore } from '@/features/conversations/stores/conversationStore';
 import MessageList from '@/features/conversations/components/MessageList';
 import MessageInput from '@/features/conversations/components/MessageInput';
@@ -36,6 +37,7 @@ export default function ConversationDetailPage() {
   } = useInfiniteMessages({ conversationId });
   const { data: conversationData } = useConversation({ conversationId });
   const { mutate: markAsRead } = useMarkAsRead();
+  const { mutate: markAsSeen } = useMarkAsSeen();
 
   const apiMessages = useMemo(() => {
     if (!data?.pages) return [];
@@ -78,6 +80,15 @@ export default function ConversationDetailPage() {
       useConversationStore.getState().updateConversation(conversationData);
     }
   }, [conversationData]);
+
+  // Mark conversation as seen when user enters (resets unreadCount and unsentCount)
+  useEffect(() => {
+    if (conversationId && !document.hidden) {
+      markAsSeen({ conversationId });
+    }
+    // Only run once when conversationId changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
 
   // Mark as read only when page is visible and user is viewing the conversation
   useEffect(() => {
