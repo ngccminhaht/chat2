@@ -1043,6 +1043,7 @@ export class FacebookService {
           pageId: pageInfo.id,
           pageName: pageInfo.name,
           picture: pageInfo.picture,
+          avatar: pageInfo.picture, // Also store as avatar for consistency with messages.service
           category: pageInfo.category,
         };
         existingGlobal.lastSyncAt = new Date();
@@ -1082,6 +1083,7 @@ export class FacebookService {
         pageId: pageInfo.id,
         pageName: pageInfo.name,
         picture: pageInfo.picture,
+        avatar: pageInfo.picture, // Also store as avatar for consistency with messages.service
         category: pageInfo.category,
       },
       lastSyncAt: new Date(),

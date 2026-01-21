@@ -499,6 +499,7 @@ export class ShopeeService {
         shopId: shopInfo.shop_id.toString(),
         region: shopInfo.region,
         logo: shopInfo.logo,
+        avatar: shopInfo.logo, // Also store as avatar for consistency with messages.service
       };
       existing.lastSyncAt = new Date();
 
@@ -521,6 +522,7 @@ export class ShopeeService {
         shopId: shopInfo.shop_id.toString(),
         region: shopInfo.region,
         logo: shopInfo.logo,
+        avatar: shopInfo.logo, // Also store as avatar for consistency with messages.service
       },
       lastSyncAt: new Date(),
     });
