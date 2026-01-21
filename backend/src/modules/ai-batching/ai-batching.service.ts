@@ -106,14 +106,6 @@ export class AIBatchingService {
       return;
     }
 
-    // Skip if already responding
-    if (conversation.aiState === "AI_RESPONDING") {
-      this.logger.log(
-        `⏭️ [AI Batch] Skipping: Already responding for conversation ${conversationId}`
-      );
-      return;
-    }
-
     // Get delay from org config or use default
     const baseBatchDelayMs =
       org.aiAgentSettings?.batchDelayMs || DEFAULT_AI_SETTINGS.batchDelayMs;
