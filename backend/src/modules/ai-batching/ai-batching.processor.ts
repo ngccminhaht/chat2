@@ -52,16 +52,16 @@ export class AIBatchingProcessor extends WorkerHost {
     );
 
     try {
-      // Check if already responding (prevent duplicate processing)
+      // Check if AI is still enabled for this conversation
       const conv = await this.batchingService.getConversation(conversationId);
-      if (conv?.aiState === "AI_RESPONDING") {
-        this.logger.warn(
-          `⏭️ [AI Batch] Skipping job ${job.id}: conversation ${conversationId} already AI_RESPONDING`,
+      if (conv?.aiEnabled === false) {
+        this.logger.log(
+          `⏭️ [AI Batch] Skipping job ${job.id}: AI disabled for conversation ${conversationId}`,
         );
         return;
       }
 
-      // Update state to AI_RESPONDING (atomic check)
+      // Update state to AI_RESPONDING
       await this.batchingService.updateAIState(conversationId, "AI_RESPONDING");
 
       // Get pending messages for this conversation (query DB directly)
