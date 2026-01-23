@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api/client';
-import { useAuthStore } from '@/lib/stores/authStore';
+import apiClient from '@/lib/api/client';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+import { useConversationStore } from '../stores/conversationStore';
 
 interface MarkAsSeenParams {
   conversationId: string;
@@ -8,7 +9,7 @@ interface MarkAsSeenParams {
 
 export function useMarkAsSeen() {
   const queryClient = useQueryClient();
-  const organizationId = useAuthStore((state) => state.user?.organizationId);
+  const organizationId = useAuthStore((state) => state.organizationId);
 
   return useMutation({
     mutationFn: async ({ conversationId }: MarkAsSeenParams) => {
@@ -20,7 +21,14 @@ export function useMarkAsSeen() {
       return response.data;
     },
     onSuccess: (_, { conversationId }) => {
-      // Invalidate conversation query to refresh unreadCount and unsentCount
+      // Update Zustand store immediately to reset badge counts
+      useConversationStore.getState().updateConversation({
+        _id: conversationId,
+        unreadCount: 0,
+        unsentCount: 0,
+      } as any);
+
+      // Invalidate conversation query to refresh from server
       queryClient.invalidateQueries({
         queryKey: ['conversation', conversationId],
       });
