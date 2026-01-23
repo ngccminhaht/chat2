@@ -467,6 +467,7 @@ export class InboundMessageHandlerService {
           timestamp: input.timestamp,
           senderId: input.sender.platformUserId,
           messageId: message._id,
+          direction: input.direction,
         },
         $inc: { unreadCount: 1, unsentCount: 1 }, // Increment both counts
       },

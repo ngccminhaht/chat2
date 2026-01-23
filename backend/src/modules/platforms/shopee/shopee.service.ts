@@ -241,6 +241,7 @@ export class ShopeeService {
         timestamp: new Date(data.created_timestamp * 1000),
         senderId: customerId,
         messageId: message._id,
+        direction: "inbound",
       },
       $inc: { unreadCount: 1 },
     });

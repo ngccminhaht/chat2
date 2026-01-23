@@ -378,6 +378,7 @@ export class ZaloService {
         timestamp: new Date(parseInt(payload.timestamp)),
         senderId: senderId,
         messageId: message._id,
+        direction: "inbound",
       },
       $inc: { unreadCount: 1 },
     });

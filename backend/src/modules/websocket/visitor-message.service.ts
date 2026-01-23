@@ -101,6 +101,7 @@ export class VisitorMessageService {
       lastMessage: {
         text: text || "[Media]",
         timestamp: new Date(),
+        direction: "inbound",
       },
       unreadCount: result.conversation.unreadCount + 1,
     };
@@ -239,6 +240,7 @@ export class VisitorMessageService {
         "lastMessage.timestamp": new Date(),
         "lastMessage.senderId": agentId,
         "lastMessage.messageId": message._id,
+        "lastMessage.direction": "outbound",
         unreadCount: 0, // Reset unread when agent replies
       },
       { timestamps: true }
@@ -290,6 +292,7 @@ export class VisitorMessageService {
         lastMessage: {
           text: content.text || "[Media]",
           timestamp: new Date(),
+          direction: "outbound",
         },
         unreadCount: 0,
       }

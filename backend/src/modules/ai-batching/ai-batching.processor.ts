@@ -442,6 +442,7 @@ export class AIBatchingProcessor extends WorkerHost {
               ? part.content
               : `[${part.type.toUpperCase()}]`,
           timestamp: new Date(),
+          direction: "outbound",
         },
         unreadCount: 0,
       });

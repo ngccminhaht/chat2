@@ -361,6 +361,7 @@ export class FacebookService {
         timestamp: timestamp,
         senderId: senderId,
         messageId: newMessage._id,
+        direction: "inbound",
       },
       $inc: { unreadCount: 1 },
     });
@@ -531,6 +532,7 @@ export class FacebookService {
         timestamp: timestamp,
         senderId: senderId,
         messageId: newMessage._id,
+        direction: "inbound",
       },
       $inc: { unreadCount: 1 },
     });
@@ -677,6 +679,7 @@ export class FacebookService {
         timestamp: timestamp,
         senderId: commenterId,
         messageId: newMessage._id,
+        direction: "inbound",
       },
       $inc: { unreadCount: 1 },
     });
@@ -1316,6 +1319,7 @@ export class FacebookService {
             timestamp: msgTime,
             senderId,
             messageId: newMessage._id,
+            direction: isOutbound ? "outbound" : "inbound",
           },
         });
       }

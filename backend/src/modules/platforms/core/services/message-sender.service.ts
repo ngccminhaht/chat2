@@ -205,6 +205,7 @@ export class MessageSenderService {
         timestamp: new Date(),
         senderId: message.sender.platformUserId,
         messageId: message._id,
+        direction: message.direction,
       },
     });
   }
