@@ -75,16 +75,6 @@ export class AIBatchingProcessor extends WorkerHost {
           `⚠️ [AI Batch] No messages found for job ${job.id} | Conversation: ${conversationId}`,
         );
         await this.batchingService.updateAIState(conversationId, "AI_ACTIVE");
-
-        // Set unsentCount = 1 to restore badge (timeout expired, no one replied)
-        const conversation = await this.batchingService.getConversation(conversationId);
-        if (conversation) {
-          await conversation.updateOne({ unsentCount: 1 });
-          this.logger.log(
-            `📊 [AI Batch] Set unsentCount = 1 (timeout expired, restore badge) | Conversation: ${conversationId}`
-          );
-        }
-
         return;
       }
 
