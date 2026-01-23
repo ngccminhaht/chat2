@@ -20,6 +20,10 @@ import {
   PlatformConnection,
   PlatformConnectionDocument,
 } from "@/common/database/schemas/platform-connection.schema";
+import {
+  Conversation,
+  ConversationDocument,
+} from "@/common/database/schemas/conversation.schema";
 import { AIMessageParser } from "./utils/ai-message-parser";
 
 @Processor(AI_BATCH_QUEUE)
@@ -36,6 +40,8 @@ export class AIBatchingProcessor extends WorkerHost {
     private readonly kafkaProducer: KafkaProducerService,
     @InjectModel(PlatformConnection.name)
     private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
+    @InjectModel(Conversation.name)
+    private readonly conversationModel: Model<ConversationDocument>,
   ) {
     super();
   }
@@ -419,6 +425,23 @@ export class AIBatchingProcessor extends WorkerHost {
 
     // Broadcast to org agents (only for last part to avoid spam)
     if (isLastPart) {
+      const lastMessageText = part.type === 'text'
+        ? part.content
+        : `[${part.type.toUpperCase()}]`;
+
+      // Update conversation in DB with lastMessage direction and reset counts
+      await this.conversationModel.findByIdAndUpdate(conversationId, {
+        lastMessage: {
+          text: lastMessageText.substring(0, 100),
+          timestamp: new Date(),
+          senderId: "ai-agent",
+          messageId: message._id,
+          direction: "outbound",
+        },
+        unreadCount: 0,
+        unsentCount: 0,
+      });
+
       const serializedMsg = JSON.parse(JSON.stringify(message.toObject()));
       this.websocketGateway.emitToOrgAgents(orgId, "message:new", {
         conversationId,
@@ -427,14 +450,12 @@ export class AIBatchingProcessor extends WorkerHost {
       this.websocketGateway.emitToOrgAgents(orgId, "conversation:updated", {
         _id: conversationId,
         lastMessage: {
-          text:
-            part.type === 'text'
-              ? part.content
-              : `[${part.type.toUpperCase()}]`,
+          text: lastMessageText,
           timestamp: new Date(),
           direction: "outbound",
         },
         unreadCount: 0,
+        unsentCount: 0,
       });
     }
   }

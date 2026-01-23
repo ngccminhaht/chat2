@@ -1322,9 +1322,14 @@ export class FacebookService {
             direction: isOutbound ? "outbound" : "inbound",
           },
         };
-        // Increment unread/unsent counts for inbound messages
+        // Set counts for inbound messages (set to 1, not increment to avoid accumulation)
         if (!isOutbound) {
-          updateData.$inc = { unreadCount: 1, unsentCount: 1 };
+          updateData.unreadCount = 1;
+          updateData.unsentCount = 1;
+        } else {
+          // Reset counts when outbound message is newest
+          updateData.unreadCount = 0;
+          updateData.unsentCount = 0;
         }
         await this.conversationModel.findByIdAndUpdate(conversation._id, updateData);
       }
