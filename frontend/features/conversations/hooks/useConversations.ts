@@ -25,5 +25,7 @@ export function useConversations(params: UseConversationsParams = {}) {
       return data;
     },
     enabled: !!organizationId,
+    staleTime: 10 * 1000, // Data becomes stale after 10 seconds
+    refetchInterval: 10 * 1000, // Auto-refetch every 10 seconds
   });
 }
