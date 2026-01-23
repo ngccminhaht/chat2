@@ -1313,7 +1313,7 @@ export class FacebookService {
       // Update conversation lastMessage if this is newer
       const msgTime = new Date(fbMsg.created_time);
       if (!conversation.lastMessage?.timestamp || msgTime > conversation.lastMessage.timestamp) {
-        await this.conversationModel.findByIdAndUpdate(conversation._id, {
+        const updateData: any = {
           lastMessage: {
             text: messageText.substring(0, 100) || `[${messageType}]`,
             timestamp: msgTime,
@@ -1321,7 +1321,12 @@ export class FacebookService {
             messageId: newMessage._id,
             direction: isOutbound ? "outbound" : "inbound",
           },
-        });
+        };
+        // Increment unread/unsent counts for inbound messages
+        if (!isOutbound) {
+          updateData.$inc = { unreadCount: 1, unsentCount: 1 };
+        }
+        await this.conversationModel.findByIdAndUpdate(conversation._id, updateData);
       }
     } catch (error) {
       if (error.code !== 11000) {
