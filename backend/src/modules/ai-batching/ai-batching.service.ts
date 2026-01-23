@@ -241,75 +241,19 @@ export class AIBatchingService {
    * Get all unsent inbound messages in conversation
    * Messages are marked as sent when included in a batch that's sent to AI
    *
-   * Auto-unsent logic: If conversation.lastSeenAt exists and is older than
-   * org.autoUnseenTimeoutSeconds, include previously sent inbound messages
-   * that haven't been replied to (treat them as unsent)
-   *
-   * Message age filter: Messages older than autoUnseenTimeoutSeconds are excluded
-   * from batching (considered expired)
+   * Note: autoUnseenTimeoutSeconds is ONLY for UI badge display (marking as unseen),
+   * NOT for re-sending messages to AI. Once a message is sent to AI, it won't be sent again.
    */
   private async getUnsentMessages(
     conversationId: string
   ): Promise<MessageDocument[]> {
-    // Get conversation and organization settings
-    const conversation = await this.conversationModel
-      .findById(conversationId)
-      .lean()
-      .exec();
-
-    if (!conversation) {
-      return [];
-    }
-
-    const org = await this.organizationModel
-      .findById(conversation.organizationId)
-      .lean()
-      .exec();
-
-    const autoUnseenTimeoutSeconds = org?.aiAgentSettings?.autoUnseenTimeoutSeconds || 0;
-
-    // Check if auto-unsent should apply
-    let shouldIncludeSentMessages = false;
-    if (autoUnseenTimeoutSeconds > 0 && conversation.lastSeenAt) {
-      const timeSinceLastSeen = Date.now() - new Date(conversation.lastSeenAt).getTime();
-      const timeoutMs = autoUnseenTimeoutSeconds * 1000;
-      shouldIncludeSentMessages = timeSinceLastSeen > timeoutMs;
-
-      if (shouldIncludeSentMessages) {
-        this.logger.log(
-          `🔄 [AI Batch] Auto-unsent triggered for conversation ${conversationId} | ` +
-          `Last seen: ${conversation.lastSeenAt} | Timeout: ${autoUnseenTimeoutSeconds}s | ` +
-          `Time since last seen: ${Math.floor(timeSinceLastSeen / 1000)}s`
-        );
-      }
-    }
-
-    // Build query for inbound messages
-    const query: any = {
-      conversationId: new Types.ObjectId(conversationId),
-      direction: "inbound",
-    };
-
-    // If auto-unsent applies, include all inbound messages (ignore sentToAiAt)
-    // Otherwise, only get unsent messages
-    if (!shouldIncludeSentMessages) {
-      query.sentToAiAt = null;
-    }
-
-    // Filter out messages older than timeout (if configured)
-    // This prevents AI from responding to messages that are too old
-    if (autoUnseenTimeoutSeconds > 0) {
-      const cutoffTime = new Date(Date.now() - autoUnseenTimeoutSeconds * 1000);
-      query.createdAt = { $gte: cutoffTime };
-
-      this.logger.debug(
-        `⏰ [AI Batch] Filtering messages by age | ` +
-        `Cutoff: ${cutoffTime.toISOString()} | Timeout: ${autoUnseenTimeoutSeconds}s`
-      );
-    }
-
+    // Only get messages that haven't been sent to AI yet
     return this.messageModel
-      .find(query)
+      .find({
+        conversationId: new Types.ObjectId(conversationId),
+        direction: "inbound",
+        sentToAiAt: null,
+      })
       .sort({ createdAt: 1 }) // Oldest first
       .exec();
   }

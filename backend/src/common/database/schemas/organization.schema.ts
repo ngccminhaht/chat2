@@ -28,7 +28,9 @@ export interface AIAgentSettings {
   endpoint?: string; // API endpoint (default: https://api.miagent.io/v1/chat-messages)
   batchDelayMs?: number; // Delay before AI responds (default: 3000ms)
   maxImages?: number; // Maximum number of images to send per request (default: 3)
-  // Auto unseen: Seconds after last seen to automatically mark conversation as unsent to AI
+  // Auto unseen timeout: Seconds after last seen to mark conversation as "unseen" in UI
+  // Shows badge indicator for conversations that haven't been viewed within timeout
+  // Does NOT re-send messages to AI - only affects UI display
   // Set to 0 to disable (default: 0 - disabled)
   autoUnseenTimeoutSeconds?: number;
 }
