@@ -16,7 +16,6 @@ import {
   CreateOrganizationDto,
   UpdateOrganizationDto,
   InviteMemberDto,
-  UpdateAIAgentDto,
 } from './dto';
 import { UsersService } from '../users/users.service';
 import { OrganizationRole } from '@/common/database/schemas';
@@ -237,39 +236,6 @@ export class OrganizationsController {
       OrganizationRole.ADMIN,
     ]);
     return this.widgetService.updateWidgetConfig(id, dto);
-  }
-
-  /**
-   * Get AI agent settings for organization
-   * GET /api/organizations/:id/ai-agent
-   */
-  @Get(':id/ai-agent')
-  async getAIAgentSettings(
-    @Param('id') id: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    await this.organizationsService.assertRole(id, user.sub, [
-      OrganizationRole.OWNER,
-      OrganizationRole.ADMIN,
-    ]);
-    return this.organizationsService.getAIAgentSettings(id);
-  }
-
-  /**
-   * Update AI agent settings for organization
-   * PATCH /api/organizations/:id/ai-agent
-   */
-  @Patch(':id/ai-agent')
-  async updateAIAgentSettings(
-    @Param('id') id: string,
-    @Body() dto: UpdateAIAgentDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    await this.organizationsService.assertRole(id, user.sub, [
-      OrganizationRole.OWNER,
-      OrganizationRole.ADMIN,
-    ]);
-    return this.organizationsService.updateAIAgentSettings(id, dto);
   }
 
   /**

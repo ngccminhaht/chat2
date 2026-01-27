@@ -1,43 +1,40 @@
 import {
   IsBoolean,
-  IsOptional,
   IsString,
   IsNumber,
+  IsOptional,
   Min,
   Max,
-  MaxLength,
+  IsUrl,
 } from 'class-validator';
 
-export class UpdateAIAgentDto {
-  @IsOptional()
+export class UpdateAISettingsDto {
   @IsBoolean()
-  enabled?: boolean;
+  enabled: boolean;
 
-  @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @IsOptional()
   apiKey?: string;
 
+  @IsUrl()
   @IsOptional()
-  @IsString()
-  @MaxLength(500)
   endpoint?: string;
 
-  @IsOptional()
   @IsNumber()
+  @IsOptional()
   @Min(1000)
   @Max(30000)
   batchDelayMs?: number;
 
-  @IsOptional()
   @IsNumber()
+  @IsOptional()
   @Min(1)
   @Max(10)
   maxImages?: number;
 
-  @IsOptional()
   @IsNumber()
+  @IsOptional()
   @Min(0)
-  @Max(604800) // Max 7 days in seconds
+  @Max(604800) // Max 7 days
   autoUnseenTimeoutSeconds?: number;
 }

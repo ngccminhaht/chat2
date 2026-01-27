@@ -19,7 +19,6 @@ import PeopleIcon from "@mui/icons-material/People";
 import HubIcon from "@mui/icons-material/Hub";
 import GroupsIcon from "@mui/icons-material/Groups";
 import WidgetsIcon from "@mui/icons-material/Widgets";
-import SmartToyIcon from "@mui/icons-material/SmartToy";
 import SettingsIcon from "@mui/icons-material/Settings";
 import IntegrationInstructionsIcon from "@mui/icons-material/IntegrationInstructions";
 
@@ -44,7 +43,6 @@ const getMenuSections = (orgSlug: string): MenuSection[] => [
       { textKey: "customers", icon: <PeopleIcon />, path: `/organizations/${orgSlug}/customers` },
       { textKey: "channels", icon: <HubIcon />, path: `/organizations/${orgSlug}/channels` },
       { textKey: "widget", icon: <WidgetsIcon />, path: `/organizations/${orgSlug}/widget` },
-      { textKey: "aiAgent", icon: <SmartToyIcon />, path: `/organizations/${orgSlug}/ai-agent` },
       { textKey: "members", icon: <GroupsIcon />, path: `/organizations/${orgSlug}/members` },
     ],
   },

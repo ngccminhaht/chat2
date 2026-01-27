@@ -4,7 +4,7 @@
  *
  * Flow:
  * 1. Visitor sends message → onVisitorMessage()
- * 2. Check org.aiAgentSettings.enabled + conversation.aiEnabled
+ * 2. Check connection.aiSettings.enabled + conversation.aiEnabled
  * 3. Create/update batch job with delay (debounce)
  * 4. Timer expires → processor handles batch
  * 5. Agent replies → cancelBatch() + set aiEnabled=false
@@ -25,9 +25,9 @@ import {
   MessageDocument,
 } from "@/common/database/schemas/message.schema";
 import {
-  Organization,
-  OrganizationDocument,
-} from "@/common/database/schemas/organization.schema";
+  PlatformConnection,
+  PlatformConnectionDocument,
+} from "@/common/database/schemas/platform-connection.schema";
 import {
   Customer,
   CustomerDocument,
@@ -51,8 +51,8 @@ export class AIBatchingService {
     private readonly conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
-    @InjectModel(Organization.name)
-    private readonly organizationModel: Model<OrganizationDocument>,
+    @InjectModel(PlatformConnection.name)
+    private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
     @InjectModel(Customer.name)
     private readonly customerModel: Model<CustomerDocument>
   ) {}
@@ -90,25 +90,30 @@ export class AIBatchingService {
       return;
     }
 
-    // Check if AI agent is enabled for this organization
-    const org = await this.organizationModel.findById(organizationId).lean();
+    // Check if AI agent is enabled for this connection (page/OA)
+    const connection = await this.platformConnectionModel.findOne({
+      platform: conversation.platform,
+      platformAccountId: conversation.platformAccountId,
+    }).lean();
+
     this.logger.log(
-      `🔍 [AI Batch] Organization check | ` +
-        `Org found: ${!!org} | AI enabled: ${
-          org?.aiAgentSettings?.enabled
+      `🔍 [AI Batch] Connection check | ` +
+        `Connection found: ${!!connection} | AI enabled: ${
+          connection?.aiSettings?.enabled
         } | ` +
-        `API key: ${!!org?.aiAgentSettings?.apiKey}`
+        `API key: ${!!connection?.aiSettings?.apiKey}`
     );
-    if (!org?.aiAgentSettings?.enabled) {
+
+    if (!connection?.aiSettings?.enabled) {
       this.logger.log(
-        `⏭️ [AI Batch] Skipping: AI agent disabled for org ${organizationId}`
+        `⏭️ [AI Batch] Skipping: AI agent disabled for connection ${conversation.platformAccountId}`
       );
       return;
     }
 
-    // Get delay from org config or use default
+    // Get delay from connection config or use default
     const baseBatchDelayMs =
-      org.aiAgentSettings?.batchDelayMs || DEFAULT_AI_SETTINGS.batchDelayMs;
+      connection.aiSettings?.batchDelayMs || DEFAULT_AI_SETTINGS.batchDelayMs;
 
     const jobId = `batch_${conversationId}`;
     const existingJob = await this.batchQueue.getJob(jobId);

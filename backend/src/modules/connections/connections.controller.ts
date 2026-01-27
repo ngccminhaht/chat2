@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConnectionsService } from './connections.service';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { UpdateAISettingsDto } from './dto/update-ai-settings.dto';
 
 @Controller('organizations/:organizationId/connections')
 export class ConnectionsController {
@@ -57,5 +58,38 @@ export class ConnectionsController {
   async delete(@Param('id') id: string) {
     await this.connectionsService.delete(id);
     return { success: true };
+  }
+
+  /**
+   * Get AI settings for a connection
+   * GET /api/organizations/:organizationId/connections/:id/ai-settings
+   */
+  @Get(':id/ai-settings')
+  async getAISettings(@Param('id') id: string) {
+    const aiSettings = await this.connectionsService.getAISettings(id);
+
+    if (!aiSettings) {
+      throw new BadRequestException('Platform connection not found');
+    }
+
+    return aiSettings;
+  }
+
+  /**
+   * Update AI settings for a connection
+   * PATCH /api/organizations/:organizationId/connections/:id/ai-settings
+   */
+  @Patch(':id/ai-settings')
+  async updateAISettings(
+    @Param('id') id: string,
+    @Body() dto: UpdateAISettingsDto,
+  ) {
+    const aiSettings = await this.connectionsService.updateAISettings(id, dto);
+
+    if (!aiSettings) {
+      throw new BadRequestException('Platform connection not found');
+    }
+
+    return { success: true, aiSettings };
   }
 }

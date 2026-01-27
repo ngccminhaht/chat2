@@ -4,6 +4,16 @@ import { Platform, ConnectionStatus } from '@/common/constants';
 
 export type PlatformConnectionDocument = PlatformConnection & Document;
 
+// AI Agent settings for this connection/page
+export interface ConnectionAISettings {
+  enabled: boolean; // Enable/disable AI for this page
+  apiKey?: string; // API key for MiAgent
+  endpoint?: string; // API endpoint (default: https://api.miagent.io/v1/chat-messages)
+  batchDelayMs?: number; // Delay before AI responds (default: 3000ms)
+  maxImages?: number; // Maximum images per request (default: 3)
+  autoUnseenTimeoutSeconds?: number; // Auto unseen timeout (default: 0 - disabled)
+}
+
 @Schema({ timestamps: true })
 export class PlatformConnection {
   // Multi-tenant: Organization reference (required for all queries)
@@ -56,6 +66,10 @@ export class PlatformConnection {
 
   @Prop()
   lastSyncAt: Date;
+
+  // AI Agent settings for this connection
+  @Prop({ type: Object, default: { enabled: false } })
+  aiSettings: ConnectionAISettings;
 }
 
 export const PlatformConnectionSchema = SchemaFactory.createForClass(PlatformConnection);

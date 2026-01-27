@@ -15,10 +15,6 @@ import {
   MessageSchema,
 } from "@/common/database/schemas/message.schema";
 import {
-  Organization,
-  OrganizationSchema,
-} from "@/common/database/schemas/organization.schema";
-import {
   Customer,
   CustomerSchema,
 } from "@/common/database/schemas/customer.schema";
@@ -33,7 +29,6 @@ import { AI_API_CALL_QUEUE } from "./ai-api-call.queue";
 import { AIAPICallProcessor } from "./ai-api-call.processor";
 import { DEFAULT_AI_RETRY_CONFIG } from "./ai-api-retry.config";
 import { WebsocketModule } from "@/modules/websocket/websocket.module";
-import { AiAgentsModule } from "@/modules/ai-agents/ai-agents.module";
 import { KafkaModule } from "@/infra/kafka/kafka.module";
 
 @Module({
@@ -64,12 +59,10 @@ import { KafkaModule } from "@/infra/kafka/kafka.module";
     MongooseModule.forFeature([
       { name: Conversation.name, schema: ConversationSchema },
       { name: Message.name, schema: MessageSchema },
-      { name: Organization.name, schema: OrganizationSchema },
       { name: Customer.name, schema: CustomerSchema },
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
     forwardRef(() => WebsocketModule),
-    AiAgentsModule,
     KafkaModule,
   ],
   providers: [

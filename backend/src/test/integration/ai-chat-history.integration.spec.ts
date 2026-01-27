@@ -27,7 +27,7 @@ import {
   OrganizationSchema,
 } from '@/common/database/schemas/organization.schema';
 import { AIAPICallProcessor } from '@/modules/ai-batching/ai-api-call.processor';
-import { MessageCombiner } from '@/modules/ai-agents/utils/message-combiner';
+import { MessageCombiner } from '@/modules/ai-batching/utils/message-combiner';
 import { Platform, MessageDirection, MessageType } from '@/common/constants';
 
 describe('AI Chat History Loading (Integration)', () => {

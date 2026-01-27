@@ -47,9 +47,11 @@ export class ConversationsService {
   async findAll(organizationId: string, dto: GetConversationsDto) {
     const { status, platform, search, unreadOnly, page = 1, limit = 20 } = dto;
 
-    // Get organization's auto-unseen timeout setting
-    const org = await this.organizationsService.findById(organizationId);
-    const timeoutSeconds = org?.aiAgentSettings?.autoUnseenTimeoutSeconds || 0;
+    // Auto-unseen timeout is now per-connection (stored in platformConnection.aiSettings)
+    // For conversation list, we skip timeout-based unseen logic since it varies per connection
+    // Each connection can have different timeoutSeconds, making aggregation complex
+    // TODO: If needed, implement aggregation that groups by connection and applies respective timeouts
+    const timeoutSeconds = 0;
 
     // CRITICAL: Always filter by organizationId
     const filter: any = {

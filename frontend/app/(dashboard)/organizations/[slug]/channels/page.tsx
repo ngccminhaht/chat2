@@ -27,6 +27,7 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Add as AddIcon,
+  SmartToy as SmartToyIcon,
 } from "@mui/icons-material";
 import {
   usePlatformConnections,
@@ -37,6 +38,7 @@ import { useConnectFacebook } from "@/features/connections/hooks/useConnectFaceb
 import { useConnectZalo } from "@/features/connections/hooks/useConnectZalo";
 import { useConnectShopee } from "@/features/connections/hooks/useConnectShopee";
 import { PlatformConnection } from "@/features/connections/types/platform-connection.types";
+import ConnectionAISettingsDialog from "@/features/connections/components/ConnectionAISettingsDialog";
 import { ConnectionStatus } from "@/lib/constants/statuses";
 
 const PLATFORMS = [
@@ -64,6 +66,9 @@ export default function ChannelsPage() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] =
+    useState<PlatformConnection | null>(null);
+  const [aiSettingsDialogOpen, setAiSettingsDialogOpen] = useState(false);
+  const [connectionForAISettings, setConnectionForAISettings] =
     useState<PlatformConnection | null>(null);
 
   // OAuth connection hooks
@@ -140,6 +145,11 @@ export default function ChannelsPage() {
         ? ConnectionStatus.INACTIVE
         : ConnectionStatus.ACTIVE;
     updateStatus.mutate({ connectionId: connection.id, status: newStatus });
+  };
+
+  const handleOpenAISettings = (connection: PlatformConnection) => {
+    setConnectionForAISettings(connection);
+    setAiSettingsDialogOpen(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -243,6 +253,15 @@ export default function ChannelsPage() {
                                   : "warning"
                               }
                             />
+                            {connection.aiSettings?.enabled && (
+                              <Chip
+                                icon={<SmartToyIcon />}
+                                label="AI"
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                            )}
                           </Stack>
                           <Typography
                             variant="body2"
@@ -273,6 +292,13 @@ export default function ChannelsPage() {
                         disabled={updateStatus.isPending}
                       >
                         {connection.status === "active" ? "Pause" : "Activate"}
+                      </Button>
+                      <Button
+                        size="small"
+                        startIcon={<SmartToyIcon />}
+                        onClick={() => handleOpenAISettings(connection)}
+                      >
+                        AI Settings
                       </Button>
                       <IconButton size="small" disabled>
                         <RefreshIcon fontSize="small" />
@@ -327,6 +353,16 @@ export default function ChannelsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* AI Settings Dialog */}
+      <ConnectionAISettingsDialog
+        open={aiSettingsDialogOpen}
+        onClose={() => {
+          setAiSettingsDialogOpen(false);
+          setConnectionForAISettings(null);
+        }}
+        connection={connectionForAISettings}
+      />
     </Box>
   );
 }

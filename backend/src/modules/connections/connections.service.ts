@@ -4,7 +4,9 @@ import { Model, Types } from 'mongoose';
 import {
   PlatformConnection,
   PlatformConnectionDocument,
+  ConnectionAISettings,
 } from '@/common/database/schemas/platform-connection.schema';
+import { UpdateAISettingsDto } from './dto/update-ai-settings.dto';
 import {
   Conversation,
   ConversationDocument,
@@ -49,6 +51,7 @@ export class ConnectionsService {
         credentials: conn.credentials,
         webhookSecret: conn.webhookSecret,
         metadata: conn.metadata,
+        aiSettings: conn.aiSettings || { enabled: false },
         lastSyncAt: conn.lastSyncAt,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
@@ -158,5 +161,44 @@ export class ConnectionsService {
     });
 
     this.logger.log(`📤 Emitted connection:deleted event for connection ${id}`);
+  }
+
+  /**
+   * Get AI settings for a connection
+   */
+  async getAISettings(id: string): Promise<ConnectionAISettings | null> {
+    const connection = await this.platformConnectionModel.findById(id).exec();
+    if (!connection) {
+      return null;
+    }
+    return connection.aiSettings || { enabled: false };
+  }
+
+  /**
+   * Update AI settings for a connection
+   */
+  async updateAISettings(
+    id: string,
+    dto: UpdateAISettingsDto,
+  ): Promise<ConnectionAISettings | null> {
+    this.logger.log(`Updating AI settings for connection ${id}`);
+
+    const connection = await this.platformConnectionModel
+      .findByIdAndUpdate(
+        id,
+        { aiSettings: dto },
+        { new: true },
+      )
+      .exec();
+
+    if (!connection) {
+      this.logger.warn(`Platform connection ${id} not found`);
+      return null;
+    }
+
+    this.logger.log(
+      `✅ Updated AI settings for ${connection.platformAccountName}: enabled=${dto.enabled}`,
+    );
+    return connection.aiSettings;
   }
 }

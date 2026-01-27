@@ -1,3 +1,12 @@
+export interface ConnectionAISettings {
+  enabled: boolean;
+  apiKey?: string;
+  endpoint?: string;
+  batchDelayMs?: number;
+  maxImages?: number;
+  autoUnseenTimeoutSeconds?: number;
+}
+
 export interface PlatformConnection {
   id: string;
   userId: string;
@@ -20,6 +29,7 @@ export interface PlatformConnection {
     avatar?: string;
     [key: string]: any;
   };
+  aiSettings?: ConnectionAISettings;
   lastSyncAt?: string;
   createdAt: string;
   updatedAt: string;

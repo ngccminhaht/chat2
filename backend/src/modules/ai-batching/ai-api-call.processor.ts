@@ -14,9 +14,9 @@ import {
   AIAPICallResult,
 } from "./ai-api-call.queue";
 import {
-  Organization,
-  OrganizationDocument,
-} from "@/common/database/schemas/organization.schema";
+  PlatformConnection,
+  PlatformConnectionDocument,
+} from "@/common/database/schemas/platform-connection.schema";
 import {
   Message,
   MessageDocument,
@@ -29,7 +29,7 @@ import {
   Customer,
   CustomerDocument,
 } from "@/common/database/schemas/customer.schema";
-import { MessageCombiner } from "@/modules/ai-agents/utils/message-combiner";
+import { MessageCombiner } from "./utils/message-combiner";
 import { MessageDirection } from "@/common/constants";
 import axios from "axios";
 import {
@@ -45,8 +45,8 @@ export class AIAPICallProcessor extends WorkerHost {
   private readonly logger = new Logger(AIAPICallProcessor.name);
 
   constructor(
-    @InjectModel(Organization.name)
-    private readonly organizationModel: Model<OrganizationDocument>,
+    @InjectModel(PlatformConnection.name)
+    private readonly platformConnectionModel: Model<PlatformConnectionDocument>,
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
     @InjectModel(Conversation.name)
@@ -72,36 +72,7 @@ export class AIAPICallProcessor extends WorkerHost {
     );
 
     try {
-      // Get organization and check AI settings
-      const org = await this.organizationModel.findById(organizationId).lean();
-      if (!org?.aiAgentSettings?.enabled) {
-        this.logger.warn(
-          `⚠️ [AI API Job] AI disabled for org ${organizationId}`
-        );
-        return {
-          success: false,
-          error: {
-            type: "AI_DISABLED",
-            message: "AI agent is disabled for this organization",
-          },
-        };
-      }
-
-      const { apiKey, endpoint } = org.aiAgentSettings;
-      if (!apiKey) {
-        this.logger.error(
-          `❌ [AI API Job] No API key configured for org ${organizationId}`
-        );
-        return {
-          success: false,
-          error: {
-            type: "NO_API_KEY",
-            message: "No API key configured",
-          },
-        };
-      }
-
-      // Get conversation
+      // Get conversation first to determine which connection to use
       const conversation = await this.conversationModel
         .findById(conversationId)
         .lean();
@@ -114,6 +85,41 @@ export class AIAPICallProcessor extends WorkerHost {
           error: {
             type: "CONVERSATION_NOT_FOUND",
             message: "Conversation not found",
+          },
+        };
+      }
+
+      // Get connection and check AI settings
+      const connection = await this.platformConnectionModel
+        .findOne({
+          platform: conversation.platform,
+          platformAccountId: conversation.platformAccountId,
+        })
+        .lean();
+
+      if (!connection?.aiSettings?.enabled) {
+        this.logger.warn(
+          `⚠️ [AI API Job] AI disabled for connection ${conversation.platform}:${conversation.platformAccountId}`
+        );
+        return {
+          success: false,
+          error: {
+            type: "AI_DISABLED",
+            message: "AI agent is disabled for this connection",
+          },
+        };
+      }
+
+      const { apiKey, endpoint } = connection.aiSettings;
+      if (!apiKey) {
+        this.logger.error(
+          `❌ [AI API Job] No API key configured for connection ${conversation.platform}:${conversation.platformAccountId}`
+        );
+        return {
+          success: false,
+          error: {
+            type: "NO_API_KEY",
+            message: "No API key configured",
           },
         };
       }
@@ -165,7 +171,7 @@ export class AIAPICallProcessor extends WorkerHost {
       );
 
       // Create AI request
-      const maxImages = org.aiAgentSettings?.maxImages || 6; // Get from org settings or default
+      const maxImages = connection.aiSettings?.maxImages || 6; // Get from connection settings or default
       const requestData = MessageCombiner.createAIRequest(
         combinedData,
         {
@@ -473,7 +479,7 @@ export class AIAPICallProcessor extends WorkerHost {
       }
 
       // Log actionable advice
-      this.logErrorAdvice(aiError, organizationId, conversationId);
+      this.logErrorAdvice(aiError, conversationId, conversationId);
 
       // For non-retryable errors, mark job as failed (no retry)
       if (!aiError.retryable) {
@@ -547,19 +553,19 @@ export class AIAPICallProcessor extends WorkerHost {
    */
   private logErrorAdvice(
     error: AIAPIError,
-    organizationId: string,
+    connectionKey: string,
     conversationId: string
   ): void {
     switch (error.type) {
       case AIErrorType.AUTH_ERROR:
         this.logger.error(
-          `💡 [AI API Advice] AUTH_ERROR - Check API key for org ${organizationId}. ` +
+          `💡 [AI API Advice] AUTH_ERROR - Check API key for connection ${connectionKey}. ` +
             `Key may be invalid, expired, or lack permissions.`
         );
         break;
       case AIErrorType.RATE_LIMIT_ERROR:
         this.logger.error(
-          `💡 [AI API Advice] RATE_LIMIT_ERROR - Org ${organizationId} exceeded limits. ` +
+          `💡 [AI API Advice] RATE_LIMIT_ERROR - Connection ${connectionKey} exceeded limits. ` +
             `Consider increasing batch delay or upgrading plan.`
         );
         break;

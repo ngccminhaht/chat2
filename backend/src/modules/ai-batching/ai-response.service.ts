@@ -9,10 +9,6 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import {
-  Organization,
-  OrganizationDocument,
-} from "@/common/database/schemas/organization.schema";
-import {
   Message,
   MessageDocument,
 } from "@/common/database/schemas/message.schema";
@@ -20,6 +16,10 @@ import {
   Conversation,
   ConversationDocument,
 } from "@/common/database/schemas/conversation.schema";
+import {
+  PlatformConnection,
+  PlatformConnectionDocument,
+} from "@/common/database/schemas/platform-connection.schema";
 import {
   Platform,
   MessageDirection,
@@ -32,7 +32,7 @@ import {
   Customer,
   CustomerDocument,
 } from "@/common/database/schemas/customer.schema";
-import { MessageCombiner } from "@/modules/ai-agents/utils/message-combiner";
+import { MessageCombiner } from "./utils/message-combiner";
 import { categorizeAIError } from "./ai-api-retry.config";
 
 export interface AIResponseResult {
@@ -69,14 +69,14 @@ export class AIResponseService {
   private readonly logger = new Logger(AIResponseService.name);
 
   constructor(
-    @InjectModel(Organization.name)
-    private readonly organizationModel: Model<OrganizationDocument>,
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
     @InjectModel(Conversation.name)
     private readonly conversationModel: Model<ConversationDocument>,
     @InjectModel(Customer.name)
-    private readonly customerModel: Model<CustomerDocument>
+    private readonly customerModel: Model<CustomerDocument>,
+    @InjectModel(PlatformConnection.name)
+    private readonly platformConnectionModel: Model<PlatformConnectionDocument>
   ) {}
 
   /**
@@ -89,25 +89,29 @@ export class AIResponseService {
     messages: MessageDocument[],
     customer?: CustomerDocument | null
   ): Promise<AIResponseResult | null> {
-    // Get organization AI settings
-    const org = await this.organizationModel.findById(organizationId).lean();
-    if (!org?.aiAgentSettings?.enabled) {
-      this.logger.log(
-        `⏭️ [AI API Call] AI agent disabled for org ${organizationId}`
-      );
-      return null;
-    }
-
-    const { apiKey, endpoint } = org.aiAgentSettings;
-    if (!apiKey) {
-      this.logger.warn(`No API key configured for org ${organizationId}`);
-      return null;
-    }
-
     // Get conversation to find visitor info
     const conversation = await this.conversationModel.findById(conversationId);
     if (!conversation) {
       this.logger.warn(`Conversation ${conversationId} not found`);
+      return null;
+    }
+
+    // Get connection AI settings
+    const connection = await this.platformConnectionModel.findOne({
+      platform: conversation.platform,
+      platformAccountId: conversation.platformAccountId,
+    }).lean();
+
+    if (!connection?.aiSettings?.enabled) {
+      this.logger.log(
+        `⏭️ [AI API Call] AI agent disabled for connection ${conversation.platformAccountId}`
+      );
+      return null;
+    }
+
+    const { apiKey, endpoint } = connection.aiSettings;
+    if (!apiKey) {
+      this.logger.warn(`No API key configured for connection ${conversation.platformAccountId}`);
       return null;
     }
 
@@ -134,7 +138,7 @@ export class AIResponseService {
     );
 
     // Create AI request with customer info and files
-    const maxImages = org.aiAgentSettings?.maxImages || 3; // Get from org settings or default
+    const maxImages = connection.aiSettings?.maxImages || 3; // Get from connection settings or default
     const requestData = MessageCombiner.createAIRequest(
       combinedData,
       {
@@ -485,17 +489,20 @@ export class AIResponseService {
       throw new Error(`Conversation ${conversationId} not found`);
     }
 
-    // Fetch fresh organization settings to check if AI is still enabled
-    const org = await this.organizationModel
-      .findById(conversation.organizationId)
+    // Fetch fresh connection settings to check if AI is still enabled
+    const connection = await this.platformConnectionModel
+      .findOne({
+        platform: conversation.platform,
+        platformAccountId: conversation.platformAccountId,
+      })
       .lean()
       .exec();
 
-    // Check if AI is still enabled at organization level
-    if (!org?.aiAgentSettings?.enabled) {
+    // Check if AI is still enabled at connection level
+    if (!connection?.aiSettings?.enabled) {
       this.logger.log(
-        `⏭️ [AI Response] AI disabled at organization level | ` +
-        `Org: ${conversation.organizationId} | Conversation: ${conversationId} | ` +
+        `⏭️ [AI Response] AI disabled for connection | ` +
+        `Connection: ${conversation.platformAccountId} | Conversation: ${conversationId} | ` +
         `Discarding response (not saving or sending)`
       );
       return null;

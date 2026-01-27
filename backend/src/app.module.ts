@@ -24,7 +24,6 @@ import { MediaModule } from './modules/media/media.module';
 import { PlatformsModule } from './modules/platforms/platforms.module';
 import { WidgetModule } from './modules/widget/widget.module';
 import { QuickRepliesModule } from './modules/quick-replies/quick-replies.module';
-import { AiAgentsModule } from './modules/ai-agents/ai-agents.module';
 import { CustomersModule } from './modules/customers/customers.module';
 
 @Module({
@@ -82,9 +81,6 @@ import { CustomersModule } from './modules/customers/customers.module';
 
     // Quick replies templates
     QuickRepliesModule,
-
-    // AI agents for automated responses
-    AiAgentsModule,
 
     // Customer management (CRM)
     CustomersModule,
