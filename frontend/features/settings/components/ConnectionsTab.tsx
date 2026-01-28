@@ -23,6 +23,7 @@ import {
   Facebook as FacebookIcon,
   Chat as ZaloIcon,
   ShoppingBag as ShopeeIcon,
+  Telegram as TelegramIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Add as AddIcon,
@@ -35,32 +36,11 @@ import {
 import { useConnectFacebook } from '@/features/connections/hooks/useConnectFacebook';
 import { useConnectZalo } from '@/features/connections/hooks/useConnectZalo';
 import { useConnectShopee } from '@/features/connections/hooks/useConnectShopee';
+import { useConnectTelegram } from '@/features/connections/hooks/useConnectTelegram';
+import TelegramConnectionDialog from '@/features/connections/components/TelegramConnectionDialog';
 import { PlatformConnection } from '@/features/connections/types/platform-connection.types';
 import { ConnectionStatus } from '@/lib/constants/statuses';
-
-// Available platforms for connection
-const AVAILABLE_PLATFORMS = [
-  {
-    id: 'facebook',
-    name: 'Facebook Messenger',
-    description: 'Connect your Facebook Page to receive messages',
-  },
-  {
-    id: 'zalo',
-    name: 'Zalo OA',
-    description: 'Connect your Zalo Official Account',
-  },
-  {
-    id: 'tiktok',
-    name: 'TikTok Shop',
-    description: 'Connect your TikTok Shop account',
-  },
-  {
-    id: 'shopee',
-    name: 'Shopee',
-    description: 'Connect your Shopee seller account',
-  },
-];
+import { AVAILABLE_PLATFORMS } from '@/lib/constants/platforms';
 
 // Platform icon mapping
 const platformIcons: Record<string, React.ReactNode> = {
@@ -68,6 +48,7 @@ const platformIcons: Record<string, React.ReactNode> = {
   zalo: <ZaloIcon sx={{ color: '#0068ff' }} />,
   tiktok: <ShopeeIcon sx={{ color: '#000' }} />,
   shopee: <ShopeeIcon sx={{ color: '#ee4d2d' }} />,
+  telegram: <TelegramIcon sx={{ color: '#0088CC' }} />,
 };
 
 // Platform colors
@@ -76,6 +57,7 @@ const platformColors: Record<string, 'primary' | 'info' | 'secondary' | 'error'>
   zalo: 'info',
   tiktok: 'secondary',
   shopee: 'error',
+  telegram: 'info',
 };
 
 export default function ConnectionsTab() {
@@ -91,6 +73,7 @@ export default function ConnectionsTab() {
   const { connectFacebook, isLoading: isLoadingFacebook } = useConnectFacebook();
   const { connectZalo, isLoading: isLoadingZalo } = useConnectZalo();
   const { connectShopee, isLoading: isLoadingShopee } = useConnectShopee();
+  const telegram = useConnectTelegram();
 
   const handleConnect = (platformId: string) => {
     if (platformId === 'facebook') {
@@ -99,6 +82,9 @@ export default function ConnectionsTab() {
       connectZalo();
     } else if (platformId === 'shopee') {
       connectShopee();
+    } else if (platformId === 'telegram') {
+      telegram.openDialog();
+      setAddDialogOpen(false);
     } else if (platformId === 'tiktok') {
       alert('TikTok Shop connection coming soon!');
     }
@@ -108,6 +94,7 @@ export default function ConnectionsTab() {
     if (platformId === 'facebook') return isLoadingFacebook;
     if (platformId === 'zalo') return isLoadingZalo;
     if (platformId === 'shopee') return isLoadingShopee;
+    if (platformId === 'telegram') return telegram.isLoading;
     return false;
   };
 
@@ -309,6 +296,17 @@ export default function ConnectionsTab() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Telegram Connection Dialog */}
+      <TelegramConnectionDialog
+        open={telegram.isOpen}
+        onClose={telegram.closeDialog}
+        botToken={telegram.botToken}
+        onBotTokenChange={telegram.setBotToken}
+        onConnect={telegram.handleConnect}
+        isLoading={telegram.isLoading}
+        error={telegram.error}
+      />
     </Stack>
   );
 }

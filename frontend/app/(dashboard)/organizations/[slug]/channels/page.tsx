@@ -37,16 +37,17 @@ import {
 import { useConnectFacebook } from "@/features/connections/hooks/useConnectFacebook";
 import { useConnectZalo } from "@/features/connections/hooks/useConnectZalo";
 import { useConnectShopee } from "@/features/connections/hooks/useConnectShopee";
+import { useConnectTelegram } from "@/features/connections/hooks/useConnectTelegram";
+import TelegramConnectionDialog from "@/features/connections/components/TelegramConnectionDialog";
 import { PlatformConnection } from "@/features/connections/types/platform-connection.types";
 import ConnectionAISettingsDialog from "@/features/connections/components/ConnectionAISettingsDialog";
 import { ConnectionStatus } from "@/lib/constants/statuses";
+import { AVAILABLE_PLATFORMS, PLATFORM_DISPLAY_NAMES, Platform } from "@/lib/constants/platforms";
 
-const PLATFORMS = [
-  { id: "facebook", name: "Facebook" },
-  { id: "zalo", name: "Zalo OA" },
-  { id: "shopee", name: "Shopee" },
-  { id: "tiktok", name: "TikTok" },
-];
+const PLATFORMS = AVAILABLE_PLATFORMS.map(p => ({
+  id: p.id,
+  name: PLATFORM_DISPLAY_NAMES[p.id as Platform],
+}));
 
 export default function ChannelsPage() {
   const router = useRouter();
@@ -76,6 +77,7 @@ export default function ChannelsPage() {
     useConnectFacebook();
   const { connectZalo, isLoading: isLoadingZalo, error: errorZalo } = useConnectZalo();
   const { connectShopee, isLoading: isLoadingShopee, error: errorShopee } = useConnectShopee();
+  const telegram = useConnectTelegram();
 
   const currentPlatform = PLATFORMS[tab].id;
   const platformConnections =
@@ -85,7 +87,8 @@ export default function ChannelsPage() {
   const connectionError =
     currentPlatform === "facebook" ? errorFacebook :
     currentPlatform === "zalo" ? errorZalo :
-    currentPlatform === "shopee" ? errorShopee : null;
+    currentPlatform === "shopee" ? errorShopee :
+    currentPlatform === "telegram" ? telegram.error : null;
 
   // Update URL query when tab changes
   const handleTabChange = (newTab: number) => {
@@ -111,6 +114,8 @@ export default function ChannelsPage() {
       connectZalo();
     } else if (currentPlatform === "shopee") {
       connectShopee();
+    } else if (currentPlatform === "telegram") {
+      telegram.openDialog();
     } else if (currentPlatform === "tiktok") {
       alert("TikTok Shop connection coming soon!");
     }
@@ -120,6 +125,7 @@ export default function ChannelsPage() {
     if (currentPlatform === "facebook") return isLoadingFacebook;
     if (currentPlatform === "zalo") return isLoadingZalo;
     if (currentPlatform === "shopee") return isLoadingShopee;
+    if (currentPlatform === "telegram") return telegram.isLoading;
     return false;
   };
 
@@ -362,6 +368,17 @@ export default function ChannelsPage() {
           setConnectionForAISettings(null);
         }}
         connection={connectionForAISettings}
+      />
+
+      {/* Telegram Connection Dialog */}
+      <TelegramConnectionDialog
+        open={telegram.isOpen}
+        onClose={telegram.closeDialog}
+        botToken={telegram.botToken}
+        onBotTokenChange={telegram.setBotToken}
+        onConnect={telegram.handleConnect}
+        isLoading={telegram.isLoading}
+        error={telegram.error}
       />
     </Box>
   );

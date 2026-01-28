@@ -17,47 +17,38 @@ import {
   Facebook as FacebookIcon,
   Chat as ZaloIcon,
   ShoppingBag as ShopeeIcon,
+  Telegram as TelegramIcon,
 } from '@mui/icons-material';
 import { usePlatformConnections } from '@/features/connections/hooks/usePlatformConnections';
+import { useConnectTelegram } from '@/features/connections/hooks/useConnectTelegram';
+import TelegramConnectionDialog from '@/features/connections/components/TelegramConnectionDialog';
+import { AVAILABLE_PLATFORMS } from '@/lib/constants/platforms';
 
-const PLATFORMS = [
-  {
-    id: 'facebook',
-    name: 'Facebook Messenger',
-    icon: <FacebookIcon color="primary" />,
-    description: 'Connect your Facebook Page to receive messages',
-  },
-  {
-    id: 'zalo',
-    name: 'Zalo OA',
-    icon: <ZaloIcon color="info" />,
-    description: 'Connect your Zalo Official Account',
-  },
-  {
-    id: 'tiktok',
-    name: 'TikTok Shop',
-    icon: <ShopeeIcon />,
-    description: 'Connect your TikTok Shop account',
-  },
-  {
-    id: 'shopee',
-    name: 'Shopee',
-    icon: <ShopeeIcon color="error" />,
-    description: 'Connect your Shopee seller account',
-  },
-];
+// Map platform IDs to MUI icons
+const platformIcons: Record<string, React.ReactNode> = {
+  facebook: <FacebookIcon color="primary" />,
+  zalo: <ZaloIcon color="info" />,
+  shopee: <ShopeeIcon color="error" />,
+  tiktok: <ShopeeIcon />,
+  telegram: <TelegramIcon sx={{ color: '#0088CC' }} />,
+};
 
 export default function ConnectPlatformsStep() {
   const router = useRouter();
   const { data: connections, isLoading } = usePlatformConnections();
+  const telegram = useConnectTelegram();
 
   const connectedPlatforms = connections?.map((c) => c.platform) || [];
   const hasConnections = connectedPlatforms.length > 0;
 
   const handleConnect = (platformId: string) => {
-    // During onboarding, connections are handled after org selection
-    // For now, just show an alert - connections will be configured after org setup
-    alert(`Platform connection for ${platformId} will be available after completing setup.`);
+    if (platformId === 'telegram') {
+      telegram.openDialog();
+    } else {
+      // During onboarding, connections are handled after org selection
+      // For now, just show an alert - connections will be configured after org setup
+      alert(`Platform connection for ${platformId} will be available after completing setup.`);
+    }
   };
 
   const handleSkip = () => {
@@ -85,13 +76,13 @@ export default function ConnectPlatformsStep() {
         </Box>
       ) : (
         <Stack spacing={2}>
-          {PLATFORMS.map((platform) => {
+          {AVAILABLE_PLATFORMS.map((platform) => {
             const isConnected = connectedPlatforms.includes(platform.id as any);
             return (
               <Card key={platform.id} variant="outlined">
                 <CardContent>
                   <Stack direction="row" spacing={2} alignItems="center">
-                    <Avatar>{platform.icon}</Avatar>
+                    <Avatar>{platformIcons[platform.id]}</Avatar>
                     <Box flexGrow={1}>
                       <Stack direction="row" spacing={1} alignItems="center">
                         <Typography variant="subtitle1" fontWeight="bold">
@@ -122,6 +113,17 @@ export default function ConnectPlatformsStep() {
           })}
         </Stack>
       )}
+
+      {/* Telegram Connection Dialog */}
+      <TelegramConnectionDialog
+        open={telegram.isOpen}
+        onClose={telegram.closeDialog}
+        botToken={telegram.botToken}
+        onBotTokenChange={telegram.setBotToken}
+        onConnect={telegram.handleConnect}
+        isLoading={telegram.isLoading}
+        error={telegram.error}
+      />
 
       <Stack direction="row" spacing={2} justifyContent="space-between">
         <Button variant="text" onClick={handleSkip}>
