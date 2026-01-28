@@ -4,10 +4,11 @@ import { AdaptersModule } from './adapters/adapters.module';
 import { FacebookModule } from './facebook/facebook.module';
 import { ZaloModule } from './zalo/zalo.module';
 import { ShopeeModule } from './shopee/shopee.module';
+import { TelegramModule } from './telegram/telegram.module';
 
 /**
  * Platforms Module
- * Aggregates all platform integrations (Facebook, Zalo, Shopee, TikTok)
+ * Aggregates all platform integrations (Facebook, Zalo, Shopee, TikTok, Telegram)
  *
  * Architecture:
  * - PlatformCoreModule: Shared services (Registry, WebhookProcessor, MessageSender)
@@ -27,6 +28,7 @@ import { ShopeeModule } from './shopee/shopee.module';
     FacebookModule,
     ZaloModule,
     ShopeeModule,
+    TelegramModule,
   ],
 })
 export class PlatformsModule {}

@@ -13,6 +13,9 @@ export class EnvSchema {
   @IsString()
   FRONTEND_URL: string = 'http://localhost:3001';
 
+  @IsString()
+  API_BASE_URL: string = 'http://localhost:3000';
+
   @IsArray()
   @Transform(({ value }) => value ? value.split(',').map((v: string) => v.trim()) : ['http://localhost:3001'])
   CORS_ORIGINS: string[];
