@@ -10,6 +10,8 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { CurrentUser, RequestUser } from '@/common/decorators';
 import { OrganizationsService } from './organizations.service';
 import {
@@ -19,6 +21,10 @@ import {
 } from './dto';
 import { UsersService } from '../users/users.service';
 import { OrganizationRole } from '@/common/database/schemas';
+import {
+  PlatformConnection,
+  PlatformConnectionDocument,
+} from '@/common/database/schemas/platform-connection.schema';
 import { WidgetService } from '../widget/widget.service';
 import { UpdateWidgetConfigDto } from '../widget/dto/update-widget-config.dto';
 
@@ -35,6 +41,8 @@ export class OrganizationsController {
     private readonly organizationsService: OrganizationsService,
     private readonly usersService: UsersService,
     private readonly widgetService: WidgetService,
+    @InjectModel(PlatformConnection.name)
+    private platformConnectionModel: Model<PlatformConnectionDocument>,
   ) {}
 
   /**
@@ -279,5 +287,35 @@ export class OrganizationsController {
       OrganizationRole.ADMIN,
     ]);
     return this.organizationsService.revokeApiKey(id);
+  }
+
+  /**
+   * Get platform connections for organization
+   * GET /api/organizations/:id/connections
+   */
+  @Get(':id/connections')
+  async getConnections(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.organizationsService.assertRole(id, user.sub, [
+      OrganizationRole.OWNER,
+      OrganizationRole.ADMIN,
+      OrganizationRole.AGENT,
+      OrganizationRole.VIEWER,
+    ]);
+
+    const connections = await this.platformConnectionModel
+      .find({ organizationId: id })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    return connections.map((conn) => ({
+      id: conn._id,
+      platform: conn.platform,
+      platformAccountId: conn.platformAccountId,
+      platformAccountName: conn.platformAccountName,
+      status: conn.status,
+      createdAt: (conn as any).createdAt,
+      lastSyncAt: conn.lastSyncAt,
+      metadata: conn.metadata,
+    }));
   }
 }

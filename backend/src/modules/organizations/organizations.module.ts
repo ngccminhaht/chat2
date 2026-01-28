@@ -5,6 +5,8 @@ import {
   OrganizationSchema,
   OrganizationMember,
   OrganizationMemberSchema,
+  PlatformConnection,
+  PlatformConnectionSchema,
 } from '@/common/database/schemas';
 import { OrganizationsService } from './organizations.service';
 import { OrganizationsController } from './organizations.controller';
@@ -16,6 +18,7 @@ import { WidgetModule } from '../widget/widget.module';
     MongooseModule.forFeature([
       { name: Organization.name, schema: OrganizationSchema },
       { name: OrganizationMember.name, schema: OrganizationMemberSchema },
+      { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
     forwardRef(() => UsersModule),
     WidgetModule,
