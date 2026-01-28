@@ -32,7 +32,8 @@ export const useConnectTelegram = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platformConnections'] });
+      // Invalidate connections query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
       setIsOpen(false);
       setBotToken('');
       setError(null);
