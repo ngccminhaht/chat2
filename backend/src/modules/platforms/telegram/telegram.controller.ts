@@ -48,10 +48,10 @@ export class TelegramController {
 
   /**
    * Receive webhook updates from Telegram
-   * POST /webhooks/telegram/:botToken
+   * POST /telegram/webhook/:botToken
    * This endpoint is called by Telegram when messages are sent to the bot
    */
-  @Post('/webhooks/telegram/:botToken')
+  @Post('webhook/:botToken')
   @Public()
   @HttpCode(HttpStatus.OK)
   async handleWebhook(
