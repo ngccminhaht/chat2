@@ -257,4 +257,21 @@ export class TelegramService {
   verifySignature(headerToken: string, storedSecret: string): boolean {
     return headerToken === storedSecret;
   }
+
+  /**
+   * Find connection by bot token
+   * Used by webhook handler to identify which bot received the update
+   */
+  async findConnectionByBotToken(botToken: string): Promise<PlatformConnectionDocument | null> {
+    // Extract bot ID from token (format: "123456:ABC-DEF...")
+    const botId = botToken.split(':')[0];
+
+    const connection = await this.platformConnectionModel.findOne({
+      platform: Platform.TELEGRAM,
+      platformAccountId: botId,
+      status: ConnectionStatus.ACTIVE,
+    });
+
+    return connection;
+  }
 }

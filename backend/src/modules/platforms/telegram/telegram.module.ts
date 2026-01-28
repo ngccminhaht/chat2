@@ -7,6 +7,7 @@ import {
   PlatformConnectionSchema,
 } from '@/common/database/schemas/platform-connection.schema';
 import { EnvModule } from '@/common/env/env.module';
+import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { EnvModule } from '@/common/env/env.module';
       { name: PlatformConnection.name, schema: PlatformConnectionSchema },
     ]),
     EnvModule,
+    WebhooksModule,
   ],
   controllers: [TelegramController],
   providers: [TelegramService],

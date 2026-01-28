@@ -18,7 +18,7 @@ export class WebhookPublisherService {
    * Returns immediately after publishing to platform-specific topic
    */
   async publishWebhookEvent(
-    platform: "facebook" | "zalo" | "tiktok" | "shopee",
+    platform: "facebook" | "zalo" | "tiktok" | "shopee" | "telegram",
     payload: any,
     signature?: string
   ): Promise<void> {
@@ -67,6 +67,8 @@ export class WebhookPublisherService {
         return KAFKA_TOPICS.TIKTOK_WEBHOOKS;
       case 'shopee':
         return KAFKA_TOPICS.SHOPEE_WEBHOOKS;
+      case 'telegram':
+        return KAFKA_TOPICS.TELEGRAM_WEBHOOKS;
       default:
         throw new Error(`Unknown platform: ${platform}`);
     }
@@ -86,6 +88,9 @@ export class WebhookPublisherService {
         return payload.shop_id || "unknown";
       case "shopee":
         return payload.shop_id || "unknown";
+      case "telegram":
+        // Bot ID from message (Telegram always includes bot info in updates)
+        return payload.message?.chat?.id?.toString() || "unknown";
       default:
         return "unknown";
     }
@@ -105,6 +110,12 @@ export class WebhookPublisherService {
       case "tiktok":
       case "shopee":
         return payload.event || "unknown";
+      case "telegram":
+        if (payload.message) return "message";
+        if (payload.edited_message) return "edited_message";
+        if (payload.channel_post) return "channel_post";
+        if (payload.callback_query) return "callback_query";
+        return "unknown";
       default:
         return "unknown";
     }

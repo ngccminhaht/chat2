@@ -9,6 +9,7 @@ export const KAFKA_TOPICS = {
   ZALO_WEBHOOKS: "platform.zalo.webhooks",
   TIKTOK_WEBHOOKS: "platform.tiktok.webhooks",
   SHOPEE_WEBHOOKS: "platform.shopee.webhooks",
+  TELEGRAM_WEBHOOKS: "platform.telegram.webhooks",
 
   // Normalized inbound messages (partitioned by conversationId)
   MESSAGES_INCOMING: "messages.incoming",
