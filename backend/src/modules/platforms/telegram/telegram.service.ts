@@ -78,11 +78,27 @@ export class TelegramService {
     // Step 3: Generate webhook secret (for X-Telegram-Bot-Api-Secret-Token header)
     const webhookSecret = this.generateWebhookSecret();
 
-    // Step 4: Set webhook URL
-    const webhookUrl = this.getWebhookUrl(botToken);
-    await this.setWebhook(botToken, webhookUrl, webhookSecret);
+    // Step 4: Set webhook URL (skip in local development if no public URL)
+    const baseUrl = this.envService.get('API_BASE_URL');
+    let webhookUrl = '';
 
-    this.logger.log(`Webhook set successfully: ${webhookUrl}`);
+    if (baseUrl.startsWith('https://') || baseUrl.startsWith('http://localhost')) {
+      webhookUrl = this.getWebhookUrl(botToken);
+
+      try {
+        await this.setWebhook(botToken, webhookUrl, webhookSecret);
+        this.logger.log(`Webhook set successfully: ${webhookUrl}`);
+      } catch (error) {
+        // If webhook setup fails, delete the webhook to use polling instead
+        this.logger.warn(`Webhook setup failed: ${error.message}. Bot will use polling mode.`);
+        await this.deleteWebhook(botToken);
+        webhookUrl = ''; // Clear webhook URL to indicate polling mode
+      }
+    } else {
+      this.logger.warn(
+        `Skipping webhook setup (requires HTTPS). Bot will use polling mode. API_BASE_URL: ${baseUrl}`,
+      );
+    }
 
     // Step 5: Save connection to database
     const connection = new this.platformConnectionModel({
@@ -152,6 +168,8 @@ export class TelegramService {
     secretToken: string,
   ): Promise<void> {
     try {
+      this.logger.log(`Setting webhook: ${webhookUrl}`);
+
       const response = await axios.post<TelegramSetWebhookResponse>(
         `${this.telegramApiBaseUrl}/bot${botToken}/setWebhook`,
         {
@@ -164,6 +182,7 @@ export class TelegramService {
       );
 
       if (!response.data.ok) {
+        this.logger.error(`Telegram setWebhook failed: ${response.data.description}`);
         throw new BadRequestException(
           `Failed to set webhook: ${response.data.description || 'Unknown error'}`,
         );
@@ -171,8 +190,37 @@ export class TelegramService {
 
       this.logger.log('Webhook set successfully');
     } catch (error) {
+      // Log full error details for debugging
+      if (error.response) {
+        this.logger.error('Telegram API error response:', {
+          status: error.response.status,
+          data: error.response.data,
+        });
+
+        // Extract Telegram's error description
+        const telegramError = error.response.data?.description || error.response.data?.message;
+        if (telegramError) {
+          throw new BadRequestException(`Telegram webhook error: ${telegramError}`);
+        }
+      }
+
       this.logger.error('Failed to set webhook:', error.message);
       throw new BadRequestException(`Failed to set webhook: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete webhook (fallback to polling mode)
+   */
+  private async deleteWebhook(botToken: string): Promise<void> {
+    try {
+      await axios.post(
+        `${this.telegramApiBaseUrl}/bot${botToken}/deleteWebhook`,
+        { drop_pending_updates: true },
+      );
+      this.logger.log('Webhook deleted, bot will use polling mode');
+    } catch (error) {
+      this.logger.warn('Failed to delete webhook:', error.message);
     }
   }
 
@@ -189,6 +237,14 @@ export class TelegramService {
    */
   private getWebhookUrl(botToken: string): string {
     const baseUrl = this.envService.get('API_BASE_URL');
+
+    // Telegram webhooks REQUIRE HTTPS (or localhost for testing with http)
+    if (!baseUrl.startsWith('https://') && !baseUrl.startsWith('http://localhost')) {
+      throw new BadRequestException(
+        'Telegram webhooks require HTTPS URL. Please set API_BASE_URL to a public HTTPS domain.',
+      );
+    }
+
     // Use bot token as unique identifier in webhook URL
     // This allows multiple bots without needing connectionId upfront
     return `${baseUrl}/webhooks/telegram/${botToken}`;
