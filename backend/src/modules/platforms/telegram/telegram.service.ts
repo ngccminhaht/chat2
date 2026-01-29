@@ -233,7 +233,7 @@ export class TelegramService {
 
   /**
    * Get webhook URL for this bot
-   * Format: https://your-domain.com/telegram/webhook/<botToken>
+   * Format: https://your-domain.com/api/telegram/webhook/<botToken>
    */
   private getWebhookUrl(botToken: string): string {
     const baseUrl = this.envService.get('API_BASE_URL');
@@ -246,8 +246,8 @@ export class TelegramService {
     }
 
     // Use bot token as unique identifier in webhook URL
-    // This allows multiple bots without needing connectionId upfront
-    return `${baseUrl}/telegram/webhook/${botToken}`;
+    // Route is /api/telegram/webhook/:botToken (NestJS adds /api prefix)
+    return `${baseUrl}/api/telegram/webhook/${botToken}`;
   }
 
   /**
