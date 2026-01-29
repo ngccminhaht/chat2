@@ -68,29 +68,31 @@ function ApiEndpointCard({ endpoint }: { endpoint: ApiEndpoint }) {
 export default function IntegrationsPage() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
-  const getOrganizationEndpoint: ApiEndpoint = {
+  const getOrganizationsEndpoint: ApiEndpoint = {
     method: 'GET',
-    path: '/external/organization',
-    description: 'Get organization info. Organization is automatically determined from your API key.',
-    responseBody: `{
-  "id": "org_123",
-  "name": "My Organization",
-  "slug": "my-org",
-  "description": "Organization description",
-  "plan": "free",
-  "settings": {...},
-  "isActive": true,
-  "createdAt": "2024-01-01T00:00:00Z",
-  "updatedAt": "2024-01-20T10:30:00Z"
-}`,
-    curl: `curl -X GET "${baseUrl}/external/organization" \\
+    path: '/external/organizations',
+    description: 'List all organizations accessible by your API key.',
+    responseBody: `[
+  {
+    "id": "org_123",
+    "name": "My Organization",
+    "slug": "my-org",
+    "description": "Organization description",
+    "plan": "free",
+    "settings": {...},
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-20T10:30:00Z"
+  }
+]`,
+    curl: `curl -X GET "${baseUrl}/external/organizations" \\
   -H "X-API-Key: YOUR_API_KEY"`,
   };
 
   const getConnectionsEndpoint: ApiEndpoint = {
     method: 'GET',
-    path: '/external/connections',
-    description: 'List all platform connections for your organization. Organization is automatically determined from your API key.',
+    path: '/external/organizations/:id/connections',
+    description: 'List all platform connections for a specific organization.',
     responseBody: `[
   {
     "id": "conn_123",
@@ -102,7 +104,7 @@ export default function IntegrationsPage() {
     "createdAt": "2024-01-01T00:00:00Z"
   }
 ]`,
-    curl: `curl -X GET "${baseUrl}/external/connections" \\
+    curl: `curl -X GET "${baseUrl}/external/organizations/ORG_ID/connections" \\
   -H "X-API-Key: YOUR_API_KEY"`,
   };
 
@@ -156,11 +158,11 @@ export default function IntegrationsPage() {
 
           <Stack spacing={3}>
             <Box>
-              <Typography variant="subtitle1" gutterBottom>Get Organization</Typography>
+              <Typography variant="subtitle1" gutterBottom>List Organizations</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Retrieve your organization info.
+                List all organizations accessible by your API key.
               </Typography>
-              <ApiEndpointCard endpoint={getOrganizationEndpoint} />
+              <ApiEndpointCard endpoint={getOrganizationsEndpoint} />
             </Box>
 
             <Box>

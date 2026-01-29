@@ -21,37 +21,45 @@ export class ExternalApiController {
   ) {}
 
   /**
-   * Get organization info by API key
-   * GET /api/external/organization
+   * List all organizations accessible by API key
+   * GET /api/external/organizations
    *
    * Authentication: X-API-Key header
-   * Organization is automatically determined from API key
+   * Returns array of organizations (currently only the one associated with API key)
    */
-  @Get('organization')
-  async getOrganization(@Req() req: any) {
+  @Get('organizations')
+  async getOrganizations(@Req() req: any) {
     const org = req.organization;
-    return {
-      id: org._id.toString(),
-      name: org.name,
-      slug: org.slug,
-      description: org.description,
-      plan: org.plan,
-      settings: org.settings,
-      isActive: org.isActive,
-      createdAt: org.createdAt,
-      updatedAt: org.updatedAt,
-    };
+    return [
+      {
+        id: org._id.toString(),
+        name: org.name,
+        slug: org.slug,
+        description: org.description,
+        plan: org.plan,
+        settings: org.settings,
+        isActive: org.isActive,
+        createdAt: org.createdAt,
+        updatedAt: org.updatedAt,
+      },
+    ];
   }
 
   /**
-   * List platform connections for the organization
-   * GET /api/external/connections
+   * List platform connections for a specific organization
+   * GET /api/external/organizations/:id/connections
    *
    * Authentication: X-API-Key header
-   * Organization is automatically determined from API key
    */
-  @Get('connections')
-  async getConnections(@CurrentOrganization() organizationId: string) {
+  @Get('organizations/:id/connections')
+  async getConnections(
+    @Param('id') organizationId: string,
+    @Req() req: any,
+  ) {
+    // Verify user has access to this organization (must match API key's org)
+    if (req.organization._id.toString() !== organizationId) {
+      return [];
+    }
     return this.connectionsService.findAllByOrganization(organizationId);
   }
 
