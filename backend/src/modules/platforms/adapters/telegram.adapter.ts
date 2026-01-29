@@ -382,8 +382,18 @@ export class TelegramAdapter extends BasePlatformAdapter {
     recipientId: string,
     payload: PlatformPayload,
   ): Promise<SendResult> {
+    this.logger.log(`📤 Telegram send() called`);
+    this.logger.log(`  Recipient: ${recipientId}`);
+    this.logger.log(`  Payload: ${JSON.stringify(payload)}`);
+
     try {
       const botToken = (connection.credentials as any).botToken;
+      if (!botToken) {
+        this.logger.error(`❌ No botToken in connection credentials`);
+        return { success: false, error: 'No bot token found in connection' };
+      }
+
+      this.logger.log(`  Bot token: ***${botToken.slice(-6)}`);
       const baseUrl = `${this.apiBaseUrl}${botToken}`;
 
       let response;
@@ -394,6 +404,7 @@ export class TelegramAdapter extends BasePlatformAdapter {
         const method = this.getMediaMethod(mediaType);
         const mediaField = this.getMediaField(mediaType);
 
+        this.logger.log(`  Sending media: ${method}, field=${mediaField}`);
         response = await axios.post(`${baseUrl}/${method}`, {
           chat_id: recipientId,
           [mediaField]: payload.mediaUrl,
@@ -401,6 +412,7 @@ export class TelegramAdapter extends BasePlatformAdapter {
         });
       } else {
         // Send text message
+        this.logger.log(`  Sending text message to chat_id=${recipientId}`);
         response = await axios.post(`${baseUrl}/sendMessage`, {
           chat_id: recipientId,
           text: payload.text,
@@ -408,19 +420,25 @@ export class TelegramAdapter extends BasePlatformAdapter {
         });
       }
 
+      this.logger.log(`  Telegram API response: ok=${response.data.ok}`);
+
       if (!response.data.ok) {
+        this.logger.error(`  ❌ Telegram API error: ${response.data.description}`);
         return {
           success: false,
           error: response.data.description || 'Unknown error',
         };
       }
 
+      const platformMessageId = `${recipientId}_${response.data.result.message_id}`;
+      this.logger.log(`  ✅ Message sent: ${platformMessageId}`);
+
       return {
         success: true,
-        platformMessageId: `${recipientId}_${response.data.result.message_id}`,
+        platformMessageId,
       };
     } catch (error) {
-      this.logger.error('Telegram send failed:', error.response?.data || error.message);
+      this.logger.error('❌ Telegram send failed:', error.response?.data || error.message);
       return {
         success: false,
         error: error.response?.data?.description || error.message,
