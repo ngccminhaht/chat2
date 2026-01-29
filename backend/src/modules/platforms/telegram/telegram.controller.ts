@@ -59,21 +59,30 @@ export class TelegramController {
     @Headers('x-telegram-bot-api-secret-token') secretToken: string,
     @Body() payload: any,
   ): Promise<{ success: boolean }> {
-    this.logger.log(`📥 Telegram Webhook: bot=***${botToken.slice(-6)}`);
+    this.logger.log(`📥 Telegram Webhook received`);
+    this.logger.log(`  Bot token: ***${botToken.slice(-6)}`);
+    this.logger.log(`  Payload: ${JSON.stringify(payload)}`);
+    this.logger.log(`  Secret token present: ${!!secretToken}`);
 
     // Step 1: Find connection by bot token
+    this.logger.log(`  Step 1: Finding connection for bot...`);
     const connection = await this.telegramService.findConnectionByBotToken(botToken);
     if (!connection) {
-      this.logger.warn(`❌ Bot token not found`);
+      this.logger.warn(`❌ Bot token not found in database`);
       throw new BadRequestException('Invalid bot token');
     }
+    this.logger.log(`  ✅ Found connection: ${connection._id}`);
 
     // Step 2: Verify webhook secret
+    this.logger.log(`  Step 2: Verifying webhook secret...`);
     const storedSecret = (connection.credentials as any).webhookSecret;
     if (!storedSecret || !this.telegramService.verifySignature(secretToken, storedSecret)) {
       this.logger.warn(`❌ Invalid webhook secret`);
+      this.logger.warn(`  Received: ${secretToken?.substring(0, 10)}...`);
+      this.logger.warn(`  Expected: ${storedSecret?.substring(0, 10)}...`);
       throw new BadRequestException('Invalid webhook secret');
     }
+    this.logger.log(`  ✅ Webhook secret verified`);
 
     // Step 3: Publish to Kafka with botId injected
     // Telegram webhook doesn't include bot info, so we inject it from URL
@@ -83,13 +92,14 @@ export class TelegramController {
       _botId: botId, // Internal field for adapter to extract
     };
 
+    this.logger.log(`  Step 3: Publishing to Kafka with botId=${botId}...`);
     await this.webhookPublisher.publishWebhookEvent(
       'telegram',
       enrichedPayload,
       secretToken,
     );
 
-    this.logger.log(`✅ Webhook published to Kafka`);
+    this.logger.log(`✅ Telegram webhook processed and published to Kafka`);
     return { success: true };
   }
 }
