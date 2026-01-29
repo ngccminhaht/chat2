@@ -68,46 +68,6 @@ function ApiEndpointCard({ endpoint }: { endpoint: ApiEndpoint }) {
 export default function IntegrationsPage() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
-  const getOrganizationsEndpoint: ApiEndpoint = {
-    method: 'GET',
-    path: '/external/organizations',
-    description: 'List all organizations accessible by your API key.',
-    responseBody: `[
-  {
-    "id": "org_123",
-    "name": "My Organization",
-    "slug": "my-org",
-    "description": "Organization description",
-    "plan": "free",
-    "settings": {...},
-    "isActive": true,
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-20T10:30:00Z"
-  }
-]`,
-    curl: `curl -X GET "${baseUrl}/external/organizations" \\
-  -H "X-API-Key: YOUR_API_KEY"`,
-  };
-
-  const getConnectionsEndpoint: ApiEndpoint = {
-    method: 'GET',
-    path: '/external/organizations/:id/connections',
-    description: 'List all platform connections for a specific organization.',
-    responseBody: `[
-  {
-    "id": "conn_123",
-    "platform": "facebook",
-    "platformAccountId": "123456789",
-    "platformAccountName": "My Page",
-    "status": "active",
-    "aiSettings": { "enabled": true },
-    "createdAt": "2024-01-01T00:00:00Z"
-  }
-]`,
-    curl: `curl -X GET "${baseUrl}/external/organizations/ORG_ID/connections" \\
-  -H "X-API-Key: YOUR_API_KEY"`,
-  };
-
   const updateConversationEndpoint: ApiEndpoint = {
     method: 'PATCH',
     path: '/external/conversations/:id',
@@ -157,22 +117,6 @@ export default function IntegrationsPage() {
           </Alert>
 
           <Stack spacing={3}>
-            <Box>
-              <Typography variant="subtitle1" gutterBottom>List Organizations</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                List all organizations accessible by your API key.
-              </Typography>
-              <ApiEndpointCard endpoint={getOrganizationsEndpoint} />
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle1" gutterBottom>List Connections</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Get all platform connections for your organization.
-              </Typography>
-              <ApiEndpointCard endpoint={getConnectionsEndpoint} />
-            </Box>
-
             <Box>
               <Typography variant="subtitle1" gutterBottom>Update Conversation</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
