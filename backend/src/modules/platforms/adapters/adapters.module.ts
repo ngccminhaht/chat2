@@ -9,6 +9,7 @@ import { FacebookAdapter } from './facebook.adapter';
 import { ZaloAdapter } from './zalo.adapter';
 import { ShopeeAdapter } from './shopee.adapter';
 import { TikTokAdapter } from './tiktok.adapter';
+import { TelegramAdapter } from './telegram.adapter';
 import { WebPlatformAdapter } from './web.adapter';
 
 @Module({
@@ -17,6 +18,7 @@ import { WebPlatformAdapter } from './web.adapter';
     ZaloAdapter,
     ShopeeAdapter,
     TikTokAdapter,
+    TelegramAdapter,
     WebPlatformAdapter,
   ],
   exports: [
@@ -24,6 +26,7 @@ import { WebPlatformAdapter } from './web.adapter';
     ZaloAdapter,
     ShopeeAdapter,
     TikTokAdapter,
+    TelegramAdapter,
     WebPlatformAdapter,
   ],
 })
@@ -34,6 +37,7 @@ export class AdaptersModule implements OnModuleInit {
     private readonly zaloAdapter: ZaloAdapter,
     private readonly shopeeAdapter: ShopeeAdapter,
     private readonly tiktokAdapter: TikTokAdapter,
+    private readonly telegramAdapter: TelegramAdapter,
     private readonly webAdapter: WebPlatformAdapter,
   ) {}
 
@@ -43,6 +47,7 @@ export class AdaptersModule implements OnModuleInit {
     this.platformRegistry.register(this.zaloAdapter);
     this.platformRegistry.register(this.shopeeAdapter);
     this.platformRegistry.register(this.tiktokAdapter);
+    this.platformRegistry.register(this.telegramAdapter);
     this.platformRegistry.register(this.webAdapter);
   }
 }
