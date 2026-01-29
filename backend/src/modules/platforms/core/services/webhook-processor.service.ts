@@ -271,6 +271,10 @@ export class WebhookProcessorService {
       );
     }
 
+    this.logger.log(
+      `  👤 [${adapter.platform}] User profile: name="${userProfile.name}", avatar=${userProfile.avatar ? 'YES' : 'NO'}`
+    );
+
     // 3. For Facebook comments, fetch post content for AI context
     let postContent: { message?: string; story?: string } | null = null;
     if (isComment && adapter.platform === Platform.FACEBOOK) {
