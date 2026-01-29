@@ -11,7 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { CurrentUser, RequestUser } from '@/common/decorators';
 import { OrganizationsService } from './organizations.service';
 import {
@@ -303,7 +303,7 @@ export class OrganizationsController {
     ]);
 
     const connections = await this.platformConnectionModel
-      .find({ organizationId: id })
+      .find({ organizationId: new Types.ObjectId(id) })
       .sort({ createdAt: -1 })
       .exec();
 
