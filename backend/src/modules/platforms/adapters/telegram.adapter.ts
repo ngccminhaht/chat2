@@ -475,35 +475,46 @@ export class TelegramAdapter extends BasePlatformAdapter {
     connection: PlatformConnectionDocument,
     userId: string,
   ): Promise<UserProfile> {
+    this.logger.log(`👤 [fetchUserProfile] Fetching profile for userId: ${userId}`);
     try {
       const botToken = (connection.credentials as any).botToken;
       const response = await axios.get(`${this.apiBaseUrl}${botToken}/getChat`, {
         params: { chat_id: userId },
       });
 
+      this.logger.log(`  📥 getChat response ok: ${response.data.ok}`);
+
       if (!response.data.ok) {
+        this.logger.warn(`  ⚠️ getChat failed: ${response.data.description}`);
         return this.createDefaultProfile(userId, 'Telegram');
       }
 
       const chat = response.data.result;
       const name = [chat.first_name, chat.last_name].filter(Boolean).join(' ') || chat.username;
 
+      this.logger.log(`  👤 Chat info: name=${name}, username=${chat.username}, hasPhoto=${!!chat.photo}`);
+
       // Get profile photo if available
       let avatar: string | undefined;
       if (chat.photo) {
+        this.logger.log(`  📷 Photo found: small_file_id=${chat.photo.small_file_id}, big_file_id=${chat.photo.big_file_id}`);
         try {
           const photoResponse = await axios.get(`${this.apiBaseUrl}${botToken}/getFile`, {
             params: { file_id: chat.photo.small_file_id },
           });
+          this.logger.log(`  📷 getFile response ok: ${photoResponse.data.ok}`);
           if (photoResponse.data.ok) {
             avatar = `https://api.telegram.org/file/bot${botToken}/${photoResponse.data.result.file_path}`;
+            this.logger.log(`  ✅ Avatar URL: ${avatar}`);
           }
-        } catch {
-          // Ignore photo fetch errors
+        } catch (photoError) {
+          this.logger.warn(`  ⚠️ Failed to fetch photo: ${photoError.message}`);
         }
+      } else {
+        this.logger.log(`  ℹ️ No profile photo set for user`);
       }
 
-      return {
+      const profile: UserProfile = {
         id: userId,
         name: name || `Telegram User ${userId.substring(0, 8)}`,
         avatar,
@@ -512,8 +523,11 @@ export class TelegramAdapter extends BasePlatformAdapter {
           type: chat.type,
         },
       };
+
+      this.logger.log(`  ✅ Profile fetched: name=${profile.name}, hasAvatar=${!!profile.avatar}`);
+      return profile;
     } catch (error) {
-      this.logger.warn(`Failed to fetch Telegram profile for ${userId}: ${error.message}`);
+      this.logger.warn(`❌ Failed to fetch Telegram profile for ${userId}: ${error.message}`);
       return this.createDefaultProfile(userId, 'Telegram');
     }
   }

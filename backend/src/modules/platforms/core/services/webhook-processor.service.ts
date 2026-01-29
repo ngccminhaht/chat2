@@ -345,6 +345,10 @@ export class WebhookProcessorService {
       this.logger.log(`  📤 Calling processInboundMessage for comment...`);
     }
 
+    this.logger.log(
+      `📤 [handleMessage] Calling processInboundMessage | customerName: ${userProfile.name}, customerAvatar: ${userProfile.avatar ? 'YES' : 'NO'}`
+    );
+
     const result = await this.inboundMessageHandler.processInboundMessage({
       platform: adapter.platform,
       organizationId: connection.organizationId.toString(),
