@@ -25,6 +25,7 @@ import { PlatformsModule } from './modules/platforms/platforms.module';
 import { WidgetModule } from './modules/widget/widget.module';
 import { QuickRepliesModule } from './modules/quick-replies/quick-replies.module';
 import { CustomersModule } from './modules/customers/customers.module';
+import { ExternalApiModule } from './modules/external-api/external-api.module';
 
 @Module({
   imports: [
@@ -84,6 +85,9 @@ import { CustomersModule } from './modules/customers/customers.module';
 
     // Customer management (CRM)
     CustomersModule,
+
+    // External API (API key authenticated)
+    ExternalApiModule,
   ],
   providers: [
     // Global Keycloak guards - Order matters!

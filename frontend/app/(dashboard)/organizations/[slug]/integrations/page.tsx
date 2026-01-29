@@ -68,6 +68,44 @@ function ApiEndpointCard({ endpoint }: { endpoint: ApiEndpoint }) {
 export default function IntegrationsPage() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
+  const getOrganizationEndpoint: ApiEndpoint = {
+    method: 'GET',
+    path: '/external/organization',
+    description: 'Get organization info. Organization is automatically determined from your API key.',
+    responseBody: `{
+  "id": "org_123",
+  "name": "My Organization",
+  "slug": "my-org",
+  "description": "Organization description",
+  "plan": "free",
+  "settings": {...},
+  "isActive": true,
+  "createdAt": "2024-01-01T00:00:00Z",
+  "updatedAt": "2024-01-20T10:30:00Z"
+}`,
+    curl: `curl -X GET "${baseUrl}/external/organization" \\
+  -H "X-API-Key: YOUR_API_KEY"`,
+  };
+
+  const getConnectionsEndpoint: ApiEndpoint = {
+    method: 'GET',
+    path: '/external/connections',
+    description: 'List all platform connections for your organization. Organization is automatically determined from your API key.',
+    responseBody: `[
+  {
+    "id": "conn_123",
+    "platform": "facebook",
+    "platformAccountId": "123456789",
+    "platformAccountName": "My Page",
+    "status": "active",
+    "aiSettings": { "enabled": true },
+    "createdAt": "2024-01-01T00:00:00Z"
+  }
+]`,
+    curl: `curl -X GET "${baseUrl}/external/connections" \\
+  -H "X-API-Key: YOUR_API_KEY"`,
+  };
+
   const updateConversationEndpoint: ApiEndpoint = {
     method: 'PATCH',
     path: '/external/conversations/:id',
@@ -116,12 +154,30 @@ export default function IntegrationsPage() {
             Use your API key in the <code>X-API-Key</code> header. Organization is automatically determined from your API key.
           </Alert>
 
-          <Stack spacing={2}>
-            <Typography variant="subtitle1">Update Conversation</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Enable or disable AI auto-reply for a specific conversation.
-            </Typography>
-            <ApiEndpointCard endpoint={updateConversationEndpoint} />
+          <Stack spacing={3}>
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>Get Organization</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Retrieve your organization info.
+              </Typography>
+              <ApiEndpointCard endpoint={getOrganizationEndpoint} />
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>List Connections</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Get all platform connections for your organization.
+              </Typography>
+              <ApiEndpointCard endpoint={getConnectionsEndpoint} />
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>Update Conversation</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Enable or disable AI auto-reply for a specific conversation.
+              </Typography>
+              <ApiEndpointCard endpoint={updateConversationEndpoint} />
+            </Box>
           </Stack>
         </Paper>
       </Stack>

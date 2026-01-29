@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ConversationsController } from "./conversations.controller";
-import { ExternalApiController } from "./external-api.controller";
 import { ConversationsService } from "./conversations.service";
 import {
   Conversation,
@@ -26,7 +25,7 @@ import { OrganizationsModule } from "../organizations/organizations.module";
     ]),
     OrganizationsModule,
   ],
-  controllers: [ConversationsController, ExternalApiController],
+  controllers: [ConversationsController],
   providers: [ConversationsService],
   exports: [ConversationsService],
 })
