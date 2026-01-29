@@ -75,10 +75,17 @@ export class TelegramController {
       throw new BadRequestException('Invalid webhook secret');
     }
 
-    // Step 3: Publish to Kafka
+    // Step 3: Publish to Kafka with botId injected
+    // Telegram webhook doesn't include bot info, so we inject it from URL
+    const botId = botToken.split(':')[0];
+    const enrichedPayload = {
+      ...payload,
+      _botId: botId, // Internal field for adapter to extract
+    };
+
     await this.webhookPublisher.publishWebhookEvent(
       'telegram',
-      payload,
+      enrichedPayload,
       secretToken,
     );
 

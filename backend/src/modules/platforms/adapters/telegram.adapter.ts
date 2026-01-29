@@ -149,15 +149,17 @@ export class TelegramAdapter extends BasePlatformAdapter {
   // ==================== Webhook Parsing ====================
 
   extractAccountId(payload: unknown): string {
-    // For Telegram, bot token is used as account identifier
-    // But in webhook, we get chat.id as recipient
-    const update = payload as TelegramUpdate;
+    // Bot ID is injected by controller as _botId field
+    // This matches platformAccountId stored in database
+    const update = payload as TelegramUpdate & { _botId?: string };
+    if (update._botId) {
+      return update._botId;
+    }
+    // Fallback: should not reach here if controller properly injects _botId
+    this.logger.warn('No _botId found in payload, using chat.id as fallback');
     const message = update.message || update.edited_message;
     if (message) {
       return message.chat.id.toString();
-    }
-    if (update.callback_query?.message) {
-      return update.callback_query.message.chat.id.toString();
     }
     return 'unknown';
   }
