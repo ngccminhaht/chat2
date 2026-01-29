@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { randomBytes } from 'crypto';
 import axios from 'axios';
 import { EnvService } from '@/common/env';
@@ -102,7 +102,7 @@ export class TelegramService {
 
     // Step 5: Save connection to database
     const connection = new this.platformConnectionModel({
-      organizationId,
+      organizationId: new Types.ObjectId(organizationId),
       platform: Platform.TELEGRAM,
       platformAccountId: String(botInfo.id),
       platformAccountName: botInfo.username || botInfo.first_name,
