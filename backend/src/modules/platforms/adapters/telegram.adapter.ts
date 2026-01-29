@@ -207,6 +207,12 @@ export class TelegramAdapter extends BasePlatformAdapter {
       return null;
     }
 
+    // Skip group/supergroup/channel messages (only handle private chats for now)
+    if (message.chat.type !== 'private') {
+      this.logger.log(`  ⏭️ Skipping ${message.chat.type} message (chat_id: ${message.chat.id})`);
+      return null;
+    }
+
     const senderId = message.from?.id?.toString() || message.chat.id.toString();
     const recipientId = message.chat.id.toString(); // Chat ID is the conversation context
     const timestamp = new Date(message.date * 1000);
@@ -227,6 +233,12 @@ export class TelegramAdapter extends BasePlatformAdapter {
   }
 
   private parseCallbackQuery(query: TelegramCallbackQuery): MessageEvent | null {
+    // Skip callback queries from group/supergroup/channel (only handle private chats for now)
+    if (query.message?.chat.type && query.message.chat.type !== 'private') {
+      this.logger.log(`  ⏭️ Skipping ${query.message.chat.type} callback query`);
+      return null;
+    }
+
     const senderId = query.from.id.toString();
     const recipientId = query.message?.chat.id.toString() || senderId;
     const timestamp = query.message ? new Date(query.message.date * 1000) : new Date();
