@@ -201,6 +201,7 @@ export class FacebookController {
     this.logger.log("🔐 User authorizing Facebook:", {
       userId: dto.userId,
       organizationId: dto.organizationId,
+      redirectUri: dto.redirectUri,
     });
 
     const { url, state } = this.facebookService.getAuthorizationUrl(dto.state);
@@ -209,6 +210,7 @@ export class FacebookController {
       state,
       userId: dto.userId,
       organizationId: dto.organizationId,
+      redirectUri: dto.redirectUri,
       createdAt: Date.now(),
     });
 
@@ -252,14 +254,30 @@ export class FacebookController {
 
     const org = await this.organizationsService.findById(organizationId);
     const frontendUrl = this.envService.get("FRONTEND_URL");
+    const customRedirectUri = storedStateData.redirectUri;
+
+    // Helper to build redirect URL
+    const buildRedirectUrl = (params: Record<string, string>) => {
+      if (customRedirectUri) {
+        const url = new URL(customRedirectUri);
+        Object.entries(params).forEach(([key, value]) => {
+          if (value) url.searchParams.set(key, value);
+        });
+        return url.toString();
+      }
+      const queryString = Object.entries(params)
+        .filter(([, value]) => value)
+        .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+        .join("&");
+      return `${frontendUrl}/organizations/${org.slug}/channels?${queryString}`;
+    };
 
     if (pages.length === 0) {
       return res.redirect(
-        `${frontendUrl}/organizations/${
-          org.slug
-        }/channels?platform=facebook&error=${encodeURIComponent(
-          "No Facebook pages found"
-        )}`
+        buildRedirectUrl({
+          platform: "facebook",
+          error: "No Facebook pages found",
+        })
       );
     }
 
@@ -294,7 +312,10 @@ export class FacebookController {
     // Redirect with first connection ID for highlight
     const newId = connections.length > 0 ? connections[0].id : "";
     return res.redirect(
-      `${frontendUrl}/organizations/${org.slug}/channels?platform=facebook&new=${newId}`
+      buildRedirectUrl({
+        platform: "facebook",
+        new: newId,
+      })
     );
   }
 
@@ -310,6 +331,7 @@ export class FacebookController {
     this.logger.log("📝 Generating auth URL and storing state for user:", {
       userId,
       organizationId: dto.organizationId,
+      redirectUri: dto.redirectUri,
       state,
     });
 
@@ -317,6 +339,7 @@ export class FacebookController {
       state,
       userId,
       organizationId: dto.organizationId,
+      redirectUri: dto.redirectUri,
       createdAt: Date.now(),
     });
 

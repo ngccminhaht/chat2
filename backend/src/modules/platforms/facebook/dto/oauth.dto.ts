@@ -8,6 +8,10 @@ export class FacebookAuthUrlDto {
   @IsNotEmpty()
   @IsString()
   organizationId: string;
+
+  @IsOptional()
+  @IsString()
+  redirectUri?: string;
 }
 
 export class FacebookAuthorizeDto {
@@ -22,6 +26,10 @@ export class FacebookAuthorizeDto {
   @IsOptional()
   @IsString()
   state?: string;
+
+  @IsOptional()
+  @IsString()
+  redirectUri?: string;
 }
 
 export class FacebookCallbackDto {
