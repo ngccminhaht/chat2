@@ -17,6 +17,7 @@ export interface CombinedMessageData {
   }>;
   latestMessage: {
     conversation: ConversationDocument;
+    message: MessageDocument;
     conversationData?: any;
   };
 }
@@ -37,7 +38,6 @@ export class MessageCombiner {
    */
   private static getPlatformLabel(
     platform: string,
-    conversation?: ConversationDocument,
     message?: MessageDocument
   ): string {
     const labels: Record<string, string> = {
@@ -124,11 +124,15 @@ export class MessageCombiner {
     );
 
     sortedMessages.forEach((item, index) => {
-      const { message } = item;
+      const { message, conversation } = item;
 
       // Determine message direction
       const isInbound = (message as any).direction === "inbound";
       const isOutbound = (message as any).direction === "outbound";
+
+      // Get platform label for THIS specific message
+      const platform = (conversation?.platform || "web") as string;
+      const messagePlatformLabel = this.getPlatformLabel(platform, message);
 
       // Extract text content (skip media link patterns like [image: ...])
       if (message.content?.text) {
@@ -143,10 +147,13 @@ export class MessageCombiner {
           const sender = (message as any).sender;
 
           if (isInbound) {
-            // Customer message - add customer name prefix
+            // Customer message - add customer name AND platform label
             const customerName = sender?.name || "Customer";
-            if (!text.startsWith(`${customerName}:`)) {
-              text = `${customerName}: ${text}`;
+            // Format: [FACEBOOK:INBOX] Customer: message text
+            // or:     [FACEBOOK:COMMENT] Customer: message text
+            const prefix = `[${messagePlatformLabel}] ${customerName}:`;
+            if (!text.startsWith(prefix)) {
+              text = `${prefix} ${text}`;
             }
           } else if (isOutbound) {
             // Outbound message - distinguish AI vs Human advisor
@@ -277,6 +284,9 @@ export class MessageCombiner {
         conversation:
           sortedMessages[sortedMessages.length - 1]?.conversation ||
           messages[0]?.conversation,
+        message:
+          sortedMessages[sortedMessages.length - 1]?.message ||
+          messages[0]?.message,
       },
     };
   }
@@ -330,10 +340,11 @@ export class MessageCombiner {
 
     // Add Zalo profile information from conversation metadata if available
     const conversation = combinedData.latestMessage?.conversation;
+    const latestMessage = combinedData.latestMessage?.message;
 
-    // Extract platform label for customer info header
+    // Extract platform label for customer info header (from latest message)
     const platform = (conversation?.platform || "web") as string;
-    const platformLabel = this.getPlatformLabel(platform, conversation);
+    const platformLabel = this.getPlatformLabel(platform, latestMessage);
 
     // Debug log
     console.log("🔍 [MessageCombiner] Conversation metadata:", {
