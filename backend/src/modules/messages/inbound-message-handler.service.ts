@@ -450,7 +450,6 @@ export class InboundMessageHandlerService {
 
   /**
    * Update conversation's lastMessage and increment unreadCount
-   * Also sets unsentCount = 1 for new inbound messages (will be reset to 0 when AI processes)
    */
   private async updateConversationLastMessage(
     conversation: ConversationDocument,
@@ -469,7 +468,7 @@ export class InboundMessageHandlerService {
           messageId: message._id,
           direction: input.direction,
         },
-        $inc: { unreadCount: 1, unsentCount: 1 }, // Increment both counts
+        $inc: { unreadCount: 1 },
       },
       { timestamps: true }
     );

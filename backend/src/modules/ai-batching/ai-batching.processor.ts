@@ -439,7 +439,6 @@ export class AIBatchingProcessor extends WorkerHost {
           direction: "outbound",
         },
         unreadCount: 0,
-        unsentCount: 0,
       });
 
       const serializedMsg = JSON.parse(JSON.stringify(message.toObject()));
@@ -455,7 +454,6 @@ export class AIBatchingProcessor extends WorkerHost {
           direction: "outbound",
         },
         unreadCount: 0,
-        unsentCount: 0,
       });
     }
   }

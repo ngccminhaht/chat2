@@ -23,8 +23,8 @@ export default function ConversationItem({ conversation, isActive, orgSlug }: Co
 
   const platformLabel = conversation.platform.toUpperCase();
 
-  // Show combined count: unread messages + unsent messages (exceeded timeout)
-  const totalBadgeCount = (conversation.unreadCount || 0) + (conversation.unsentCount || 0);
+  // Show only unread messages count
+  const totalBadgeCount = conversation.unreadCount || 0;
 
   return (
     <ListItem disablePadding>

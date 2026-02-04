@@ -81,7 +81,7 @@ export default function ConversationDetailPage() {
     }
   }, [conversationData]);
 
-  // Mark conversation as seen when user enters (resets unreadCount and unsentCount)
+  // Mark conversation as seen when user enters (resets unreadCount)
   useEffect(() => {
     if (conversationId && !document.hidden) {
       markAsSeen({ conversationId });

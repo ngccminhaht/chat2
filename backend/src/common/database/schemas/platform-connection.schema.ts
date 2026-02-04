@@ -11,7 +11,7 @@ export interface ConnectionAISettings {
   endpoint?: string; // API endpoint (default: https://api.miagent.io/v1/chat-messages)
   batchDelayMs?: number; // Delay before AI responds (default: 3000ms)
   maxImages?: number; // Maximum images per request (default: 3)
-  autoUnseenTimeoutSeconds?: number; // Auto unseen timeout (default: 0 - disabled)
+  autoUnseenTimeoutSeconds?: number; // [DEPRECATED] Not used anymore
 }
 
 @Schema({ timestamps: true })

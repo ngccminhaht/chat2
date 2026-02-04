@@ -42,16 +42,9 @@ export class ConversationsService {
   /**
    * Find all conversations for an organization
    * IMPORTANT: organizationId is REQUIRED for tenant isolation
-   * Computes virtual unsentCount based on lastSeenAt and autoUnseenTimeoutSeconds
    */
   async findAll(organizationId: string, dto: GetConversationsDto) {
     const { status, platform, search, unreadOnly, page = 1, limit = 20 } = dto;
-
-    // Auto-unseen timeout is now per-connection (stored in platformConnection.aiSettings)
-    // For conversation list, we skip timeout-based unseen logic since it varies per connection
-    // Each connection can have different timeoutSeconds, making aggregation complex
-    // TODO: If needed, implement aggregation that groups by connection and applies respective timeouts
-    const timeoutSeconds = 0;
 
     // CRITICAL: Always filter by organizationId
     const filter: any = {
@@ -67,22 +60,7 @@ export class ConversationsService {
     }
 
     if (unreadOnly) {
-      // Unread logic: unreadCount > 0 OR unsentCount > 0 OR (timeout-based unseen)
-      const unreadConditions: any[] = [
-        { unreadCount: { $gt: 0 } },
-        { unsentCount: { $gt: 0 } },
-      ];
-
-      if (timeoutSeconds > 0) {
-        const timeoutDate = new Date(Date.now() - timeoutSeconds * 1000);
-        // Conversation is "unseen" if: lastSeenAt < timeout AND lastMessage is inbound
-        unreadConditions.push({
-          lastSeenAt: { $lt: timeoutDate },
-          "lastMessage.direction": "inbound",
-        });
-      }
-
-      filter.$or = unreadConditions;
+      filter.unreadCount = { $gt: 0 };
     }
 
     if (search) {
@@ -115,30 +93,8 @@ export class ConversationsService {
       this.conversationModel.countDocuments(filter).exec(),
     ]);
 
-    // Compute virtual unsentCount for each conversation based on timeout
-    const now = Date.now();
-    const timeoutMs = timeoutSeconds * 1000;
-    const conversationsWithComputedUnsent = conversations.map((conv: any) => {
-      // If timeout is disabled or no lastSeenAt, return as-is
-      if (timeoutSeconds === 0 || !conv.lastSeenAt) {
-        return conv;
-      }
-
-      const timeSinceLastSeen = now - new Date(conv.lastSeenAt).getTime();
-      const isTimedOut = timeSinceLastSeen > timeoutMs;
-      const lastMessageIsInbound = conv.lastMessage?.direction === "inbound";
-
-      // If timed out and last message is inbound, set unsentCount to 1 (as indicator)
-      // This is a virtual count to show badge in UI
-      if (isTimedOut && lastMessageIsInbound && conv.unsentCount === 0) {
-        return { ...conv, unsentCount: 1 };
-      }
-
-      return conv;
-    });
-
     return {
-      data: conversationsWithComputedUnsent,
+      data: conversations,
       meta: {
         total,
         page,
@@ -210,7 +166,6 @@ export class ConversationsService {
   /**
    * Mark conversation as seen by updating lastSeenAt timestamp
    * Called when a user views/opens a conversation
-   * Used for auto-unsent timeout feature
    */
   async markAsSeen(organizationId: string, conversationId: string) {
     const conversation = await this.conversationModel
@@ -221,8 +176,7 @@ export class ConversationsService {
         },
         {
           lastSeenAt: new Date(),
-          unreadCount: 0, // Reset unread count when marking as seen
-          unsentCount: 0, // Reset unsent count when marking as seen
+          unreadCount: 0,
         },
         { new: true }
       )

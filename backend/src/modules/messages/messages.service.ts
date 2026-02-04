@@ -148,21 +148,13 @@ export class MessagesService {
     // Agent reply - cancel any pending AI batch and disable AI
     if (conversation.aiEnabled !== false) {
       await this.aiBatchingService.cancelBatch(conversationId);
-      // Disable AI when agent replies and reset unsentCount
       await this.conversationModel.findByIdAndUpdate(
         conversationId,
-        { aiEnabled: false, aiState: "AI_ACTIVE", unsentCount: 0 },
+        { aiEnabled: false, aiState: "AI_ACTIVE" },
         { timestamps: true }
       );
       this.logger.log(
         `🤖 Cancelled pending AI batch and disabled AI for conversation ${conversationId} (agent replied)`
-      );
-    } else {
-      // Even if AI was already disabled, reset unsentCount when agent replies
-      await this.conversationModel.findByIdAndUpdate(
-        conversationId,
-        { unsentCount: 0 },
-        { timestamps: true }
       );
     }
 
@@ -376,7 +368,6 @@ export class MessagesService {
     );
 
     // Reset conversation unread count to 0
-    // Note: unsentCount will be reset when conversation is viewed (markAsSeen)
     await this.conversationModel
       .findByIdAndUpdate(
         conversationId,

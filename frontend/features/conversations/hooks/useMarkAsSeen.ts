@@ -21,11 +21,10 @@ export function useMarkAsSeen() {
       return response.data;
     },
     onSuccess: (_, { conversationId }) => {
-      // Update Zustand store immediately to reset badge counts
+      // Update Zustand store immediately to reset badge count
       useConversationStore.getState().updateConversation({
         _id: conversationId,
         unreadCount: 0,
-        unsentCount: 0,
       } as any);
 
       // Invalidate conversation query to refresh from server

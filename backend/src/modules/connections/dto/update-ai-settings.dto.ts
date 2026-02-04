@@ -32,6 +32,7 @@ export class UpdateAISettingsDto {
   @Max(10)
   maxImages?: number;
 
+  // [DEPRECATED] Not used anymore - kept for backward compatibility
   @IsNumber()
   @IsOptional()
   @Min(0)
