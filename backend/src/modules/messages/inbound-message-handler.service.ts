@@ -230,6 +230,7 @@ export class InboundMessageHandlerService {
       .findOne({
         platform,
         platformConversationId: finalConversationKey,
+        organizationId: new Types.ObjectId(organizationId),
       })
       .exec();
 
