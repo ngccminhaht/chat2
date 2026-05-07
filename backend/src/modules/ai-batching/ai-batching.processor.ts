@@ -245,9 +245,15 @@ export class AIBatchingProcessor extends WorkerHost {
         );
       }
 
-      // Reset to AI_ACTIVE after processing
-      await this.batchingService.updateAIState(conversationId, "AI_ACTIVE");
-
+      // Reset to AI_ACTIVE after processing, but ONLY if it wasn't changed by a tool (e.g. HUMAN_TAKEOVER)
+      const currentConv = await this.batchingService.getConversation(conversationId);
+      if (currentConv && currentConv.aiState === "AI_RESPONDING") {
+        await this.batchingService.updateAIState(conversationId, "AI_ACTIVE");
+      } else if (currentConv) {
+        this.logger.log(
+          `⚠️ [AI Batch] Not resetting state to AI_ACTIVE. Current state was changed to ${currentConv.aiState} during AI processing.`
+        );
+      }
       const jobDuration = Date.now() - jobStartTime;
       this.logger.log(
         `✅ [AI Batch] Job ${job.id} completed successfully | ` +

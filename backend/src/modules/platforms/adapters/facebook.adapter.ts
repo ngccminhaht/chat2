@@ -480,6 +480,68 @@ export class FacebookAdapter extends BasePlatformAdapter {
   ): Promise<SendResult> {
     try {
       const accessToken = connection.credentials.accessToken;
+      const text = (payload.message as any)?.text;
+
+      // Facebook has a 2000 character limit per message. Split if it's a text message.
+      if (text && text.length > 2000) {
+        this.logger.warn(
+          `Message exceeds Facebook's 2000 char limit (length: ${text.length}). Splitting into chunks.`
+        );
+
+        const MAX_LENGTH = 1990;
+        const chunks: string[] = [];
+        let remainingText = text;
+
+        while (remainingText.length > 0) {
+          if (remainingText.length <= MAX_LENGTH) {
+            chunks.push(remainingText);
+            break;
+          }
+
+          // Try to break at a double newline first (paragraph)
+          let splitIndex = remainingText.lastIndexOf("\n\n", MAX_LENGTH);
+          if (splitIndex <= 0) splitIndex = remainingText.lastIndexOf("\n", MAX_LENGTH);
+          if (splitIndex <= 0) splitIndex = remainingText.lastIndexOf(" ", MAX_LENGTH);
+          if (splitIndex <= 0) splitIndex = MAX_LENGTH;
+
+          chunks.push(remainingText.substring(0, splitIndex));
+          remainingText = remainingText.substring(splitIndex).trimStart();
+        }
+
+        let lastMessageId = "";
+        for (let i = 0; i < chunks.length; i++) {
+          const response = await axios.post(
+            `https://graph.facebook.com/${this.graphApiVersion}/me/messages`,
+            {
+              recipient: { id: recipientId },
+              message: { text: chunks[i] },
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+          if (response.data.error) {
+            return {
+              success: false,
+              error: response.data.error.message,
+            };
+          }
+          lastMessageId = response.data.message_id;
+
+          // Small delay to ensure order
+          if (i < chunks.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+        }
+
+        return {
+          success: true,
+          platformMessageId: lastMessageId,
+        };
+      }
 
       const response = await axios.post(
         `https://graph.facebook.com/${this.graphApiVersion}/me/messages`,

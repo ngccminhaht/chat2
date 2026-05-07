@@ -773,7 +773,7 @@ export class FacebookService {
       client_id: this.appId,
       redirect_uri: this.redirectUri,
       response_type: 'code',
-      scope: 'public_profile,email,pages_manage_metadata,pages_read_engagement,pages_show_list,pages_read_user_content,pages_manage_posts,pages_manage_engagement,pages_messaging,ads_read,ads_management,page_events,pages_manage_ads,catalog_management,leads_retrieval,business_management,pages_utility_messaging',
+      scope: 'public_profile,email,pages_manage_metadata,pages_read_engagement,pages_show_list,pages_messaging,business_management,pages_utility_messaging',
       state: finalState,
       auth_type: 'rerequest',
     });
@@ -1390,34 +1390,84 @@ export class FacebookService {
     try {
       this.logger.log(`Sending text message to Facebook user ${recipientId}`);
 
-      const response = await axios.post(
-        `https://graph.facebook.com/${this.graphApiVersion}/me/messages`,
-        {
-          recipient: {
-            id: recipientId,
-          },
-          message: {
-            text,
-          },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${pageAccessToken}`,
-          },
+      // Facebook has a 2000 character limit per message. Split if necessary.
+      const MAX_LENGTH = 1999;
+      let chunks = [text];
+      
+      if (text.length > MAX_LENGTH) {
+        this.logger.warn(`Message exceeds Facebook's 2000 char limit (length: ${text.length}). Splitting into chunks.`);
+        chunks = [];
+        let remainingText = text;
+        
+        while (remainingText.length > 0) {
+          if (remainingText.length <= MAX_LENGTH) {
+            chunks.push(remainingText);
+            break;
+          }
+          
+          // Try to break at a double newline first (paragraph)
+          let splitIndex = remainingText.lastIndexOf('\n\n', MAX_LENGTH);
+          
+          // If no double newline, try a single newline
+          if (splitIndex <= 0) {
+            splitIndex = remainingText.lastIndexOf('\n', MAX_LENGTH);
+          }
+          
+          // If no newline found, try breaking at a space
+          if (splitIndex <= 0) {
+            splitIndex = remainingText.lastIndexOf(' ', MAX_LENGTH);
+          }
+          
+          // If no space found, hard break at MAX_LENGTH
+          if (splitIndex <= 0) {
+            splitIndex = MAX_LENGTH;
+          }
+          
+          chunks.push(remainingText.substring(0, splitIndex));
+          remainingText = remainingText.substring(splitIndex).trimStart();
         }
-      );
-
-      if (response.data.error) {
-        this.logger.error('Facebook send message error:', response.data.error);
-        throw new BadRequestException(
-          `Failed to send Facebook message: ${response.data.error.message}`,
-        );
       }
 
-      this.logger.log(`✅ Message sent successfully: ${response.data.message_id}`);
+      let lastMessageId = "";
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkText = chunks[i];
+        
+        const response = await axios.post(
+          `https://graph.facebook.com/${this.graphApiVersion}/me/messages`,
+          {
+            recipient: {
+              id: recipientId,
+            },
+            message: {
+              text: chunkText,
+            },
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${pageAccessToken}`,
+            },
+          }
+        );
+
+        if (response.data.error) {
+          this.logger.error(`Facebook send message error (chunk ${i+1}/${chunks.length}):`, response.data.error);
+          throw new BadRequestException(
+            `Failed to send Facebook message: ${response.data.error.message}`,
+          );
+        }
+
+        lastMessageId = response.data.message_id;
+        this.logger.log(`✅ Message chunk ${i+1}/${chunks.length} sent successfully: ${lastMessageId}`);
+        
+        // Add a small delay between chunks to ensure order on Facebook's end
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+      }
 
       return {
-        message_id: response.data.message_id,
+        message_id: lastMessageId,
       };
     } catch (error) {
       if (error.response) {

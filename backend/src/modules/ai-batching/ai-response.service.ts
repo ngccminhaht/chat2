@@ -77,7 +77,7 @@ export class AIResponseService {
     private readonly customerModel: Model<CustomerDocument>,
     @InjectModel(PlatformConnection.name)
     private readonly platformConnectionModel: Model<PlatformConnectionDocument>
-  ) {}
+  ) { }
 
   /**
    * Generate AI response using MiAgent API
@@ -198,10 +198,9 @@ export class AIResponseService {
     // Log request
     this.logger.log(
       `🤖 [AI API Call] Conversation: ${conversationId} | Org: ${organizationId} | ` +
-        `Endpoint: ${apiEndpoint} | Query length: ${
-          requestData.query?.length || 0
-        } chars | Has conversation_id: ${!!requestData.conversation_id} | ` +
-        `Files: ${requestData.files?.length || 0} | Messages count: ${messages.length}`
+      `Endpoint: ${apiEndpoint} | Query length: ${requestData.query?.length || 0
+      } chars | Has conversation_id: ${!!requestData.conversation_id} | ` +
+      `Files: ${requestData.files?.length || 0} | Messages count: ${messages.length}`
     );
 
     // Log files detail for debugging
@@ -234,8 +233,8 @@ export class AIResponseService {
       try {
         this.logger.log(
           `🚀 [AI API Call] Sending request to ${apiEndpoint} | ` +
-            `API Key: ${apiKey?.substring(0, 10)}... | ` +
-            `Payload size: ${JSON.stringify(requestData).length} chars`
+          `API Key: ${apiKey?.substring(0, 10)}... | ` +
+          `Payload size: ${JSON.stringify(requestData).length} chars`
         );
         response = await axios.post(apiEndpoint, requestData, {
           headers: {
@@ -247,7 +246,7 @@ export class AIResponseService {
         });
         this.logger.log(
           `✅ [AI API Call] Response received | Status: ${response.status} | ` +
-            `Response size: ${response.data?.length || 0} chars`
+          `Response size: ${response.data?.length || 0} chars`
         );
       } catch (firstError: any) {
         // If 404 and we have conversation_id, retry without it
@@ -286,7 +285,7 @@ export class AIResponseService {
           });
           this.logger.log(
             `✅ [AI API Call] Retry successful | Status: ${response.status} | ` +
-              `Response size: ${response.data?.length || 0} chars`
+            `Response size: ${response.data?.length || 0} chars`
           );
         } else {
           this.logger.error(
@@ -307,7 +306,7 @@ export class AIResponseService {
 
       this.logger.debug(
         `🔍 [AI API Call] Parsing response | Total lines: ${lines.length} | ` +
-          `Raw data length: ${rawData.length} chars`
+        `Raw data length: ${rawData.length} chars`
       );
 
       for (const line of lines) {
@@ -328,36 +327,50 @@ export class AIResponseService {
 
       this.logger.log(
         `📦 [AI API Call] Parsed chunks: ${chunks.length} | ` +
-          `Duration: ${duration}ms`
+        `Duration: ${duration}ms`
       );
 
       // Extract conversation ID
       const conversationChunk = chunks.find((item) => item.conversation_id);
       const aiConversationId = conversationChunk?.conversation_id || null;
 
-      // Extract agent messages
+      // 1. Luồng Chatflow: lấy kết quả từ sự kiện workflow_finished
+      const workflowFinishedEvent = chunks.find(item => item.event === "workflow_finished");
+      let assembled = "";
+
+      if (workflowFinishedEvent?.data?.outputs) {
+        const outputs = workflowFinishedEvent.data.outputs;
+        // Quét tìm biến đầu tiên có dạng chuỗi (phòng khi user đặt tên biến khác answer/text)
+        assembled = outputs.answer || outputs.text || outputs.output || outputs.result || Object.values(outputs).find(v => typeof v === "string") || "";
+      }
+
+      // 2. Luồng Agent/Chat/Workflow: Trích xuất các chunk tin nhắn (cập nhật thêm text_chunk của Workflow)
       const agentMessages = chunks.filter(
-        (item) => item.event === "agent_message"
+        (item) => item.event === "agent_message" || item.event === "message" || item.event === "text_chunk"
       );
-      const assembled = agentMessages.reduce(
-        (acc, cur) => acc + (cur.answer || ""),
-        ""
-      );
+
+      // Nếu Chatflow không trả kết quả, fallback về cách ghép chuỗi của Agent
+      if (!assembled) {
+        assembled = agentMessages.reduce(
+          (acc, cur) => acc + (cur.answer || cur.text || cur.data?.text || ""),
+          ""
+        );
+      }
 
       this.logger.log(
         `💬 [AI API Call] Extracted response | ` +
-          `Conversation ID: ${aiConversationId || "none"} | ` +
-          `Agent message chunks: ${agentMessages.length} | ` +
-          `Assembled length: ${assembled.length} chars | ` +
-          `Preview: ${assembled.substring(0, 100)}${assembled.length > 100 ? "..." : ""}`
+        `Conversation ID: ${aiConversationId || "none"} | ` +
+        `Agent message chunks: ${agentMessages.length} | ` +
+        `Assembled length: ${assembled.length} chars | ` +
+        `Preview: ${assembled.substring(0, 100)}${assembled.length > 100 ? "..." : ""}`
       );
 
       // Check if response is empty
       if (!assembled || assembled.trim().length === 0) {
         this.logger.warn(
           `⚠️ [AI API Call] Empty response for ${conversationId} | ` +
-            `Total chunks: ${chunks.length} | ` +
-            `Agent message chunks: ${agentMessages.length}`
+          `Total chunks: ${chunks.length} | ` +
+          `Agent message chunks: ${agentMessages.length}`
         );
         this.logger.debug(
           `🔍 [AI API Call] All chunks:`,
@@ -383,7 +396,7 @@ export class AIResponseService {
 
       this.logger.log(
         `✅ [AI API Call] Success | Conversation: ${conversationId} | ` +
-          `Duration: ${duration}ms | Response: ${assembled.length} chars`
+        `Duration: ${duration}ms | Response: ${assembled.length} chars`
       );
 
       return {
@@ -424,8 +437,8 @@ export class AIResponseService {
 
       this.logger.error(
         `❌ [AI API Call] Failed | Conversation: ${conversationId} | ` +
-          `Error: ${aiError.type} | Status: ${aiError.statusCode || "N/A"} | ` +
-          `Message: ${aiError.message}`
+        `Error: ${aiError.type} | Status: ${aiError.statusCode || "N/A"} | ` +
+        `Message: ${aiError.message}`
       );
 
       // Throw error - let caller decide retry strategy
