@@ -767,6 +767,16 @@ export class FacebookService {
     url: string;
     state: string;
   } {
+    const missingConfig = [
+      !this.appId && 'FACEBOOK_APP_ID',
+      !this.redirectUri && 'FACEBOOK_REDIRECT_URI',
+    ].filter(Boolean);
+    if (missingConfig.length) {
+      throw new BadRequestException(
+        `Facebook OAuth is not configured. Set ${missingConfig.join(' and ')} in the root .env.`,
+      );
+    }
+
     const finalState = state || randomBytes(16).toString('hex');
 
     const params = new URLSearchParams({
@@ -789,6 +799,12 @@ export class FacebookService {
    */
   async exchangeCodeForToken(code: string): Promise<FacebookTokenResponse> {
     try {
+      if (!this.appId || !this.appSecret || !this.redirectUri) {
+        throw new BadRequestException(
+          'Facebook OAuth is not configured. Set FACEBOOK_APP_ID, FACEBOOK_APP_SECRET, and FACEBOOK_REDIRECT_URI in the root .env.',
+        );
+      }
+
       this.logger.log('=== Exchanging Facebook code for token - REQUEST ===');
 
       const params = new URLSearchParams({

@@ -393,7 +393,9 @@ export class ZaloAdapter extends BasePlatformAdapter {
       });
 
       const imageBuffer = Buffer.from(imageResponse.data);
-      const contentType = imageResponse.headers["content-type"] || "image/jpeg";
+      const imageContentType = imageResponse.headers["content-type"];
+      const contentType =
+        typeof imageContentType === "string" ? imageContentType : "image/jpeg";
 
       // Create form data
       const formData = new FormData();
@@ -546,8 +548,11 @@ export class ZaloAdapter extends BasePlatformAdapter {
       });
 
       const fileBuffer = Buffer.from(fileResponse.data);
+      const fileContentType = fileResponse.headers["content-type"];
       const contentType =
-        fileResponse.headers["content-type"] || "application/octet-stream";
+        typeof fileContentType === "string"
+          ? fileContentType
+          : "application/octet-stream";
 
       // Create form data
       const formData = new FormData();

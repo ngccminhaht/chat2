@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # MongoDB
   mongodb:
@@ -33,43 +31,49 @@ services:
       timeout: 5s
       retries: 5
 
-  # MinIO (S3-compatible storage)
+  # RustFS (S3-compatible storage)
   minio:
-    image: minio/minio:latest
-    container_name: omnichat-minio
+    image: rustfs/rustfs:latest
+    container_name: omnichat-object-storage
     ports:
       - "8314:9000"
-      - "8315:9001"
+      - "8317:9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-omnichat_minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-AToiDp2nGnoScVrcRxnR}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER:-omnichat_minio}
+      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-AToiDp2nGnoScVrcRxnR}
+      RUSTFS_UNSAFE_BYPASS_DISK_CHECK: "true"
     volumes:
       - minio_data:/data
     networks:
       - omnichat-network
-    command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # 👉 INIT service: set bucket omnichat = public
-  minio-init:
-    image: minio/mc
-    container_name: omnichat-minio-init
+  rustfs-init:
+    image: rustfs/rc:latest
+    container_name: omnichat-object-storage-init
     depends_on:
       minio:
         condition: service_healthy
+    environment:
+      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER:-omnichat_minio}
+      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-AToiDp2nGnoScVrcRxnR}
     networks:
       - omnichat-network
-    entrypoint: >
-      sh -c "
-      mc alias set myminio http://minio:9000 omnichat_minio AToiDp2nGnoScVrcRxnR &&
-      mc mb --ignore-existing myminio/omnichat &&
-      mc anonymous set public myminio/omnichat &&
-      mc anonymous get myminio/omnichat
-      "
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        until rc alias set local http://minio:9000 "$$RUSTFS_ACCESS_KEY" "$$RUSTFS_SECRET_KEY"; do sleep 2; done;
+        rc ls local/omnichat >/dev/null 2>&1 || rc mb local/omnichat;
+        rc anonymous set public local/omnichat
     restart: "no"
 
   # Kafka (KRaft mode - no Zookeeper needed)
@@ -111,6 +115,22 @@ services:
       timeout: 10s
       retries: 5
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: omnichat-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - omnichat-network
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >-
+        for topic in platform.facebook.webhooks platform.zalo.webhooks platform.tiktok.webhooks platform.shopee.webhooks platform.telegram.webhooks platform.webhooks.raw messages.incoming messages.outgoing messages.status messages.outgoing.dlq websocket.notifications delivery-status;
+        do kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic "$$topic" --partitions 1 --replication-factor 1 || exit 1; done;
+        kafka-topics --bootstrap-server kafka:29092 --list
+    restart: "no"
+
   # Redis
   redis:
     image: redis:7-alpine
@@ -134,6 +154,65 @@ services:
       timeout: 5s
       retries: 5
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-7Q7UlHQxhzFOZcvqTad8}
+
+  # NestJS application API
+  backend:
+    image: miagent-backend:local
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      FRONTEND_URL: http://localhost:8315
+      API_BASE_URL: http://localhost:3000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8315}
+      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in the root .env}
+      KAFKA_BROKERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-omnichat}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:8314/omnichat}
+    ports:
+      - "3000:3000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      rustfs-init:
+        condition: service_completed_successfully
+    networks:
+      - omnichat-network
+
+  # Next.js dashboard; its image build also compiles widget into frontend/public.
+  frontend:
+    image: miagent-frontend:local
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-http://localhost:3000}
+        NEXT_PUBLIC_KEYCLOAK_URL: ${NEXT_PUBLIC_KEYCLOAK_URL:?Set NEXT_PUBLIC_KEYCLOAK_URL in the root .env}
+        NEXT_PUBLIC_KEYCLOAK_REALM: ${NEXT_PUBLIC_KEYCLOAK_REALM:?Set NEXT_PUBLIC_KEYCLOAK_REALM in the root .env}
+        NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: ${NEXT_PUBLIC_KEYCLOAK_CLIENT_ID:?Set NEXT_PUBLIC_KEYCLOAK_CLIENT_ID in the root .env}
+    ports:
+      - "8315:8315"
+    depends_on:
+      - backend
+    networks:
+      - omnichat-network
 
 networks:
   omnichat-network:
