@@ -19,12 +19,12 @@ export default function CustomersPage() {
   };
 
   return (
-    <Box sx={{ height: 'calc(100vh - 112px)' }}>
+    <Box className="customers-page" sx={{ height: 'calc(100vh - 112px)' }}>
       <Typography variant="h5" sx={{ mb: 2 }}>
         Customers
       </Typography>
 
-      <Box sx={{ height: 'calc(100% - 48px)' }}>
+      <Box className="customers-page-content" sx={{ height: 'calc(100% - 48px)' }}>
         <CustomerList onSelectCustomer={handleSelectCustomer} />
       </Box>
 

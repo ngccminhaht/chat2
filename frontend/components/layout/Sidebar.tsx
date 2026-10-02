@@ -10,9 +10,8 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Toolbar,
-  Divider,
   Badge,
+  Typography,
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
 import PeopleIcon from "@mui/icons-material/People";
@@ -22,7 +21,7 @@ import WidgetsIcon from "@mui/icons-material/Widgets";
 import SettingsIcon from "@mui/icons-material/Settings";
 import IntegrationInstructionsIcon from "@mui/icons-material/IntegrationInstructions";
 
-const drawerWidth = 240;
+const drawerWidth = 248;
 
 interface NavMenuItem {
   textKey: string;
@@ -31,22 +30,29 @@ interface NavMenuItem {
 }
 
 interface MenuSection {
-  title?: string;
+  title: "workspace" | "management" | "organization";
   items: NavMenuItem[];
 }
 
 // Function to generate menu sections with org slug
 const getMenuSections = (orgSlug: string): MenuSection[] => [
   {
+    title: "workspace",
     items: [
       { textKey: "conversations", icon: <ChatIcon />, path: `/organizations/${orgSlug}/conversations` },
       { textKey: "customers", icon: <PeopleIcon />, path: `/organizations/${orgSlug}/customers` },
       { textKey: "channels", icon: <HubIcon />, path: `/organizations/${orgSlug}/channels` },
+    ],
+  },
+  {
+    title: "management",
+    items: [
       { textKey: "widget", icon: <WidgetsIcon />, path: `/organizations/${orgSlug}/widget` },
       { textKey: "members", icon: <GroupsIcon />, path: `/organizations/${orgSlug}/members` },
     ],
   },
   {
+    title: "organization",
     items: [
       { textKey: "integrations", icon: <IntegrationInstructionsIcon />, path: `/organizations/${orgSlug}/integrations` },
       { textKey: "settings", icon: <SettingsIcon />, path: `/organizations/${orgSlug}/settings` },
@@ -76,11 +82,9 @@ export default function Sidebar({ mobileOpen, onMobileClose, orgSlug, unreadCoun
 
   const drawerContent = (
     <>
-      <Toolbar />
-      <Divider />
       {menuSections.map((section, index) => (
-        <Box key={index}>
-          {index > 0 && <Divider />}
+        <Box key={section.title} className="organization-nav-section">
+          <Typography className="organization-nav-label">{t(section.title)}</Typography>
           <List>
             {section.items.map((item) => {
               const isActive = pathname === item.path || pathname.startsWith(item.path + "/");
@@ -110,7 +114,8 @@ export default function Sidebar({ mobileOpen, onMobileClose, orgSlug, unreadCoun
   return (
     <Box
       component="nav"
-      sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+      className="organization-sidebar"
+      sx={{ width: { xs: 0, md: 248 }, flexShrink: 0 }}
     >
       {/* Mobile drawer */}
       <Drawer
@@ -121,12 +126,13 @@ export default function Sidebar({ mobileOpen, onMobileClose, orgSlug, unreadCoun
           keepMounted: true,
         }}
         sx={{
-          display: { xs: "block", sm: "none" },
+          display: { xs: "block", md: "none" },
           "& .MuiDrawer-paper": {
             width: drawerWidth,
             boxSizing: "border-box",
           },
         }}
+        PaperProps={{ className: "organization-sidebar-paper" }}
       >
         {drawerContent}
       </Drawer>
@@ -135,12 +141,13 @@ export default function Sidebar({ mobileOpen, onMobileClose, orgSlug, unreadCoun
       <Drawer
         variant="permanent"
         sx={{
-          display: { xs: "none", sm: "block" },
+          display: { xs: "none", md: "block" },
           "& .MuiDrawer-paper": {
             width: drawerWidth,
             boxSizing: "border-box",
           },
         }}
+        PaperProps={{ className: "organization-sidebar-paper" }}
         open
       >
         {drawerContent}

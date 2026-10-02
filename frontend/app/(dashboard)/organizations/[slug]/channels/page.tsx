@@ -169,11 +169,11 @@ export default function ChannelsPage() {
   };
 
   return (
-    <Box sx={{ height: "calc(100vh - 112px)", overflow: "auto", p: 2 }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>
+    <Box className="channels-page" sx={{ height: "calc(100vh - 112px)", overflow: "auto" }}>
+      <Typography className="channels-page-title" variant="h5" sx={{ mb: 2 }}>
         Channels
       </Typography>
-      <Paper variant="outlined" sx={{ maxWidth: 900 }}>
+      <Paper className="channels-panel" variant="outlined">
         <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Stack
             direction="row"

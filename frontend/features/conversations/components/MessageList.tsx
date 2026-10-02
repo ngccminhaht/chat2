@@ -242,8 +242,9 @@ export default function MessageList({
             )}
 
             <Box
+              className="inbox-message-copy"
               sx={{
-                maxWidth: "70%",
+                maxWidth: "min(72%, 672px)",
                 minWidth: 0, // Allow flexbox to shrink below content size
                 overflow: "hidden", // Prevent content from overflowing
               }}
@@ -280,6 +281,7 @@ export default function MessageList({
               )}
 
               <Paper
+                className={isOutbound ? "inbox-message-bubble inbox-message-bubble--outbound" : "inbox-message-bubble"}
                 sx={{
                   p: 1.5,
                   bgcolor: isOutbound ? "primary.main" : "grey.100",

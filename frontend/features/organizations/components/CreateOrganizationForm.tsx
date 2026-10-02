@@ -10,6 +10,7 @@ import {
   Button,
   CircularProgress,
   Alert,
+  Paper,
 } from '@mui/material';
 import { useCreateOrganization } from '../hooks/useCreateOrganization';
 
@@ -51,6 +52,7 @@ export default function CreateOrganizationForm() {
   };
 
   return (
+    <Paper className="organization-create-panel" variant="outlined">
     <Stack spacing={4}>
       <Box>
         <Typography variant="h4" gutterBottom>
@@ -113,5 +115,6 @@ export default function CreateOrganizationForm() {
         </Stack>
       </Box>
     </Stack>
+    </Paper>
   );
 }

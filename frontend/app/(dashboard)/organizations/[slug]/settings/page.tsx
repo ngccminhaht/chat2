@@ -21,7 +21,7 @@ export default function SettingsPage() {
 
   return (
     <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}>
-      <Paper sx={{ maxWidth: 900, mx: 'auto', my: 2, p: 3 }}>
+      <Paper className="settings-form-panel" sx={{ maxWidth: 900, mx: 'auto', my: 2, p: 3 }}>
         <Stack spacing={3}>
           <Typography variant="h5">{t('organization')}</Typography>
 

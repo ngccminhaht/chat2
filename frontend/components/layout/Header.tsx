@@ -9,6 +9,7 @@ import {
   Typography,
   IconButton,
   Avatar,
+  Box,
   Menu,
   MenuItem,
   Divider,
@@ -42,9 +43,23 @@ export default function Header({
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations("common");
-  const { user } = useAuthStore();
+  const nav = useTranslations("nav");
+  const organizationsT = useTranslations("organizations");
+  const user = useAuthStore((state) => state.user);
+  const organization = useAuthStore((state) => state.organization);
   const { logout } = useKeycloak();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const pageTitle = pathname === "/organizations/new" ? organizationsT("createNew")
+    : pathname === "/organizations" ? organizationsT("select")
+    : pathname.includes("/conversations") ? nav("conversations")
+    : pathname.includes("/customers") ? nav("customers")
+    : pathname.includes("/channels") ? nav("channels")
+    : pathname.includes("/quick-replies") ? nav("quickReplies")
+    : pathname.includes("/members") ? nav("members")
+    : pathname.includes("/integrations") ? nav("integrations")
+    : pathname.includes("/settings") ? nav("settings")
+    : pathname.includes("/widget") ? nav("widget")
+    : title;
 
   // Show back button to organizations if not already on organizations page
   const shouldShowBackToOrgs =
@@ -75,6 +90,7 @@ export default function Header({
 
   return (
     <AppBar
+      className="organization-header"
       position="fixed"
       sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
     >
@@ -107,15 +123,22 @@ export default function Header({
             color="inherit"
             edge="start"
             onClick={onMenuClick}
-            sx={{ mr: 2, display: { sm: "none" } }}
+            sx={{ mr: 2, display: { md: "none" } }}
+            aria-label={t("openNavigation")}
           >
             <MenuIcon />
           </IconButton>
         )}
 
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          {title}
-        </Typography>
+        <Box className="organization-brand" aria-label="miAgent">
+          <span className="organization-brand-mark" aria-hidden="true">m</span>
+          <Typography component="span" className="organization-brand-name">miAgent</Typography>
+        </Box>
+        <span className="organization-header-divider" aria-hidden="true" />
+        <Box className="organization-header-context">
+          <Typography variant="h6" component="h1">{pageTitle}</Typography>
+          {organization?.name && <Typography variant="caption">{organization.name}</Typography>}
+        </Box>
 
         {/* Language Switcher */}
         <LanguageSwitcher />

@@ -16,12 +16,17 @@
     "noData": "No data",
     "you": "You",
     "backToOrganizations": "Back to Organizations",
-    "account": "Account"
+    "account": "Account",
+    "openNavigation": "Open navigation"
   },
   "nav": {
+    "workspace": "WORKSPACE",
+    "management": "MANAGEMENT",
+    "organization": "ORGANIZATION",
     "conversations": "Conversations",
     "customers": "Customers",
     "channels": "Channels",
+    "quickReplies": "Quick replies",
     "widget": "Widget",
     "aiAgent": "AI Agent",
     "members": "Members",

@@ -71,10 +71,10 @@ export default function OrganizationLayout({
   }
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box className="organization-shell" sx={{ display: 'flex', minHeight: '100vh' }}>
       <Header onMenuClick={handleDrawerToggle} currentOrgSlug={slug} />
       <Sidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} orgSlug={slug} unreadCount={unreadCount} />
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+      <Box component="main" className="organization-main" sx={{ flexGrow: 1, minWidth: 0, p: 3 }}>
         <Toolbar />
         {children}
       </Box>

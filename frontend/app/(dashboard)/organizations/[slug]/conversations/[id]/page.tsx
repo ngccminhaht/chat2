@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useCallback, useState, useRef } from 'react';
-import { useParams } from 'next/navigation';
-import { Box, Paper, Typography, Chip, Stack, Avatar, IconButton } from '@mui/material';
+import { useParams, useRouter } from 'next/navigation';
+import { Box, Paper, Typography, Chip, Stack, Avatar, IconButton, Button } from '@mui/material';
 import { MoreVert as MoreIcon } from '@mui/icons-material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useInfiniteMessages } from '@/features/conversations/hooks/useInfiniteMessages';
 import { useConversation } from '@/features/conversations/hooks/useConversation';
 import { useMarkAsRead } from '@/features/conversations/hooks/useMarkAsRead';
@@ -20,6 +21,7 @@ const EMPTY_MESSAGES: any[] = [];
 
 export default function ConversationDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const conversationId = params.id as string;
   const slug = params.slug as string;
   const markedAsReadRef = useRef<string | null>(null);
@@ -146,15 +148,11 @@ export default function ConversationDetailPage() {
   }, [conversationId, conversation?.unreadCount, storeMessages, markAsRead]);
 
   return (
-    <Box sx={{ height: 'calc(100vh - 112px)' }}>
-      <Stack direction="row" spacing={2} sx={{ height: '100%' }}>
-        <Box sx={{ width: '28%', minWidth: 280, display: { xs: 'none', md: 'block' } }}>
-          <ConversationList activeConversationId={conversationId} orgSlug={slug} />
-        </Box>
+    <Box className="inbox-page-shell inbox-page-shell--detail">
+        <ConversationList activeConversationId={conversationId} orgSlug={slug} className="inbox-conversation-list" />
 
-        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0 }}>
-          <Paper sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+        <Paper className="inbox-message-workspace">
+            <Box className="inbox-workspace-header">
               <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
                 <Stack
                   direction="row"
@@ -163,6 +161,9 @@ export default function ConversationDetailPage() {
                   sx={{ cursor: 'pointer' }}
                   onClick={(e) => setCustomerInfoAnchor(e.currentTarget)}
                 >
+                  <Button className="inbox-mobile-back" size="small" startIcon={<ArrowBackIcon />} onClick={(event) => { event.stopPropagation(); router.push(`/organizations/${slug}/conversations`); }}>
+                    Danh sách
+                  </Button>
                   <Avatar src={conversation?.customerAvatar} alt={conversation?.customerName || 'User'}>
                     {conversation?.customerName?.charAt(0) || 'U'}
                   </Avatar>
@@ -177,7 +178,7 @@ export default function ConversationDetailPage() {
               </Stack>
             </Box>
 
-            <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+            <Box className="inbox-message-list">
               <MessageList
                 messages={storeMessages.length > 0 ? storeMessages : apiMessages}
                 isLoading={isLoading && storeMessages.length === 0}
@@ -187,16 +188,14 @@ export default function ConversationDetailPage() {
               />
             </Box>
 
-            <Box sx={{ flexShrink: 0 }}>
+            <Box className="inbox-composer">
               <MessageInput conversationId={conversationId} />
             </Box>
-          </Paper>
-        </Box>
+        </Paper>
 
-        <Box sx={{ width: '28%', minWidth: 280, display: { xs: 'none', lg: 'block' } }}>
+        <Box className="inbox-notes-panel">
           <NotesPanel conversationId={conversationId} />
         </Box>
-      </Stack>
 
       {/* Customer Info Popover */}
       {conversation && (

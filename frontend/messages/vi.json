@@ -16,12 +16,17 @@
     "noData": "Không có dữ liệu",
     "you": "Bạn",
     "backToOrganizations": "Về danh sách tổ chức",
-    "account": "Tài khoản"
+    "account": "Tài khoản",
+    "openNavigation": "Mở điều hướng"
   },
   "nav": {
+    "workspace": "KHÔNG GIAN LÀM VIỆC",
+    "management": "QUẢN LÝ",
+    "organization": "TỔ CHỨC",
     "conversations": "Hội thoại",
     "customers": "Khách hàng",
     "channels": "Kênh",
+    "quickReplies": "Trả lời nhanh",
     "widget": "Widget",
     "aiAgent": "AI Agent",
     "members": "Thành viên",

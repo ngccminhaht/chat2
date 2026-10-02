@@ -30,11 +30,13 @@ import ConversationFilters, {
 interface ConversationListProps {
   activeConversationId?: string;
   orgSlug: string;
+  className?: string;
 }
 
 export default function ConversationList({
   activeConversationId,
   orgSlug,
+  className,
 }: ConversationListProps) {
   const t = useTranslations("conversations");
   const [status, setStatus] = useState<"open" | "closed" | "archived">("open");
@@ -97,7 +99,7 @@ export default function ConversationList({
   const conversations = data?.data;
 
   return (
-    <Paper sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <Paper className={className} sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Tabs value={status} onChange={handleStatusChange}>
           <Tab label={t("open")} value="open" />

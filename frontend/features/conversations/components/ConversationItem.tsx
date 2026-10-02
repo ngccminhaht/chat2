@@ -47,7 +47,7 @@ export default function ConversationItem({ conversation, isActive, orgSlug }: Co
               <Chip
                 label={platformLabel}
                 size="small"
-                color="primary"
+                color="default"
                 variant="outlined"
                 sx={{ ml: 1 }}
               />

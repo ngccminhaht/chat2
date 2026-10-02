@@ -56,21 +56,10 @@ function getDeviceIcon(device?: string) {
 
 const platformIcons: Record<string, React.ReactNode> = {
   facebook: <FacebookIcon fontSize="small" />,
-  zalo: <ChatIcon fontSize="small" sx={{ color: "#0068ff" }} />,
-  tiktok: <ShoppingBagIcon fontSize="small" sx={{ color: "#000" }} />,
-  shopee: <ShoppingBagIcon fontSize="small" sx={{ color: "#ee4d2d" }} />,
+  zalo: <ChatIcon fontSize="small" />,
+  tiktok: <ShoppingBagIcon fontSize="small" />,
+  shopee: <ShoppingBagIcon fontSize="small" />,
   web: <WebIcon fontSize="small" />,
-};
-
-const platformColors: Record<
-  string,
-  "primary" | "secondary" | "error" | "warning" | "info" | "success"
-> = {
-  facebook: "primary",
-  zalo: "info",
-  tiktok: "secondary",
-  shopee: "error",
-  web: "info",
 };
 
 function getPlatformLabel(platform: string): string {
@@ -129,7 +118,7 @@ export default function CustomerList({ onSelectCustomer }: CustomerListProps) {
   const totalCount = data?.meta?.total || 0;
 
   return (
-    <Paper sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <Paper className="customers-table-panel" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <Box sx={{ p: 2 }}>
         <Stack direction="row" spacing={2}>
           <TextField
@@ -266,9 +255,6 @@ export default function CustomerList({ onSelectCustomer }: CustomerListProps) {
                               icon={platformIcons[identity.platform] as any}
                               label={getPlatformLabel(identity.platform)}
                               size="small"
-                              color={
-                                platformColors[identity.platform] || "info"
-                              }
                               variant="outlined"
                             />
                           ))}
