@@ -408,8 +408,8 @@ export default function WidgetTab() {
   }
 
   return (
-    <Box>
-      <Paper variant="outlined" sx={{ maxWidth: 800 }}>
+    <Box sx={{ width: '100%' }}>
+      <Paper variant="outlined" sx={{ width: '100%', border: 'none', boxShadow: 'none', bgcolor: 'transparent' }}>
         {/* Tabs */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>

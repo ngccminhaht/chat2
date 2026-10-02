@@ -37,9 +37,18 @@ export default function OrganizationSelector() {
           </Typography>
         </Box>
         <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon sx={{ fontSize: 16 }} />}
           onClick={() => router.push('/organizations/new')}
+          sx={{
+            bgcolor: "#0060df",
+            "&:hover": { bgcolor: "#004ecc" },
+            borderRadius: "6px",
+            fontSize: "12.5px",
+            px: 1.75,
+            py: 0.75,
+          }}
         >
           {t('organizations.createNew')}
         </Button>

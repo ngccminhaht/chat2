@@ -148,7 +148,13 @@ export default function ConversationDetailPage() {
   }, [conversationId, conversation?.unreadCount, storeMessages, markAsRead]);
 
   return (
-    <Box className="inbox-page-shell inbox-page-shell--detail">
+    <Box className="app-page-wrapper">
+      <Box className="app-page-header">
+        <Typography variant="h5" component="h1" className="app-page-title">
+          Chi tiết hội thoại
+        </Typography>
+      </Box>
+      <Box className="inbox-page-shell inbox-page-shell--detail">
         <ConversationList activeConversationId={conversationId} orgSlug={slug} className="inbox-conversation-list" />
 
         <Paper className="inbox-message-workspace">
@@ -156,7 +162,7 @@ export default function ConversationDetailPage() {
               <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
                 <Stack
                   direction="row"
-                  spacing={2}
+                  spacing={1.5}
                   alignItems="center"
                   sx={{ cursor: 'pointer' }}
                   onClick={(e) => setCustomerInfoAnchor(e.currentTarget)}
@@ -164,16 +170,16 @@ export default function ConversationDetailPage() {
                   <Button className="inbox-mobile-back" size="small" startIcon={<ArrowBackIcon />} onClick={(event) => { event.stopPropagation(); router.push(`/organizations/${slug}/conversations`); }}>
                     Danh sách
                   </Button>
-                  <Avatar src={conversation?.customerAvatar} alt={conversation?.customerName || 'User'}>
+                  <Avatar src={conversation?.customerAvatar} alt={conversation?.customerName || 'User'} sx={{ width: 32, height: 32 }}>
                     {conversation?.customerName?.charAt(0) || 'U'}
                   </Avatar>
                   <Box>
-                    <Typography variant="h6">{conversation?.customerName || 'Unknown User'}</Typography>
-                    <Chip label={conversation?.platform || 'Unknown'} size="small" variant="outlined" />
+                    <Typography variant="h6" sx={{ fontSize: "13.5px", fontWeight: 600 }}>{conversation?.customerName || 'Unknown User'}</Typography>
+                    <Chip label={conversation?.platform || 'Unknown'} size="small" variant="outlined" sx={{ height: 18, fontSize: "10px" }} />
                   </Box>
                 </Stack>
-                <IconButton onClick={() => setShowSettingsModal(true)}>
-                  <MoreIcon />
+                <IconButton size="small" onClick={() => setShowSettingsModal(true)}>
+                  <MoreIcon fontSize="small" />
                 </IconButton>
               </Stack>
             </Box>
@@ -214,6 +220,7 @@ export default function ConversationDetailPage() {
           conversation={conversation}
         />
       )}
+      </Box>
     </Box>
   );
 }

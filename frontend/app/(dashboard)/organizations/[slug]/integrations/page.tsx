@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { ApiKeySection } from '@/features/organizations';
 import CodeBlock from '@/components/common/CodeBlock';
+import PageContainer from '@/components/layout/PageContainer';
 
 interface ApiEndpoint {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -92,41 +93,43 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}>
-      <Stack spacing={3} maxWidth={900} mx="auto" my={2}>
-        <Paper sx={{ p: 3 }}>
-          <Stack spacing={3}>
-            <Typography variant="h5">API Integration</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Integrate MiAgent with your external systems using our REST API.
-            </Typography>
+    <PageContainer
+      title="Tích hợp API"
+      helpText="Trợ giúp về REST API Integration"
+    >
+      <Stack spacing={3}>
+        <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Tích hợp miAgent với hệ thống bên ngoài của bạn thông qua REST API.
+          </Typography>
 
-            <Divider />
+          <ApiKeySection />
+        </Box>
 
-            <ApiKeySection />
-          </Stack>
-        </Paper>
+        <Divider />
 
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
+        <Box>
+          <Typography variant="h6" sx={{ fontSize: '15px', fontWeight: 600, mb: 1 }}>
             API Reference
           </Typography>
 
           <Alert severity="info" sx={{ mb: 2 }}>
-            Use your API key in the <code>X-API-Key</code> header. Organization is automatically determined from your API key.
+            Sử dụng API key trong header <code>X-API-Key</code>. Tổ chức được tự động xác định từ API key của bạn.
           </Alert>
 
           <Stack spacing={3}>
             <Box>
-              <Typography variant="subtitle1" gutterBottom>Update Conversation</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Enable or disable AI auto-reply for a specific conversation.
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '13.5px', mb: 0.5 }}>
+                Cập nhật hội thoại
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Bật hoặc tắt tính năng tự động trả lời bằng AI cho một hội thoại cụ thể.
               </Typography>
               <ApiEndpointCard endpoint={updateConversationEndpoint} />
             </Box>
           </Stack>
-        </Paper>
+        </Box>
       </Stack>
-    </Box>
+    </PageContainer>
   );
 }

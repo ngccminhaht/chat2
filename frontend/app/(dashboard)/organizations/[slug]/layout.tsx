@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Box, Toolbar, CircularProgress } from '@mui/material';
+import { Box, Toolbar, CircularProgress, Fab, Tooltip } from '@mui/material';
+import ChatBubbleIcon from '@mui/icons-material/ChatBubble';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuthStore } from '@/features/auth/stores/authStore';
@@ -78,6 +79,28 @@ export default function OrganizationLayout({
         <Toolbar />
         {children}
       </Box>
+
+      {/* Haravan floating chat button */}
+      <Tooltip title="Trợ giúp & Hỗ trợ">
+        <Fab
+          size="medium"
+          aria-label="chat-support"
+          sx={{
+            position: 'fixed',
+            bottom: 20,
+            right: 20,
+            bgcolor: '#0060df',
+            color: '#ffffff',
+            boxShadow: '0 4px 14px rgba(0, 96, 223, 0.4)',
+            zIndex: 1200,
+            '&:hover': {
+              bgcolor: '#004ecc',
+            },
+          }}
+        >
+          <ChatBubbleIcon sx={{ fontSize: 20 }} />
+        </Fab>
+      </Tooltip>
     </Box>
   );
 }

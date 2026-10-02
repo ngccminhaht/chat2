@@ -121,16 +121,24 @@ export default function QuickRepliesTab() {
   };
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2.5}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h6">Quick Replies</Typography>
+        <Typography variant="h6" sx={{ fontSize: "15px", fontWeight: 600 }}>Tin nhắn mẫu</Typography>
         <Button
           variant="contained"
           size="small"
-          startIcon={<AddIcon />}
+          startIcon={<AddIcon sx={{ fontSize: 16 }} />}
           onClick={() => handleOpenDialog()}
+          sx={{
+            bgcolor: "#0060df",
+            "&:hover": { bgcolor: "#004ecc" },
+            borderRadius: "6px",
+            fontSize: "12.5px",
+            px: 1.75,
+            py: 0.75,
+          }}
         >
-          Add Quick Reply
+          Thêm tin nhắn mẫu
         </Button>
       </Stack>
 

@@ -10,18 +10,25 @@ export default function ConversationsPage() {
   const slug = params.slug as string;
 
   return (
-    <Box className="inbox-page-shell inbox-page-shell--empty">
-      <ConversationList orgSlug={slug} className="inbox-conversation-list" />
-      <Box className="inbox-empty-workspace">
+    <Box className="app-page-wrapper">
+      <Box className="app-page-header">
+        <Typography variant="h5" component="h1" className="app-page-title">
+          Hội thoại khách hàng
+        </Typography>
+      </Box>
+      <Box className="inbox-page-shell inbox-page-shell--empty">
+        <ConversationList orgSlug={slug} className="inbox-conversation-list" />
+        <Box className="inbox-empty-workspace">
           <Paper className="inbox-empty-state">
-            <ChatIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary">
+            <ChatIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1.5 }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: "14px", mb: 0.5 }}>
               Chọn một hội thoại để xem tin nhắn
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: "12px" }}>
               Chọn trong danh sách bên trái hoặc dùng bộ lọc để tìm hội thoại
             </Typography>
           </Paper>
+        </Box>
       </Box>
     </Box>
   );

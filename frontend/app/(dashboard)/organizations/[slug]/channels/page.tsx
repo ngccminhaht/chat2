@@ -44,6 +44,8 @@ import ConnectionAISettingsDialog from "@/features/connections/components/Connec
 import { ConnectionStatus } from "@/lib/constants/statuses";
 import { AVAILABLE_PLATFORMS, PLATFORM_DISPLAY_NAMES, Platform } from "@/lib/constants/platforms";
 
+import PageContainer from "@/components/layout/PageContainer";
+
 const PLATFORMS = AVAILABLE_PLATFORMS.map(p => ({
   id: p.id,
   name: PLATFORM_DISPLAY_NAMES[p.id as Platform],
@@ -169,51 +171,49 @@ export default function ChannelsPage() {
   };
 
   return (
-    <Box className="channels-page" sx={{ height: "calc(100vh - 112px)", overflow: "auto" }}>
-      <Typography className="channels-page-title" variant="h5" sx={{ mb: 2 }}>
-        Channels
-      </Typography>
-      <Paper className="channels-panel" variant="outlined">
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            sx={{ pr: 2 }}
-          >
-            <Tabs value={tab} onChange={(_, v) => handleTabChange(v)}>
-              {PLATFORMS.map((platform) => (
-                <Tab key={platform.id} label={platform.name} />
-              ))}
-            </Tabs>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={
-                isConnecting() ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  <AddIcon />
-                )
-              }
-              onClick={handleConnect}
-              disabled={isConnecting()}
-            >
-              Connect {PLATFORMS[tab].name}
-            </Button>
-          </Stack>
-        </Box>
-
-        <Box sx={{ py: 3, px: 3 }}>
-          <Stack spacing={3}>
-            {connectionError && (
-              <Alert severity="error">{connectionError}</Alert>
-            )}
-            {isLoading ? (
-              <Box display="flex" justifyContent="center" p={3}>
-                <CircularProgress />
-              </Box>
-            ) : platformConnections.length > 0 ? (
+    <PageContainer
+      title="Danh sách kênh kết nối"
+      filterTabs={PLATFORMS.map((p) => ({ id: p.id, label: p.name }))}
+      activeTab={currentPlatform}
+      onTabChange={(id) => handleTabChange(PLATFORMS.findIndex((p) => p.id === id))}
+      totalCountText={`Có ${platformConnections.length} tài khoản kết nối`}
+      helpText={`Trợ giúp về kết nối ${PLATFORMS[tab].name}`}
+      action={
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={
+            isConnecting() ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : (
+              <AddIcon sx={{ fontSize: 16 }} />
+            )
+          }
+          onClick={handleConnect}
+          disabled={isConnecting()}
+          sx={{
+            bgcolor: "#0060df",
+            "&:hover": { bgcolor: "#004ecc" },
+            borderRadius: "6px",
+            fontSize: "12.5px",
+            px: 1.75,
+            py: 0.75,
+          }}
+        >
+          Kết nối {PLATFORMS[tab].name}
+        </Button>
+      }
+    >
+      <Box sx={{ py: 1 }}>
+        <Stack spacing={2.5}>
+          {connectionError && (
+            <Alert severity="error">{connectionError}</Alert>
+          )}
+          {isLoading ? (
+            <Box display="flex" justifyContent="center" p={3}>
+              <CircularProgress />
+            </Box>
+          ) : platformConnections.length > 0 ? (
               <Stack spacing={2}>
                 {platformConnections.map((connection) => (
                   <Card
@@ -328,7 +328,6 @@ export default function ChannelsPage() {
             )}
           </Stack>
         </Box>
-      </Paper>
 
       {/* Delete Confirmation Dialog */}
       <Dialog
@@ -380,6 +379,6 @@ export default function ChannelsPage() {
         isLoading={telegram.isLoading}
         error={telegram.error}
       />
-    </Box>
+    </PageContainer>
   );
 }

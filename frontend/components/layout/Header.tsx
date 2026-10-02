@@ -32,6 +32,13 @@ interface HeaderProps {
   currentOrgSlug?: string;
 }
 
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import AppsIcon from "@mui/icons-material/Apps";
+import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
+import Badge from "@mui/material/Badge";
+import Tooltip from "@mui/material/Tooltip";
+
 export default function Header({
   onMenuClick,
   showMenuButton = true,
@@ -88,67 +95,174 @@ export default function Header({
     logout();
   };
 
+  // User initials for Haravan pill
+  const userInitial = user?.name?.charAt(0)?.toUpperCase() || "U";
+  const userShort = user?.name ? (user.name.split(" ").length > 1 ? user.name.split(" ").slice(-2).join(" ") : user.name) : "User";
+
   return (
     <AppBar
       className="organization-header"
       position="fixed"
-      sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
+      sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, bgcolor: "#ffffff", borderBottom: "1px solid #dfe3e8" }}
     >
-      <Toolbar>
+      <Toolbar sx={{ minHeight: "48px !important", height: 48, px: { xs: 1.5, sm: 2 } }}>
         {showBackButton && onBackClick && (
           <IconButton
-            color="inherit"
+            size="small"
             edge="start"
             onClick={onBackClick}
-            sx={{ mr: 2 }}
+            sx={{ mr: 1, color: "#637381" }}
             aria-label={t("backToOrganizations")}
           >
-            <ArrowBackIcon />
+            <ArrowBackIcon fontSize="small" />
           </IconButton>
         )}
         {shouldShowBackToOrgs && (
           <IconButton
-            color="inherit"
+            size="small"
             edge="start"
             onClick={handleBackToOrganizations}
-            sx={{ mr: 2 }}
+            sx={{ mr: 1, color: "#637381" }}
             aria-label={t("backToOrganizations")}
             title={t("backToOrganizations")}
           >
-            <ArrowBackIcon />
+            <ArrowBackIcon fontSize="small" />
           </IconButton>
         )}
         {showMenuButton && onMenuClick && (
           <IconButton
-            color="inherit"
+            size="small"
             edge="start"
             onClick={onMenuClick}
-            sx={{ mr: 2, display: { md: "none" } }}
+            sx={{ mr: 1, display: { md: "none" }, color: "#637381" }}
             aria-label={t("openNavigation")}
           >
-            <MenuIcon />
+            <MenuIcon fontSize="small" />
           </IconButton>
         )}
 
-        <Box className="organization-brand" aria-label="miAgent">
-          <span className="organization-brand-mark" aria-hidden="true">m</span>
-          <Typography component="span" className="organization-brand-name">miAgent</Typography>
-        </Box>
-        <span className="organization-header-divider" aria-hidden="true" />
-        <Box className="organization-header-context">
-          <Typography variant="h6" component="h1">{pageTitle}</Typography>
-          {organization?.name && <Typography variant="caption">{organization.name}</Typography>}
+        {/* Haravan style Brand */}
+        <Box className="organization-brand" sx={{ display: "flex", alignItems: "center", width: 176, cursor: "pointer" }} onClick={() => router.push(currentOrgSlug ? `/organizations/${currentOrgSlug}/conversations` : "/organizations")}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              bgcolor: "#0060df",
+              color: "#ffffff",
+              borderRadius: "6px",
+              fontWeight: 800,
+              fontSize: 14,
+            }}
+          >
+            m
+          </Box>
+          <Typography
+            component="span"
+            sx={{
+              fontWeight: 700,
+              fontSize: 15,
+              color: "#0060df",
+              letterSpacing: "-0.2px",
+              display: "flex",
+              alignItems: "center",
+              ml: 1,
+            }}
+          >
+            miAgent
+            <Box component="span" sx={{ width: 5, height: 5, borderRadius: "50%", bgcolor: "#0060df", ml: 0.5 }} />
+          </Typography>
         </Box>
 
-        {/* Language Switcher */}
-        <LanguageSwitcher />
+        {/* Breadcrumb subtitle */}
+        <Box className="organization-header-context" sx={{ display: { xs: "none", sm: "flex" }, alignItems: "center", ml: 2 }}>
+          <Typography variant="body2" sx={{ color: "#637381", fontSize: "12.5px" }}>
+            {pageTitle}
+          </Typography>
+          {organization?.name && (
+            <Typography variant="caption" sx={{ color: "#8c9196", ml: 1, pl: 1, borderLeft: "1px solid #dfe3e8" }}>
+              {organization.name}
+            </Typography>
+          )}
+        </Box>
 
-        {/* User Avatar */}
-        <IconButton onClick={handleMenuOpen}>
-          <Avatar sx={{ width: 36, height: 36 }}>
-            {user?.name?.charAt(0) || "U"}
-          </Avatar>
-        </IconButton>
+        <Box sx={{ flexGrow: 1 }} />
+
+        {/* Right utility icons matching Haravan header */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Tooltip title="Trợ giúp">
+            <IconButton size="small" sx={{ color: "#637381" }}>
+              <HelpOutlineIcon sx={{ fontSize: 19 }} />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Góp ý">
+            <IconButton size="small" sx={{ color: "#637381", display: { xs: "none", sm: "inline-flex" } }}>
+              <ChatBubbleOutlineIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Ứng dụng">
+            <IconButton size="small" sx={{ color: "#637381", display: { xs: "none", sm: "inline-flex" } }}>
+              <AppsIcon sx={{ fontSize: 19 }} />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Thông báo">
+            <IconButton size="small" sx={{ color: "#637381" }}>
+              <Badge color="error" variant="dot">
+                <NotificationsNoneIcon sx={{ fontSize: 20 }} />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+
+          {/* Language Switcher */}
+          <LanguageSwitcher />
+
+          {/* Haravan user pill on the right */}
+          <Box
+            onClick={handleMenuOpen}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              py: 0.4,
+              px: 1,
+              ml: 0.5,
+              borderRadius: "20px",
+              cursor: "pointer",
+              bgcolor: "transparent",
+              transition: "background-color 0.15s",
+              "&:hover": { bgcolor: "#f1f3f5" },
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+                fontSize: "12.5px",
+                color: "#202223",
+                display: { xs: "none", md: "block" },
+              }}
+            >
+              {userShort}
+            </Typography>
+            <Avatar
+              sx={{
+                width: 28,
+                height: 28,
+                bgcolor: "#00a65a",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#ffffff",
+              }}
+            >
+              {userInitial}
+            </Avatar>
+          </Box>
+        </Box>
 
         {/* Dropdown Menu */}
         <Menu
@@ -158,11 +272,10 @@ export default function Header({
           anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
         >
-          {/* Account section - Profile + Logout in one row */}
-          <MenuItem onClick={handleProfile} sx={{ minWidth: 250 }}>
+          <MenuItem onClick={handleProfile} sx={{ minWidth: 220, py: 1 }}>
             <ListItemIcon>
-              <Avatar sx={{ width: 32, height: 32 }}>
-                {user?.name?.charAt(0) || "U"}
+              <Avatar sx={{ width: 30, height: 30, bgcolor: "#00a65a", fontSize: 12 }}>
+                {userInitial}
               </Avatar>
             </ListItemIcon>
             <ListItemText
@@ -171,18 +284,15 @@ export default function Header({
                   {t("account")}
                 </Typography>
               }
-              secondary={user?.name}
+              secondary={<Typography variant="body2" sx={{ fontWeight: 600, fontSize: "12.5px" }}>{user?.name}</Typography>}
             />
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleLogout();
-              }}
-            >
-              <LogoutIcon fontSize="small" />
-            </IconButton>
+          </MenuItem>
+          <Divider />
+          <MenuItem onClick={handleLogout} sx={{ color: "error.main", fontSize: "12.5px" }}>
+            <ListItemIcon>
+              <LogoutIcon fontSize="small" color="error" />
+            </ListItemIcon>
+            <ListItemText primary={t("logout") || "Đăng xuất"} primaryTypographyProps={{ fontSize: "12.5px" }} />
           </MenuItem>
         </Menu>
       </Toolbar>
